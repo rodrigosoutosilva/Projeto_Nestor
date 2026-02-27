@@ -1,0 +1,294 @@
+"""
+helpers.py - Funções Auxiliares Compartilhadas
+===============================================
+
+Conceito de Eng. Software: DRY (Don't Repeat Yourself)
+Funções utilitárias usadas em múltiplos módulos ficam aqui.
+"""
+
+import io
+import csv
+import pandas as pd
+from datetime import date, datetime
+
+
+# ---------------------------------------------------------------------------
+# Mapa de nomes de ativos da B3 (cache local para performance)
+# ---------------------------------------------------------------------------
+NOMES_ATIVOS = {
+    # Ações — Blue Chips
+    "PETR4": "Petrobras PN", "PETR3": "Petrobras ON",
+    "VALE3": "Vale ON", "ITUB4": "Itaú Unibanco PN",
+    "BBDC4": "Bradesco PN", "BBDC3": "Bradesco ON",
+    "BBAS3": "Banco do Brasil ON", "ABEV3": "Ambev ON",
+    "WEGE3": "WEG ON", "MGLU3": "Magazine Luiza ON",
+    "CSNA3": "CSN ON", "CMIN3": "CSN Mineração ON",
+    "B3SA3": "B3 ON", "RENT3": "Localiza ON",
+    "SUZB3": "Suzano ON", "GGBR4": "Gerdau PN",
+    "JBSS3": "JBS ON", "LREN3": "Lojas Renner ON",
+    "TOTS3": "Totvs ON", "EQTL3": "Equatorial ON",
+    "RDOR3": "Rede D'Or ON", "HAPV3": "Hapvida ON",
+    "RAIL3": "Rumo ON", "KLBN11": "Klabin UNT",
+    "VIVT3": "Telefônica Brasil ON", "ENGI11": "Energisa UNT",
+    "PRIO3": "PetroRio ON", "CPLE6": "Copel PNB",
+    "SBSP3": "Sabesp ON", "ITSA4": "Itaúsa PN",
+    "EMBR3": "Embraer ON", "COGN3": "Cogna ON",
+    "AZUL4": "Azul PN", "GOLL4": "GOL PN",
+    # FIIs — Principais
+    "HGLG11": "CSHG Logística FII", "MXRF11": "Maxi Renda FII",
+    "XPML11": "XP Malls FII", "VISC11": "Vinci Shopping Centers FII",
+    "KNCR11": "Kinea Rendimentos FII", "HGCR11": "CSHG Recebíveis FII",
+    "KNRI11": "Kinea Renda Imob. FII", "HGBS11": "Hedge Brasil Shopping FII",
+    "XPLG11": "XP Log FII", "BCFF11": "BTG Fundo de Fundos FII",
+    "VILG11": "Vinci Logística FII", "BTLG11": "BTG Logística FII",
+    "PVBI11": "VBI Prime Properties FII", "IRDM11": "Iridium Recebíveis FII",
+    "VGIP11": "Valora IP FII",
+}
+
+
+def nome_ativo(ticker: str) -> str:
+    """
+    Retorna o nome do ativo a partir do ticker.
+    Usa cache local primeiro, depois tenta yfinance como fallback.
+    """
+    ticker = ticker.upper().strip()
+    if ticker in NOMES_ATIVOS:
+        return NOMES_ATIVOS[ticker]
+    # Fallback: tentar buscar via yfinance (cacheado em session_state no Streamlit)
+    try:
+        from services.market_data import buscar_preco_atual
+        dados = buscar_preco_atual(ticker)
+        if dados and dados.get("nome"):
+            NOMES_ATIVOS[ticker] = dados["nome"]  # Cachear para próximas chamadas
+            return dados["nome"]
+    except Exception:
+        pass
+    return ticker  # Retorna o próprio ticker se nada funcionar
+
+
+def formatar_moeda(valor: float) -> str:
+    """Formata valor numérico para moeda brasileira (R$)."""
+    if valor is None:
+        return "R$ 0,00"
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def formatar_percentual(valor: float) -> str:
+    """Formata valor numérico para percentual."""
+    if valor is None:
+        return "0,00%"
+    return f"{valor:+.2f}%"
+
+
+def formatar_data_br(data) -> str:
+    """
+    Formata data para o padrão brasileiro dd/mm/aaaa.
+    Aceita string ISO (yyyy-mm-dd), date ou datetime.
+    """
+    if data is None:
+        return "—"
+    if isinstance(data, str):
+        try:
+            data = datetime.strptime(data.split(" ")[0], "%Y-%m-%d").date()
+        except (ValueError, IndexError):
+            return data  # Retorna como está se não conseguir parsear
+    if isinstance(data, (date, datetime)):
+        return data.strftime("%d/%m/%Y")
+    return str(data)
+
+
+def calcular_lucro_prejuizo(preco_medio: float, preco_atual: float, quantidade: int) -> dict:
+    """
+    Calcula lucro ou prejuízo de uma posição.
+    
+    Conceito de Finanças:
+    - Lucro/Prejuízo = (Preço Atual - Preço Médio) × Quantidade
+    - Variação % = ((Preço Atual - Preço Médio) / Preço Médio) × 100
+    """
+    if preco_medio <= 0:
+        return {"valor": 0, "percentual": 0, "tipo": "neutro"}
+
+    valor = (preco_atual - preco_medio) * quantidade
+    percentual = ((preco_atual - preco_medio) / preco_medio) * 100
+
+    tipo = "lucro" if valor > 0 else "prejuizo" if valor < 0 else "neutro"
+
+    return {
+        "valor": round(valor, 2),
+        "percentual": round(percentual, 2),
+        "tipo": tipo
+    }
+
+
+def calcular_meta_dividendos_auto(tolerancia_risco: int, estilo: str, objetivo_prazo: str) -> float:
+    """
+    Calcula automaticamente a meta de dividendos (% ao ano)
+    cruzando o perfil da persona e carteira.
+    
+    Conceito de Finanças:
+    - Conservador + dividendos + longo prazo → meta alta de DY (8-10%)
+    - Arrojado + crescimento + curto prazo → meta baixa de DY (2-4%)
+    - Equilibrado → faixa intermediária (5-7%)
+    """
+    # Base por estilo
+    base = {"dividendos": 8.0, "equilibrado": 6.0, "crescimento": 3.0}.get(estilo, 6.0)
+    
+    # Ajuste por prazo
+    ajuste_prazo = {"longo": 1.0, "medio": 0.0, "curto": -1.5}.get(objetivo_prazo, 0.0)
+    
+    # Ajuste por tolerância (0-10): conservador quer mais DY, arrojado menos
+    ajuste_risco = (5 - tolerancia_risco) * 0.3  # -1.5 a +1.5
+    
+    meta = base + ajuste_prazo + ajuste_risco
+    return round(max(1.0, min(15.0, meta)), 1)
+
+
+def parsear_csv_ativos(conteudo: str) -> list[dict]:
+    """
+    Faz parse de um CSV de ativos.
+    
+    Formato esperado: ticker,quantidade,preco_medio,data_posicao
+    """
+    ativos = []
+    try:
+        reader = csv.reader(io.StringIO(conteudo))
+        for i, row in enumerate(reader):
+            if len(row) < 3:
+                continue
+
+            ticker = row[0].strip().upper()
+
+            # Detectar cabeçalho
+            if i == 0 and ticker.lower() in ("ticker", "ativo", "codigo", "código"):
+                continue
+
+            try:
+                quantidade = int(row[1].strip())
+                preco_medio = float(row[2].strip().replace(",", "."))
+            except (ValueError, IndexError):
+                continue
+
+            data_posicao = None
+            if len(row) >= 4 and row[3].strip():
+                try:
+                    data_posicao = date.fromisoformat(row[3].strip())
+                except ValueError:
+                    data_posicao = date.today()
+
+            ativos.append({
+                "ticker": ticker,
+                "quantidade": quantidade,
+                "preco_medio": preco_medio,
+                "data_posicao": data_posicao or date.today()
+            })
+    except Exception as e:
+        print(f"[helpers] Erro ao parsear CSV: {e}")
+
+    return ativos
+
+
+def cor_score(score: float) -> str:
+    """Retorna cor CSS baseada no score (0-100)."""
+    if score >= 70:
+        return "#00C851"  # Verde
+    elif score >= 40:
+        return "#FFB300"  # Amarelo/Laranja
+    else:
+        return "#FF4444"  # Vermelho
+
+
+def interpretar_score(score: float) -> dict:
+    """
+    Interpreta um score de 0 a 100 com contexto visual.
+    Retorna emoji, texto descritivo e cor.
+    """
+    if score >= 80:
+        return {"emoji": "🟢", "texto": "Excelente", "cor": "#00C851"}
+    elif score >= 60:
+        return {"emoji": "🔵", "texto": "Bom", "cor": "#2196F3"}
+    elif score >= 40:
+        return {"emoji": "🟡", "texto": "Moderado", "cor": "#FFB300"}
+    elif score >= 20:
+        return {"emoji": "🟠", "texto": "Fraco", "cor": "#FF9800"}
+    else:
+        return {"emoji": "🔴", "texto": "Muito Fraco", "cor": "#FF4444"}
+
+
+def explicar_rsi(rsi: float) -> str:
+    """Explica o indicador RSI em linguagem acessível."""
+    if rsi is None or rsi == 0:
+        return "RSI indisponível"
+    if rsi > 70:
+        return f"RSI {rsi:.0f}/100 — ⚠️ **Sobrecomprado**: preço pode estar caro, risco de correção"
+    elif rsi < 30:
+        return f"RSI {rsi:.0f}/100 — 💡 **Sobrevendido**: preço pode estar barato, possível oportunidade"
+    elif rsi < 45:
+        return f"RSI {rsi:.0f}/100 — 📉 **Tendência fraca**: pressão vendedora leve"
+    elif rsi > 55:
+        return f"RSI {rsi:.0f}/100 — 📈 **Tendência forte**: pressão compradora"
+    else:
+        return f"RSI {rsi:.0f}/100 — ⚖️ **Neutro**: sem pressão dominante"
+
+
+def explicar_tendencia(tendencia: str, preco_atual: float, sma_20: float) -> str:
+    """Explica a tendência de preço em linguagem acessível."""
+    if sma_20 and sma_20 > 0:
+        desvio = ((preco_atual - sma_20) / sma_20) * 100
+        if tendencia == "alta":
+            return f"📈 **Alta** — Preço {desvio:+.1f}% acima da média de 20 dias"
+        elif tendencia == "baixa":
+            return f"📉 **Baixa** — Preço {desvio:+.1f}% abaixo da média de 20 dias"
+    return "⚖️ **Lateral** — Sem tendência definida"
+
+
+def emoji_acao(tipo_acao: str) -> str:
+    """Retorna emoji para o tipo de ação."""
+    mapa = {
+        "compra": "🟢",
+        "venda": "🔴",
+        "manter": "🟡"
+    }
+    return mapa.get(tipo_acao, "⚪")
+
+
+def emoji_status(status: str) -> str:
+    """Retorna emoji para o status da ação planejada."""
+    mapa = {
+        "planejado": "📋",
+        "executado": "✅",
+        "revisao_necessaria": "⚠️",
+        "ignorado": "❌"
+    }
+    return mapa.get(status, "⚪")
+
+
+def emoji_urgencia(urgencia: str) -> str:
+    """Retorna emoji para o nível de urgência."""
+    mapa = {
+        "alta": "🔴",
+        "media": "🟡",
+        "baixa": "🟢"
+    }
+    return mapa.get(urgencia, "🟡")
+
+
+# Setores disponíveis para preferência de carteira
+SETORES_ACOES = [
+    ("bancos", "🏦 Bancos (ITUB4, BBAS3, BBDC4...)"),
+    ("petroleo", "🛢️ Petróleo & Gás (PETR4, PRIO3, RECV3...)"),
+    ("mineracao", "⛏️ Mineração (VALE3, CMIN3...)"),
+    ("energia", "⚡ Energia Elétrica (TAEE11, ENBR3, ELET3...)"),
+    ("varejo", "🛒 Varejo (MGLU3, VIIA3, LREN3...)"),
+    ("tecnologia", "💻 Tecnologia (TOTS3, LWSA3, POSI3...)"),
+    ("saude", "🏥 Saúde (HAPV3, RDOR3, FLRY3...)"),
+    ("construcao", "🏗️ Construção (MRV3, CYRE3, EZTC3...)"),
+    ("saneamento", "💧 Saneamento (SAPR11, SBSP3...)"),
+    ("seguros", "🛡️ Seguros (BBSE3, IRBR3, PSSA3...)"),
+]
+
+SETORES_FIIS = [
+    ("tijolo", "🧱 FIIs de Tijolo (shoppings, galpões, escritórios)"),
+    ("papel", "📄 FIIs de Papel (CRI, CRA, LCI)"),
+    ("hibrido", "🔀 FIIs Híbridos (tijolo + papel)"),
+    ("fof", "📦 Fundos de Fundos (FoFs)"),
+]
