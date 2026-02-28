@@ -14,7 +14,7 @@ from datetime import date, datetime
 from typing import Optional
 from sqlalchemy.orm import Session
 from database.models import (
-    User, Persona, Portfolio, Asset, PlannedAction, Transaction,
+    User, Persona, Portfolio, Asset, PlannedAction, Transaction, WatchlistItem,
     StatusAcao, FrequenciaAcao, EstiloInvestimento, TipoAtivo, TipoAcao,
     TipoTransacao, OrigemTransacao, FrequenciaAporte
 )
@@ -500,6 +500,16 @@ def buscar_acoes_pendentes_todas() -> list[dict]:
         } for a in acoes]
 
 
+def deletar_acao_planejada(acao_id: int) -> bool:
+    """Remove uma ação planejada do banco."""
+    with get_session() as session:
+        acao = session.query(PlannedAction).filter(PlannedAction.id == acao_id).first()
+        if not acao:
+            return False
+        session.delete(acao)
+        return True
+
+
 # ===========================================================================
 # TRANSACTIONS (MOVIMENTAÇÕES)
 # ===========================================================================
@@ -618,3 +628,100 @@ def resumo_transacoes_portfolio(portfolio_id: int) -> dict:
         elif t["tipo"] == "dividendo":
             resumo["total_dividendos"] += t["valor"]
     return resumo
+
+
+# ===========================================================================
+# WATCHLIST E AGREGADORES
+# ===========================================================================
+
+def adicionar_watchlist(portfolio_id: int, ticker: str, manual: bool = True) -> dict:
+    """Adiciona um ativo à watchlist de uma carteira."""
+    with get_session() as session:
+        # Verifica se já existe
+        existente = session.query(WatchlistItem).filter(
+            WatchlistItem.portfolio_id == portfolio_id,
+            WatchlistItem.ticker == ticker.upper().strip()
+        ).first()
+        
+        if existente:
+            return {
+                "id": existente.id,
+                "portfolio_id": portfolio_id,
+                "ticker": existente.ticker,
+                "adicionado_manualmente": existente.adicionado_manualmente
+            }
+            
+        item = WatchlistItem(
+            portfolio_id=portfolio_id,
+            ticker=ticker.upper().strip(),
+            adicionado_manualmente=manual
+        )
+        session.add(item)
+        session.flush()
+        return {
+            "id": item.id,
+            "portfolio_id": item.portfolio_id,
+            "ticker": item.ticker,
+            "adicionado_manualmente": item.adicionado_manualmente,
+            "created_at": str(item.created_at)
+        }
+
+
+def listar_watchlist_portfolio(portfolio_id: int) -> list[dict]:
+    """Lista todos os itens da watchlist de uma carteira."""
+    with get_session() as session:
+        itens = session.query(WatchlistItem).filter(
+            WatchlistItem.portfolio_id == portfolio_id
+        ).order_by(WatchlistItem.created_at.desc()).all()
+        return [{
+            "id": i.id,
+            "portfolio_id": i.portfolio_id,
+            "ticker": i.ticker,
+            "adicionado_manualmente": i.adicionado_manualmente,
+            "created_at": str(i.created_at) if i.created_at else None
+        } for i in itens]
+
+
+def remover_watchlist(item_id: int) -> bool:
+    """Remove um ativo da watchlist."""
+    with get_session() as session:
+        item = session.query(WatchlistItem).filter(WatchlistItem.id == item_id).first()
+        if not item:
+            return False
+        session.delete(item)
+        return True
+
+
+def listar_watchlist_usuario(user_id: int) -> list[dict]:
+    """Lista todos os itens em watchlist de todas as carteiras do usuário."""
+    with get_session() as session:
+        itens = session.query(WatchlistItem).join(Portfolio).join(Persona).filter(
+            Persona.user_id == user_id
+        ).all()
+        return [{
+            "id": i.id,
+            "portfolio_id": i.portfolio_id,
+            "portfolio_nome": i.portfolio.nome,
+            "persona_nome": i.portfolio.persona.nome,
+            "ticker": i.ticker,
+            "adicionado_manualmente": i.adicionado_manualmente,
+            "created_at": str(i.created_at) if i.created_at else None
+        } for i in itens]
+
+
+def listar_todos_ativos_usuario(user_id: int) -> list[dict]:
+    """Lista todos os ativos (posições) de todas as carteiras do usuário."""
+    with get_session() as session:
+        ativos = session.query(Asset).join(Portfolio).join(Persona).filter(
+            Persona.user_id == user_id
+        ).all()
+        return [{
+            "id": a.id,
+            "portfolio_id": a.portfolio_id,
+            "portfolio_nome": a.portfolio.nome,
+            "persona_nome": a.portfolio.persona.nome,
+            "ticker": a.ticker,
+            "preco_medio": a.preco_medio,
+            "quantidade": a.quantidade,
+            "data_posicao": str(a.data_posicao) if a.data_posicao else None
+        } for a in ativos]

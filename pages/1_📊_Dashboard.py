@@ -52,33 +52,57 @@ if not personas:
     st.info("Você ainda não tem personas configuradas. Vá para 📥 Onboarding ou 🧑 Personas.")
     st.stop()
 
-# Filtro de Persona
-persona_nomes_filter = ["Todas"] + [p["nome"] for p in personas]
-filtro_persona = st.selectbox(
-    "🧑 Filtrar por Persona:",
-    persona_nomes_filter,
-    key="filtro_persona_dash"
-)
+# Filtros de Persona e Carteira
+c1, c2 = st.columns(2)
+
+with c1:
+    persona_nomes_filter = ["Todas as Personas"] + [p["nome"] for p in personas]
+    filtro_persona = st.selectbox(
+        "🧑 Filtrar por Persona:",
+        persona_nomes_filter,
+        key="filtro_persona_dash"
+    )
 
 # Filtrar personas com base na seleção
-if filtro_persona == "Todas":
+if filtro_persona == "Todas as Personas":
     personas_filtradas = personas
 else:
     personas_filtradas = [p for p in personas if p["nome"] == filtro_persona]
 
-# Coletar todos os ativos de todas as carteiras
+# Coletar todas as carteiras das personas filtradas
+portfolios_disponiveis = []
+for p in personas_filtradas:
+    ports = listar_portfolios_persona(p["id"])
+    for pt in ports:
+        pt["persona_nome"] = p["nome"]
+        portfolios_disponiveis.append(pt)
+
+with c2:
+    if not portfolios_disponiveis:
+        st.warning("Nenhuma carteira atrelada a esta persona.")
+        st.stop()
+        
+    port_nomes_filter = ["Todas as Carteiras"] + [f"{p['nome']} ({p['persona_nome']})" for p in portfolios_disponiveis]
+    filtro_portfolio = st.selectbox(
+        "💼 Filtrar por Carteira:",
+        port_nomes_filter,
+        key="filtro_port_dash"
+    )
+
+if filtro_portfolio != "Todas as Carteiras":
+    portfolios_disponiveis = [p for p in portfolios_disponiveis if f"{p['nome']} ({p['persona_nome']})" == filtro_portfolio]
+
+# Coletar todos os ativos das carteiras filtradas
 todos_ativos = []
 portfolio_map = {}
 
-for persona in personas_filtradas:
-    portfolios = listar_portfolios_persona(persona["id"])
-    for port in portfolios:
-        portfolio_map[port["id"]] = {**port, "persona_nome": persona["nome"]}
-        ativos = listar_ativos_portfolio(port["id"])
-        for ativo in ativos:
-            ativo["portfolio_nome"] = port["nome"]
-            ativo["persona_nome"] = persona["nome"]
-            todos_ativos.append(ativo)
+for port in portfolios_disponiveis:
+    portfolio_map[port["id"]] = port
+    ativos = listar_ativos_portfolio(port["id"])
+    for ativo in ativos:
+        ativo["portfolio_nome"] = port["nome"]
+        ativo["persona_nome"] = port["persona_nome"]
+        todos_ativos.append(ativo)
 
 if not todos_ativos:
     st.info("Nenhum ativo encontrado. Adicione ativos nas suas carteiras em 💼 Carteiras.")

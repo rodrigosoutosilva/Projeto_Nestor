@@ -23,138 +23,13 @@ from services.market_data import (
 )
 from services.news_scraper import buscar_noticias_ticker, formatar_noticias_para_ia
 from services.ai_brain import analisar_sentimento, gerar_recomendacao_ia
+from services.scoring import calcular_score_tecnico, calcular_score_perfil
 from database.crud import (
     criar_acao_planejada,
     listar_ativos_portfolio,
     buscar_persona_por_id,
     buscar_portfolio_por_id
 )
-
-
-def calcular_score_tecnico(indicadores: dict) -> float:
-    """
-    Normaliza indicadores técnicos para um score de 0 a 100.
-    
-    Conceito de Finanças:
-    - RSI sobrevendido (<30) é POSITIVO para compra → score alto
-    - RSI sobrecomprado (>70) é NEGATIVO para compra → score baixo
-    - Preço acima da SMA20 = tendência de alta → score alto
-    - MACD acima do Signal = momento de compra → score alto
-    
-    Pesos internos:
-    - RSI: 40% (indicador mais confiável individualmente)
-    - Tendência SMA: 30%
-    - MACD: 30%
-    """
-    rsi = indicadores.get("rsi", 50)
-    preco = indicadores.get("preco_atual", 0)
-    sma_20 = indicadores.get("sma_20", preco)
-    macd = indicadores.get("macd", 0)
-    macd_signal = indicadores.get("macd_signal", 0)
-
-    # --- Score RSI (0 a 100) ---
-    # RSI < 30: muito bom para compra (score ~90)
-    # RSI = 50: neutro (score ~50)
-    # RSI > 70: ruim para compra (score ~10)
-    if rsi <= 30:
-        score_rsi = 80 + (30 - rsi)  # 80-110, capped at 100
-    elif rsi >= 70:
-        score_rsi = max(0, 30 - (rsi - 70))  # 0-30
-    else:
-        score_rsi = 50 + (50 - rsi) * 0.75  # 35-65
-
-    score_rsi = max(0, min(100, score_rsi))
-
-    # --- Score SMA (0 a 100) ---
-    # Preço acima da SMA20 = tendência de alta
-    if sma_20 > 0:
-        desvio = ((preco - sma_20) / sma_20) * 100
-        score_sma = 50 + desvio * 5  # Amplifica o desvio
-        score_sma = max(0, min(100, score_sma))
-    else:
-        score_sma = 50
-
-    # --- Score MACD (0 a 100) ---
-    # MACD > Signal = momento positivo
-    if macd > macd_signal:
-        score_macd = 60 + min(40, abs(macd - macd_signal) * 1000)
-    else:
-        score_macd = 40 - min(40, abs(macd - macd_signal) * 1000)
-
-    score_macd = max(0, min(100, score_macd))
-
-    # Média ponderada
-    score_final = (score_rsi * 0.4) + (score_sma * 0.3) + (score_macd * 0.3)
-
-    return round(max(0, min(100, score_final)), 2)
-
-
-def calcular_score_sentimento(sentimento: dict) -> float:
-    """
-    Converte o score de sentimento (-1 a 1) para uma escala 0 a 100.
-    
-    Conceito: Normalização linear simples.
-    -1 → 0 (muito negativo)
-     0 → 50 (neutro)
-    +1 → 100 (muito positivo)
-    """
-    score = sentimento.get("score", 0)
-    # Normaliza de [-1, 1] para [0, 100]
-    return round((score + 1) * 50, 2)
-
-
-def calcular_score_perfil(persona: dict, portfolio: dict, indicadores: dict) -> float:
-    """
-    Mede o alinhamento entre o ativo e o perfil do investidor.
-    
-    Conceito de Finanças:
-    - Investidor conservador + ativo em queda forte = score baixo (fora do perfil)
-    - Investidor arrojado + ativo volátil = score alto (dentro do perfil)
-    - Estilo dividendos + FII = score alto
-    - Estilo crescimento + ação de crescimento = score alto
-    
-    Retorna 0 a 100.
-    """
-    tolerancia = persona.get("tolerancia_risco", 5)
-    estilo = persona.get("estilo", "dividendos")
-    prazo = portfolio.get("objetivo_prazo", "longo")
-    tendencia = indicadores.get("tendencia", "neutra")
-
-    score = 50  # Base neutra
-
-    # --- Alinhamento tendência x tolerância ---
-    if tendencia == "alta":
-        score += 15  # Ativo subindo é bom para todos
-    elif tendencia == "baixa":
-        if tolerancia >= 7:
-            score += 5  # Arrojado vê oportunidade em quedas
-        else:
-            score -= 15  # Conservador não gosta de queda
-
-    # --- Alinhamento com estilo ---
-    rsi = indicadores.get("rsi", 50)
-    if estilo == "dividendos":
-        # Dividendos preferem ativos estáveis, RSI perto de 50
-        if 40 <= rsi <= 60:
-            score += 15
-    else:  # crescimento
-        # Crescimento gosta de momentum (RSI moderado-alto)
-        if 50 <= rsi <= 70:
-            score += 15
-
-    # --- Alinhamento com prazo ---
-    if prazo == "longo":
-        score += 10  # Longo prazo é mais tolerante
-    elif prazo == "curto":
-        if tendencia == "baixa":
-            score -= 10  # Curto prazo não aceita queda
-
-    # --- Bônus por tolerância a risco ---
-    # Investidores arrojados recebem score levemente maior
-    # (mais dispostos a agir em qualquer cenário)
-    score += (tolerancia - 5) * 2
-
-    return round(max(0, min(100, score)), 2)
 
 
 def gerar_recomendacao_completa(
@@ -196,7 +71,12 @@ def gerar_recomendacao_completa(
 
     # 4. Calcular scores individuais
     score_tecnico = calcular_score_tecnico(indicadores)
-    score_sentimento = calcular_score_sentimento(sentimento)
+    
+    # Sentimento retorna dicionário com "score" float entre -1.0 e 1.0
+    # Normalizamos esse valor para escala 0 a 100
+    val_sentimento = sentimento.get("score", 0.0)
+    score_sentimento = (val_sentimento + 1.0) * 50
+    
     score_perfil = calcular_score_perfil(persona, portfolio, indicadores)
 
     # 5. Score final ponderado

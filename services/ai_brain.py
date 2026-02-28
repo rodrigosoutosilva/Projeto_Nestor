@@ -367,13 +367,19 @@ RESUMO: [Explicação geral de 2-3 frases sobre as sugestões]
                             except ValueError:
                                 sugestao["quantidade"] = 1
                         elif chave == "PRECO_ESTIMADO":
-                            try:
-                                sugestao["preco_estimado"] = float(valor.replace("R$", "").replace(",", ".").strip())
-                            except ValueError:
-                                sugestao["preco_estimado"] = 0
+                            pass # Ignorar preço inventado da IA, vamos buscar o real depois
                         elif chave == "MOTIVO":
                             sugestao["motivo"] = valor
                 if sugestao.get("ticker"):
+                    # Buscar preço REAL de mercado
+                    try:
+                        from services.market_data import buscar_preco_atual
+                        dados = buscar_preco_atual(sugestao["ticker"])
+                        preco_real = dados.get("preco_atual", 0) if isinstance(dados, dict) else 0
+                        sugestao["preco_estimado"] = preco_real if preco_real > 0 else 0
+                    except Exception:
+                        sugestao["preco_estimado"] = 0
+
                     sugestao["valor_total"] = sugestao.get("quantidade", 1) * sugestao.get("preco_estimado", 0)
                     sugestoes.append(sugestao)
             elif linha.upper().startswith("RESUMO:"):

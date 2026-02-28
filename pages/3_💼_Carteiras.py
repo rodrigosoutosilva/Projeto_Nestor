@@ -21,10 +21,10 @@ from database.crud import (
     listar_personas_usuario, listar_portfolios_persona,
     criar_portfolio, deletar_portfolio, atualizar_portfolio,
     listar_ativos_portfolio, adicionar_ativo, deletar_ativo, atualizar_ativo,
-    buscar_persona_por_id, registrar_transacao
+    buscar_persona_por_id, registrar_transacao, resumo_transacoes_portfolio
 )
 from utils.helpers import (
-    parsear_csv_ativos, formatar_moeda, formatar_data_br,
+    parsear_csv_ativos, formatar_moeda, formatar_moeda_md, formatar_data_br,
     calcular_meta_dividendos_auto,
     SETORES_ACOES, SETORES_FIIS
 )
@@ -212,7 +212,7 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
                     meta_dividendos=meta_dy_auto,
                     tipo_ativo=tipo,
                     setores_preferidos=setores_str,
-                    montante_disponivel=montante,
+                    montante_disponivel=0.0, # Começa zerado para o aporte inicial somar corretamente
                     aporte_periodico=aporte_valor,
                     frequencia_aporte=freq_aporte,
                     frequencia_manuseio=freq_manuseio
@@ -240,358 +240,80 @@ portfolios = listar_portfolios_persona(persona_selecionada["id"])
 if not portfolios:
     st.info("Nenhuma carteira nesta persona. Crie uma acima.")
 else:
-    for port in portfolios:
-        tipo_emoji = {"acoes": "📈", "fiis": "🏢", "misto": "🔀"}.get(port["tipo_ativo"], "📊")
-        montante_txt = f" | 💰 {formatar_moeda(port['montante_disponivel'])}" if port.get('montante_disponivel') else ""
-        aporte_txt = ""
-        if port.get('aporte_periodico') and port['aporte_periodico'] > 0:
-            freq_label = {"semanal": "sem", "quinzenal": "quinz", "mensal": "mês"}.get(port.get('frequencia_aporte', ''), '')
-            aporte_txt = f" | 💸 {formatar_moeda(port['aporte_periodico'])}/{freq_label}"
-        freq_txt = ""
-        if port.get('frequencia_manuseio'):
-            freq_txt = f" | ⏱️ {port['frequencia_manuseio'].capitalize()}"
-
-        with st.expander(
-            f"{tipo_emoji} **{port['nome']}** — "
-            f"Prazo: {port['objetivo_prazo']} | "
-            f"Meta DY: {port['meta_dividendos']}% | "
-            f"Tipo: {port['tipo_ativo']}{montante_txt}{aporte_txt}{freq_txt}"
-        ):
-            # Setores preferidos
-            if port.get("setores_preferidos"):
-                setores_list = port["setores_preferidos"].split(",")
-                st.markdown(f"🏭 **Setores:** {', '.join(s.capitalize() for s in setores_list)}")
-
-            # --- Editar Carteira ---
-            with st.expander("✏️ Editar Carteira"):
-                with st.form(f"form_edit_port_{port['id']}"):
-                    col_e1, col_e2 = st.columns(2)
-                    with col_e1:
-                        edit_nome = st.text_input("Nome:", value=port["nome"], key=f"edit_pname_{port['id']}")
-                    with col_e2:
-                        edit_montante = st.number_input(
-                            "Montante disponível (R$):",
-                            value=float(port.get("montante_disponivel", 0)),
-                            min_value=0.0, step=100.0,
-                            key=f"edit_pmnt_{port['id']}"
-                        )
-
-                    # Editar aportes periódicos
-                    col_ea1, col_ea2 = st.columns(2)
-                    with col_ea1:
-                        edit_aporte = st.number_input(
-                            "💸 Aporte periódico (R$):",
-                            value=float(port.get("aporte_periodico", 0)),
-                            min_value=0.0, step=50.0,
-                            key=f"edit_aporte_{port['id']}"
-                        )
-                    with col_ea2:
-                        freq_aporte_edit_opcoes = ["", "semanal", "quinzenal", "mensal"]
-                        freq_aporte_edit_labels = {
-                            "": "— Sem aporte periódico —",
-                            "semanal": "📆 Semanal",
-                            "quinzenal": "📆 Quinzenal",
-                            "mensal": "🗓️ Mensal"
-                        }
-                        current_freq = port.get("frequencia_aporte", "")
-                        edit_freq_aporte = st.selectbox(
-                            "Frequência do aporte:",
-                            options=freq_aporte_edit_opcoes,
-                            index=freq_aporte_edit_opcoes.index(current_freq) if current_freq in freq_aporte_edit_opcoes else 0,
-                            format_func=lambda x: freq_aporte_edit_labels.get(x, x),
-                            key=f"edit_freq_aporte_{port['id']}"
-                        )
-
-                    # Editar frequência de manuseio
-                    freqs_edit = frequencias_permitidas(persona_selecionada["frequencia_acao"])
-                    freq_manuseio_edit_opcoes = [""] + freqs_edit
-                    freq_manuseio_edit_labels = {
-                        "": f"🔄 Herdar da persona ({FREQ_LABELS.get(persona_selecionada['frequencia_acao'], '')})",
-                        **FREQ_LABELS
-                    }
-                    current_manuseio = port.get("frequencia_manuseio", "")
-                    edit_freq_manuseio = st.selectbox(
-                        "⏱️ Frequência de manuseio:",
-                        options=freq_manuseio_edit_opcoes,
-                        index=freq_manuseio_edit_opcoes.index(current_manuseio) if current_manuseio in freq_manuseio_edit_opcoes else 0,
-                        format_func=lambda x: freq_manuseio_edit_labels.get(x, x),
-                        key=f"edit_freq_man_{port['id']}"
-                    )
-
-                    if st.form_submit_button("💾 Salvar", use_container_width=True):
-                        atualizar_portfolio(
-                            port["id"],
-                            nome=edit_nome,
-                            montante_disponivel=edit_montante,
-                            aporte_periodico=edit_aporte,
-                            frequencia_aporte=edit_freq_aporte,
-                            frequencia_manuseio=edit_freq_manuseio
-                        )
-                        st.toast("Carteira atualizada! ✅")
-                        st.rerun()
-
-            # --- Listar ativos ---
-            ativos = listar_ativos_portfolio(port["id"])
-
-            if ativos:
-                st.markdown("#### 📊 Ativos na Carteira")
-
-                # Export CSV
-                df_export = pd.DataFrame([{
-                    "Ticker": a["ticker"],
-                    "Qtd": a["quantidade"],
-                    "Preço Médio": a["preco_medio"],
-                    "Data Posição": formatar_data_br(a["data_posicao"])
-                } for a in ativos])
-
-                st.download_button(
-                    "📤 Exportar CSV",
-                    df_export.to_csv(index=False).encode("utf-8"),
-                    f"carteira_{port['nome']}.csv",
-                    "text/csv",
-                    key=f"export_{port['id']}"
-                )
-
-                for ativo in ativos:
-                    col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
-                    with col1:
-                        st.markdown(f"**{ativo['ticker']}**")
-                    with col2:
-                        st.markdown(f"Qtd: {ativo['quantidade']}")
-                    with col3:
-                        st.markdown(f"PM: {formatar_moeda(ativo['preco_medio'])}")
-                    with col4:
-                        st.markdown(f"📅 {formatar_data_br(ativo['data_posicao'])}")
-                    with col5:
-                        if st.session_state.confirmar_excluir_ativo == ativo["id"]:
-                            c1, c2 = st.columns(2)
-                            with c1:
-                                if st.button("✅", key=f"conf_da_{ativo['id']}"):
-                                    deletar_ativo(ativo["id"])
-                                    st.session_state.confirmar_excluir_ativo = None
-                                    st.toast(f"Ativo {ativo['ticker']} removido.")
-                                    st.rerun()
-                            with c2:
-                                if st.button("❌", key=f"canc_da_{ativo['id']}"):
-                                    st.session_state.confirmar_excluir_ativo = None
-                                    st.rerun()
+    # Toggle Cards / Lista
+    modo_exibicao = st.radio(
+        "Modo de Exibição:",
+        ["📇 Cards", "📋 Lista Expandível"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if "Cards" in modo_exibicao:
+        # Modo Cards (2 colunas para dar mais espaço)
+        cols = st.columns(2)
+        for i, port in enumerate(portfolios):
+            with cols[i % 2]:
+                tipo_emoji = {"acoes": "📈", "fiis": "🏢", "misto": "🔀"}.get(port["tipo_ativo"], "📊")
+                with st.container(border=True):
+                    st.markdown(f"#### {tipo_emoji} {port['nome']}")
+                    st.caption(f"Persona: **{persona_selecionada['nome']}** | Prazo: {port['objetivo_prazo'].capitalize()}")
+                    
+                    # Calcular métricas financeiras
+                    caixa = port.get("montante_disponivel", 0)
+                    ativos_port = listar_ativos_portfolio(port["id"])
+                    resumo_port = resumo_transacoes_portfolio(port["id"])
+                    
+                    # Patrimônio = soma de ativos a preço de mercado
+                    patrimonio = 0
+                    for a in ativos_port:
+                        dados_preco = buscar_preco_atual(a["ticker"])
+                        if dados_preco and isinstance(dados_preco, dict):
+                            patrimonio += a["quantidade"] * dados_preco.get("preco_atual", a["preco_medio"])
                         else:
-                            if st.button("🗑️", key=f"del_ativo_{ativo['id']}"):
-                                st.session_state.confirmar_excluir_ativo = ativo["id"]
-                                st.rerun()
-            else:
-                st.info("Nenhum ativo ainda. Adicione abaixo.")
-
-            st.markdown("---")
-
-            # --- Registrar Compra/Venda Manual ---
-            st.markdown("#### 🛒 Registrar Compra ou Venda")
-            st.markdown("*Registre operações realizadas — o caixa será atualizado automaticamente*")
-
-            with st.form(f"form_operacao_{port['id']}"):
-                col_op1, col_op2 = st.columns(2)
-                with col_op1:
-                    tipo_op = st.radio(
-                        "Tipo de operação:",
-                        ["🟢 Compra", "🔴 Venda"],
-                        key=f"tipo_op_{port['id']}",
-                        horizontal=True
-                    )
-                with col_op2:
-                    op_ticker = st.text_input("Ticker:", placeholder="PETR4", key=f"op_ticker_{port['id']}")
-
-                col_op3, col_op4, col_op5 = st.columns(3)
-                with col_op3:
-                    op_qtd = st.number_input("Quantidade:", min_value=1, value=100, key=f"op_qtd_{port['id']}")
-                with col_op4:
-                    op_preco = st.number_input("Preço unitário (R$):", min_value=0.01, value=10.0, step=0.01, key=f"op_preco_{port['id']}")
-                with col_op5:
-                    op_data = st.date_input("Data:", value=date.today(), key=f"op_data_{port['id']}")
-
-                if st.form_submit_button("✅ Registrar Operação", use_container_width=True):
-                    if not op_ticker:
-                        st.error("Informe o ticker!")
-                    else:
-                        valor_total = op_qtd * op_preco
-                        is_compra = "Compra" in tipo_op
-
-                        if is_compra:
-                            # Checar se tem caixa suficiente
-                            caixa_atual = port.get("montante_disponivel", 0)
-                            if valor_total > caixa_atual:
-                                st.error(f"Caixa insuficiente! Disponível: {formatar_moeda(caixa_atual)}, necessário: {formatar_moeda(valor_total)}")
-                                st.stop()
-
-                            # Verificar se ativo já existe na carteira
-                            ticker_upper = op_ticker.upper().strip()
-                            ativo_existente = next((a for a in ativos if a["ticker"] == ticker_upper), None)
-
-                            if ativo_existente:
-                                # Atualizar preço médio ponderado e quantidade
-                                qtd_antiga = ativo_existente["quantidade"]
-                                pm_antigo = ativo_existente["preco_medio"]
-                                nova_qtd = qtd_antiga + op_qtd
-                                novo_pm = ((pm_antigo * qtd_antiga) + (op_preco * op_qtd)) / nova_qtd
-                                atualizar_ativo(ativo_existente["id"], quantidade=nova_qtd, preco_medio=round(novo_pm, 2))
-                            else:
-                                adicionar_ativo(
-                                    portfolio_id=port["id"],
-                                    ticker=ticker_upper,
-                                    preco_medio=op_preco,
-                                    quantidade=op_qtd,
-                                    data_posicao=op_data
-                                )
-
-                            registrar_transacao(
-                                portfolio_id=port["id"],
-                                tipo="compra",
-                                valor=valor_total,
-                                ticker=ticker_upper,
-                                quantidade=op_qtd,
-                                preco_unitario=op_preco,
-                                descricao=f"Compra manual de {op_qtd}x {ticker_upper}",
-                                data_transacao=op_data
-                            )
-                            st.toast(f"Compra de {op_qtd}x {ticker_upper} registrada! 🟢")
-
-                        else:  # Venda
-                            ticker_upper = op_ticker.upper().strip()
-                            ativo_existente = next((a for a in ativos if a["ticker"] == ticker_upper), None)
-
-                            if not ativo_existente:
-                                st.error(f"Ativo {ticker_upper} não encontrado na carteira!")
-                                st.stop()
-                            if op_qtd > ativo_existente["quantidade"]:
-                                st.error(f"Você só possui {ativo_existente['quantidade']} unidades de {ticker_upper}!")
-                                st.stop()
-
-                            nova_qtd = ativo_existente["quantidade"] - op_qtd
-                            if nova_qtd == 0:
-                                deletar_ativo(ativo_existente["id"])
-                            else:
-                                atualizar_ativo(ativo_existente["id"], quantidade=nova_qtd)
-
-                            registrar_transacao(
-                                portfolio_id=port["id"],
-                                tipo="venda",
-                                valor=valor_total,
-                                ticker=ticker_upper,
-                                quantidade=op_qtd,
-                                preco_unitario=op_preco,
-                                descricao=f"Venda manual de {op_qtd}x {ticker_upper}",
-                                data_transacao=op_data
-                            )
-                            st.toast(f"Venda de {op_qtd}x {ticker_upper} registrada! 🔴")
-
-                        st.rerun()
-
-            st.markdown("---")
-
-            # --- Adicionar ativo (inserção direta) ---
-            st.markdown("#### ➕ Inserir Posição Existente")
-            st.markdown("*Para ativos que você já possui e quer apenas registrar na plataforma*")
-            with st.form(f"form_ativo_{port['id']}"):
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    ticker = st.text_input("Ticker", placeholder="PETR4",
-                                          key=f"ticker_{port['id']}")
-                with col2:
-                    qtd = st.number_input("Quantidade", min_value=1, value=100,
-                                         key=f"qtd_{port['id']}")
-                with col3:
-                    pm = st.number_input("Preço Médio (R$)", min_value=0.01,
-                                        value=10.0, step=0.01,
-                                        key=f"pm_{port['id']}")
-                with col4:
-                    data = st.date_input("Data da Posição", value=date.today(),
-                                        key=f"data_{port['id']}")
-
-                if st.form_submit_button("➕ Inserir", use_container_width=True):
-                    if not ticker:
-                        st.error("Informe o ticker!")
-                    else:
-                        adicionar_ativo(
-                            portfolio_id=port["id"],
-                            ticker=ticker,
-                            preco_medio=pm,
-                            quantidade=qtd,
-                            data_posicao=data
-                        )
-                        st.toast(f"Ativo {ticker.upper()} inserido! ✅")
-                        st.rerun()
-
-            # Upload CSV
-            st.markdown("#### 📥 Upload via CSV")
-            st.markdown("Formato: `ticker,quantidade,preco_medio,data_posicao`")
-            uploaded = st.file_uploader(
-                "Selecione o arquivo CSV",
-                type=["csv"],
-                key=f"csv_{port['id']}"
-            )
-
-            if uploaded:
-                conteudo = uploaded.getvalue().decode("utf-8")
-                ativos_csv = parsear_csv_ativos(conteudo)
-
-                if ativos_csv:
-                    st.markdown(f"**{len(ativos_csv)} ativos encontrados no CSV:**")
-                    for a in ativos_csv:
-                        st.markdown(
-                            f"- {a['ticker']} | Qtd: {a['quantidade']} | "
-                            f"PM: {formatar_moeda(a['preco_medio'])} | "
-                            f"Data: {formatar_data_br(a['data_posicao'])}"
-                        )
-
-                    if st.button(
-                        "✅ Importar Todos",
-                        key=f"import_{port['id']}",
-                        use_container_width=True
-                    ):
-                        for a in ativos_csv:
-                            adicionar_ativo(
-                                portfolio_id=port["id"],
-                                ticker=a["ticker"],
-                                preco_medio=a["preco_medio"],
-                                quantidade=a["quantidade"],
-                                data_posicao=a["data_posicao"]
-                            )
-                        st.toast(f"{len(ativos_csv)} ativos importados! 🎉")
-                        st.rerun()
-                else:
-                    st.error("Nenhum ativo válido encontrado no CSV.")
-
-            st.markdown("---")
-
-            # Navegação contextual
-            if ativos:
-                if st.button(
-                    "🧠 Gerar Recomendações para esta Carteira →",
-                    key=f"nav_rec_{port['id']}",
-                    use_container_width=True
-                ):
-                    st.switch_page("pages/4_🧠_Recomendacoes.py")
-
-            st.markdown("---")
-
-            # Botão excluir carteira (com confirmação)
-            if st.session_state.confirmar_excluir_port == port["id"]:
-                st.error(f"⚠️ Excluir carteira **{port['nome']}** e todos os seus ativos?")
-                col_c1, col_c2 = st.columns(2)
-                with col_c1:
-                    if st.button("✅ Sim, excluir", key=f"conf_dp_{port['id']}", use_container_width=True):
-                        deletar_portfolio(port["id"])
-                        st.session_state.confirmar_excluir_port = None
-                        st.toast(f"Carteira {port['nome']} excluída.")
-                        st.rerun()
-                with col_c2:
-                    if st.button("❌ Cancelar", key=f"canc_dp_{port['id']}", use_container_width=True):
-                        st.session_state.confirmar_excluir_port = None
-                        st.rerun()
-            else:
-                if st.button(
-                    f"🗑️ Excluir Carteira '{port['nome']}'",
-                    key=f"del_port_{port['id']}",
-                    type="secondary"
-                ):
-                    st.session_state.confirmar_excluir_port = port["id"]
-                    st.rerun()
+                            patrimonio += a["quantidade"] * a["preco_medio"]
+                    
+                    valor_total = caixa + patrimonio
+                    total_aportado = resumo_port["total_aportes"]
+                    lucro_acum = valor_total - total_aportado if total_aportado > 0 else 0
+                    lucro_pct = (lucro_acum / total_aportado * 100) if total_aportado > 0 else 0
+                    
+                    # Exibição compacta
+                    st.metric("💎 Valor Total", formatar_moeda(valor_total))
+                    mc1, mc2 = st.columns(2)
+                    mc1.markdown(f"🏦 **Caixa:** {formatar_moeda_md(caixa)}", unsafe_allow_html=True)
+                    mc2.markdown(f"📊 **Patrimônio:** {formatar_moeda_md(patrimonio)}", unsafe_allow_html=True)
+                    
+                    mc3, mc4 = st.columns(2)
+                    cor_lucro = "green" if lucro_acum >= 0 else "red"
+                    mc3.markdown(f"📈 **Lucro:** <span style='color:{cor_lucro}'>{formatar_moeda_md(lucro_acum)}</span>", unsafe_allow_html=True)
+                    mc4.markdown(f"📉 **Rend.:** <span style='color:{cor_lucro}'>{lucro_pct:+.1f}%</span>", unsafe_allow_html=True)
+                    
+                    if port.get('aporte_periodico', 0) > 0:
+                        freq_label = {"semanal": "sem", "quinzenal": "quinz", "mensal": "mês"}.get(port.get('frequencia_aporte', ''), '')
+                        st.caption(f"💸 Aporte: {formatar_moeda(port['aporte_periodico'])}/{freq_label} | 📈 {len(ativos_port)} ativo(s)")
+                    
+                    st.divider()
+                    
+                    if st.button("➡️ Ver Detalhes", key=f"btn_card_{port['id']}", use_container_width=True):
+                        st.session_state.view_portfolio_id = port["id"]
+                        st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+                        
+    else:
+        # Modo Lista expandível
+        for port in portfolios:
+            tipo_emoji = {"acoes": "📈", "fiis": "🏢", "misto": "🔀"}.get(port["tipo_ativo"], "📊")
+            montante_txt = f" | 💰 {formatar_moeda(port.get('montante_disponivel', 0))}"
+            
+            with st.expander(f"{tipo_emoji} **{port['nome']}** — Tipo: {port['tipo_ativo'].capitalize()}{montante_txt}"):
+                c1, c2 = st.columns([3, 1])
+                with c1:
+                    st.markdown(f"**Prazo:** {port['objetivo_prazo'].capitalize()} | **Meta DY:** {port['meta_dividendos']}%")
+                    if port.get("setores_preferidos"):
+                        setores_list = port["setores_preferidos"].split(",")
+                        st.markdown(f"🏭 **Setores:** {', '.join(s.capitalize() for s in setores_list)}")
+                with c2:
+                    if st.button("➡️ Ver Detalhes", key=f"btn_list_{port['id']}", use_container_width=True):
+                        st.session_state.view_portfolio_id = port["id"]
+                        st.switch_page("pages/_7_📂_Carteira_Detalhe.py")

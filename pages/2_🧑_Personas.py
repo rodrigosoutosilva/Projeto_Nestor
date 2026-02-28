@@ -3,13 +3,7 @@
 =================================================
 
 Cada persona representa uma estratégia de investimento diferente.
-Ex: "Aposentadoria" (conservador) e "Agressivo" (arrojado).
-
-Melhorias v2:
-- Confirmação de exclusão
-- Edição completa (nome, tolerância, frequência, estilo)
-- Botão "Criar Carteira →" após criação
-- Toasts para feedback
+Exibição em cards com resumo e link para página de detalhe.
 """
 
 import streamlit as st
@@ -18,8 +12,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.crud import (
     listar_personas_usuario, criar_persona,
-    atualizar_persona, deletar_persona
+    listar_portfolios_persona, listar_ativos_portfolio,
+    resumo_transacoes_portfolio
 )
+from services.market_data import buscar_preco_atual
+from utils.helpers import formatar_moeda, formatar_moeda_md
 
 st.set_page_config(page_title="🧑 Personas", page_icon="🧑", layout="wide")
 
@@ -35,10 +32,8 @@ st.markdown("*Configure perfis de investimento com diferentes estratégias*")
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# Estado para confirmação de exclusão
+# Estado
 # ---------------------------------------------------------------------------
-if "confirmar_excluir_persona" not in st.session_state:
-    st.session_state.confirmar_excluir_persona = None
 if "persona_criada_id" not in st.session_state:
     st.session_state.persona_criada_id = None
 
@@ -113,8 +108,9 @@ if st.session_state.persona_criada_id:
     col_nav1, col_nav2 = st.columns(2)
     with col_nav1:
         if st.button("💼 Criar Carteira para esta Persona →", use_container_width=True):
+            st.session_state.view_persona_id = st.session_state.persona_criada_id
             st.session_state.persona_criada_id = None
-            st.switch_page("pages/3_💼_Carteiras.py")
+            st.switch_page("pages/_9_🧑_Persona_Detalhe.py")
     with col_nav2:
         if st.button("Continuar aqui", use_container_width=True):
             st.session_state.persona_criada_id = None
@@ -123,7 +119,7 @@ if st.session_state.persona_criada_id:
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# Listar Personas Existentes
+# Listar Personas em Cards
 # ---------------------------------------------------------------------------
 st.markdown("### 📋 Suas Personas")
 
@@ -135,121 +131,60 @@ if not personas:
         "Crie uma acima ou use o 📥 Onboarding para começar."
     )
 else:
-    for persona in personas:
-        # Cores por tolerância
-        if persona["tolerancia_risco"] <= 3:
-            cor = "🟢"
-            perfil = "Conservador"
-        elif persona["tolerancia_risco"] <= 6:
-            cor = "🟡"
-            perfil = "Moderado"
-        else:
-            cor = "🔴"
-            perfil = "Arrojado"
+    cols = st.columns(2)
+    for i, persona in enumerate(personas):
+        with cols[i % 2]:
+            # Cores por tolerância
+            if persona["tolerancia_risco"] <= 3:
+                cor, perfil = "🟢", "Conservador"
+            elif persona["tolerancia_risco"] <= 6:
+                cor, perfil = "🟡", "Moderado"
+            else:
+                cor, perfil = "🔴", "Arrojado"
 
-        freq_label = {
-            "diario": "📅 Diário",
-            "semanal": "📆 Semanal",
-            "mensal": "🗓️ Mensal"
-        }.get(persona["frequencia_acao"], persona["frequencia_acao"])
+            freq_label = {
+                "diario": "📅 Diário", "semanal": "📆 Semanal", "mensal": "🗓️ Mensal"
+            }.get(persona.get("frequencia_acao", ""), "")
 
-        estilo_label = {
-            "dividendos": "💰 Dividendos",
-            "crescimento": "🚀 Crescimento",
-            "equilibrado": "⚖️ Equilibrado"
-        }.get(persona["estilo"], persona["estilo"])
+            estilo_label = {
+                "dividendos": "💰 Dividendos", "crescimento": "🚀 Crescimento", "equilibrado": "⚖️ Equilibrado"
+            }.get(persona.get("estilo", ""), "")
 
-        with st.expander(
-            f"{cor} **{persona['nome']}** — {perfil} | "
-            f"Risco: {persona['tolerancia_risco']}/10 | "
-            f"Estilo: {persona['estilo'].capitalize()}"
-        ):
-            st.markdown(f"""
-            | Campo | Valor |
-            |-------|-------|
-            | **Frequência** | {freq_label} |
-            | **Tolerância a Risco** | {persona['tolerancia_risco']}/10 |
-            | **Estilo** | {estilo_label} |
-            """)
+            with st.container(border=True):
+                st.markdown(f"#### {cor} {persona['nome']}")
+                st.caption(f"Perfil: **{perfil}** | Risco: {persona['tolerancia_risco']}/10 | {estilo_label} | {freq_label}")
 
-            # Formulário de edição completa
-            st.markdown("#### ✏️ Editar")
-            col1, col2 = st.columns(2)
+                # Métricas consolidadas
+                portfolios = listar_portfolios_persona(persona["id"])
+                caixa_total = 0
+                patrimonio_total = 0
+                total_aportado = 0
+                total_ativos = 0
 
-            with col1:
-                novo_nome = st.text_input(
-                    "Nome:",
-                    value=persona["nome"],
-                    key=f"edit_nome_{persona['id']}"
-                )
-                nova_frequencia = st.selectbox(
-                    "Frequência:",
-                    options=["diario", "semanal", "mensal"],
-                    index=["diario", "semanal", "mensal"].index(persona["frequencia_acao"]),
-                    format_func=lambda x: {
-                        "diario": "📅 Diário",
-                        "semanal": "📆 Semanal",
-                        "mensal": "🗓️ Mensal"
-                    }[x],
-                    key=f"edit_freq_{persona['id']}"
-                )
+                for port in portfolios:
+                    caixa_total += port.get("montante_disponivel", 0)
+                    ativos_port = listar_ativos_portfolio(port["id"])
+                    total_ativos += len(ativos_port)
+                    resumo = resumo_transacoes_portfolio(port["id"])
+                    total_aportado += resumo["total_aportes"]
+                    for a in ativos_port:
+                        dados_p = buscar_preco_atual(a["ticker"])
+                        if dados_p and isinstance(dados_p, dict):
+                            patrimonio_total += a["quantidade"] * dados_p.get("preco_atual", a["preco_medio"])
+                        else:
+                            patrimonio_total += a["quantidade"] * a["preco_medio"]
 
-            with col2:
-                nova_tolerancia = st.slider(
-                    "Tolerância:",
-                    0, 10, persona["tolerancia_risco"],
-                    key=f"edit_tol_{persona['id']}"
-                )
-                novo_estilo = st.selectbox(
-                    "Estilo:",
-                    options=["dividendos", "crescimento", "equilibrado"],
-                    index=["dividendos", "crescimento", "equilibrado"].index(persona["estilo"]),
-                    format_func=lambda x: {
-                        "dividendos": "💰 Dividendos",
-                        "crescimento": "🚀 Crescimento",
-                        "equilibrado": "⚖️ Equilibrado"
-                    }[x],
-                    key=f"edit_estilo_{persona['id']}"
-                )
+                valor_total = caixa_total + patrimonio_total
+                lucro = valor_total - total_aportado if total_aportado > 0 else 0
 
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                if st.button(
-                    "💾 Salvar Alterações",
-                    key=f"save_{persona['id']}",
-                    use_container_width=True
-                ):
-                    atualizar_persona(
-                        persona["id"],
-                        nome=novo_nome,
-                        tolerancia_risco=nova_tolerancia,
-                        frequencia_acao=nova_frequencia,
-                        estilo=novo_estilo
-                    )
-                    st.toast("Persona atualizada! ✅")
-                    st.rerun()
+                st.metric("💎 Valor Total", formatar_moeda(valor_total))
+                mc1, mc2, mc3 = st.columns(3)
+                mc1.markdown(f"💼 **{len(portfolios)}** carteira(s)")
+                mc2.markdown(f"📈 **{total_ativos}** ativo(s)")
+                cor_lucro = "green" if lucro >= 0 else "red"
+                mc3.markdown(f"📊 <span style='color:{cor_lucro}'>{formatar_moeda_md(lucro)}</span>", unsafe_allow_html=True)
 
-            with col_btn2:
-                # Confirmação de exclusão em duas etapas
-                if st.session_state.confirmar_excluir_persona == persona["id"]:
-                    st.error(f"⚠️ Tem certeza? Isso excluirá a persona **{persona['nome']}** e todas as suas carteiras!")
-                    col_conf1, col_conf2 = st.columns(2)
-                    with col_conf1:
-                        if st.button("✅ Sim, excluir", key=f"conf_del_{persona['id']}", use_container_width=True):
-                            deletar_persona(persona["id"])
-                            st.session_state.confirmar_excluir_persona = None
-                            st.toast(f"Persona {persona['nome']} excluída.")
-                            st.rerun()
-                    with col_conf2:
-                        if st.button("❌ Cancelar", key=f"cancel_del_{persona['id']}", use_container_width=True):
-                            st.session_state.confirmar_excluir_persona = None
-                            st.rerun()
-                else:
-                    if st.button(
-                        "🗑️ Excluir Persona",
-                        key=f"del_{persona['id']}",
-                        use_container_width=True,
-                        type="secondary"
-                    ):
-                        st.session_state.confirmar_excluir_persona = persona["id"]
-                        st.rerun()
+                st.divider()
+                if st.button("➡️ Ver Detalhes", key=f"btn_persona_{persona['id']}", use_container_width=True):
+                    st.session_state.view_persona_id = persona["id"]
+                    st.switch_page("pages/_9_🧑_Persona_Detalhe.py")

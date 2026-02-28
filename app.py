@@ -22,18 +22,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from database.connection import init_db
 from database.crud import (
     listar_usuarios, criar_usuario, buscar_usuario_por_email,
-    listar_personas_usuario, listar_portfolios_persona, listar_ativos_portfolio
+    listar_personas_usuario, listar_portfolios_persona, listar_ativos_portfolio,
+    listar_watchlist_usuario
 )
 from services.ai_brain import configurar_gemini
 from services.market_data import buscar_preco_atual
-from utils.helpers import formatar_data_br, formatar_moeda
+from utils.helpers import formatar_data_br, formatar_moeda, formatar_moeda_md, nome_ativo
 
 # ---------------------------------------------------------------------------
-# Configuração da Página (DEVE ser a primeira chamada Streamlit)
+# CONFIGURAÇÃO DA PÁGINA (Apenas UMA vez e no início do script)
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="🧪 EgoLab - Teste versões. Invista melhor",
-    page_icon="🧪",
+    page_title="🏠 Início",
+    page_icon="🏠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -49,6 +50,28 @@ st.markdown("""
     .stApp {
         background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 50%, #f0f2f5 100%);
         font-family: 'Inter', sans-serif;
+    }
+
+    /* Ocultar páginas auxiliares do sidebar */
+    [data-testid="stSidebarNav"] a[href*="Carteira_Detalhe"],
+    [data-testid="stSidebarNav"] a[href*="Ativo"],
+    [data-testid="stSidebarNav"] a[href*="Persona_Detalhe"],
+    [data-testid="stSidebarNav"] li:has(a[href*="Carteira_Detalhe"]),
+    [data-testid="stSidebarNav"] li:has(a[href*="Ativo"]),
+    [data-testid="stSidebarNav"] li:has(a[href*="Persona_Detalhe"]) {
+        display: none !important;
+    }
+    
+    /* Renomear "app" para "🏠 Início" no sidebar */
+    [data-testid="stSidebarNav"] > ul > li:first-child a span {
+        visibility: hidden;
+        position: relative;
+    }
+    [data-testid="stSidebarNav"] > ul > li:first-child a span::after {
+        content: "🏠 Início";
+        visibility: visible;
+        position: absolute;
+        left: 0;
     }
 
     /* ============ HOMEPAGE STYLES ============ */
@@ -456,7 +479,7 @@ def sidebar_info():
                     st.markdown("---")
                     st.markdown("### 💰 Resumo")
                     st.markdown(f"📊 **{total_ativos}** ativos")
-                    st.markdown(f"💵 Caixa: **{formatar_moeda(total_caixa)}**")
+                    st.markdown(f"💵 Caixa: **{formatar_moeda_md(total_caixa)}**", unsafe_allow_html=True)
             except Exception:
                 pass
 
@@ -806,64 +829,126 @@ def tela_principal():
     st.markdown("---")
 
     # -----------------------------------------------------------------------
+    # 🔍 Pesquisa de Ativos
+    # -----------------------------------------------------------------------
+    st.markdown("### 🔍 Pesquisar Ativos")
+    st.caption("Busque por código (PETR4) ou nome (Petrobras, Itaú, Vale...)")
+    
+    col_search, col_btn = st.columns([5, 1])
+    with col_search:
+        ticker_busca = st.text_input(
+            "Digite o código ou nome do ativo", 
+            placeholder="Ex: PETR4, Petrobras, Itaú, Vale...", 
+            label_visibility="collapsed"
+        ).strip()
+    with col_btn:
+        buscar_direto = st.button("Buscar 🔎", use_container_width=True, type="primary")
+    
+    # Se digitou algo, mostrar resultados fuzzy
+    if ticker_busca and len(ticker_busca) >= 2:
+        from utils.helpers import buscar_ativos_por_nome
+        resultados = buscar_ativos_por_nome(ticker_busca)
+        
+        if resultados:
+            st.caption(f"📋 {len(resultados)} resultado(s) encontrado(s):")
+            cols_res = st.columns(min(len(resultados), 4))
+            for i, r in enumerate(resultados[:4]):
+                with cols_res[i]:
+                    if st.button(f"📄 {r['ticker']}\n{r['nome']}", key=f"sr_{r['ticker']}", use_container_width=True):
+                        st.session_state.view_asset_ticker = r['ticker']
+                        st.switch_page("pages/_8_📄_Ativo.py")
+        elif buscar_direto:
+            # Tentar buscar diretamente como ticker
+            st.session_state.view_asset_ticker = ticker_busca.upper()
+            st.switch_page("pages/_8_📄_Ativo.py")
+    elif buscar_direto and ticker_busca:
+        st.session_state.view_asset_ticker = ticker_busca.upper()
+        st.switch_page("pages/_8_📄_Ativo.py")
+    elif buscar_direto:
+        st.toast("Digite um código ou nome válido primeiro", icon="⚠️")
+                
+    st.markdown("---")
+
+    # -----------------------------------------------------------------------
     # 📈 Destaques do Mercado (Highlights da Bolsa)
     # -----------------------------------------------------------------------
     st.markdown("### 📈 Destaques do Mercado")
     st.caption("Rankings de ações populares da B3 — atualizado a cada 5 min")
 
     from services.market_highlights import buscar_highlights_mercado
+    from database.crud import adicionar_watchlist
 
     with st.spinner("🔄 Buscando destaques do mercado..."):
         highlights = buscar_highlights_mercado()
 
     if highlights:
+        # Pre-load user portfolios mappings for the quick actions
+        todas_carteiras = []
+        for p in personas:
+            ports = listar_portfolios_persona(p["id"])
+            for pt in ports:
+                todas_carteiras.append({"id": pt["id"], "nome": f"{pt['nome']} ({p['nome']})"})
+                
         h1, h2, h3, h4 = st.columns(4)
+
+        def _renderizar_card_destaque(item, cor_variacao, prefix, label_extra=""):
+            with st.container(border=True):
+                col_texto, col_info, col_acao = st.columns([5, 1.5, 1.5])
+                with col_texto:
+                    lbl = f"<br>{label_extra}" if label_extra else ""
+                    st.markdown(
+                        f"**{item['ticker']}** "
+                        f"<span style='color:{cor_variacao};font-weight:700'>"
+                        f"{'+' if item.get('variacao', 0) >= 0 else ''}{item.get('variacao', 0):.2f}%</span><br>"
+                        f"<span style='font-size:0.9em'>{formatar_moeda_md(item['preco'])}</span> {lbl}",
+                        unsafe_allow_html=True
+                    )
+                with col_info:
+                    if st.button("ℹ️", key=f"hi_info_{prefix}_{item['ticker']}", help="Ver detalhes do ativo"):
+                        st.session_state.view_asset_ticker = item['ticker']
+                        st.switch_page("pages/_8_📄_Ativo.py")
+                with col_acao:
+                    with st.popover("⚙️"):
+                        if not todas_carteiras:
+                            st.warning("Crie carteira.")
+                        else:
+                            st.markdown(f"**{item['ticker']}**")
+                            opt_ports = {c["id"]: c["nome"] for c in todas_carteiras}
+                            sel_port = st.selectbox("Carteira:", list(opt_ports.keys()), format_func=lambda x: opt_ports[x], key=f"sel_port_{prefix}_{item['ticker']}")
+                            
+                            c_w, c_o = st.columns(2)
+                            with c_w:
+                                if st.button("👀", key=f"btn_w_{prefix}_{item['ticker']}", help="Monitorar"):
+                                    adicionar_watchlist(sel_port, item['ticker'], manual=True)
+                                    st.toast(f"{item['ticker']} na watchlist!")
+                            with c_o:
+                                if st.button("🛒", key=f"btn_op_{prefix}_{item['ticker']}", help="Operar na Carteira"):
+                                    st.session_state.view_portfolio_id = sel_port
+                                    st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
 
         with h1:
             st.markdown("#### 🟢 Maiores Altas")
             for item in highlights["maiores_altas"]:
                 cor = "#00C851" if item["variacao"] >= 0 else "#FF4444"
-                st.markdown(
-                    f"**{item['ticker']}** "
-                    f"<span style='color:{cor};font-weight:700'>"
-                    f"{'+' if item['variacao'] >= 0 else ''}{item['variacao']:.2f}%</span>"
-                    f" — R$ {item['preco']:.2f}",
-                    unsafe_allow_html=True
-                )
+                _renderizar_card_destaque(item, cor, "hi")
 
         with h2:
             st.markdown("#### 🔴 Maiores Quedas")
             for item in highlights["maiores_quedas"]:
                 cor = "#00C851" if item["variacao"] >= 0 else "#FF4444"
-                st.markdown(
-                    f"**{item['ticker']}** "
-                    f"<span style='color:{cor};font-weight:700'>"
-                    f"{'+' if item['variacao'] >= 0 else ''}{item['variacao']:.2f}%</span>"
-                    f" — R$ {item['preco']:.2f}",
-                    unsafe_allow_html=True
-                )
+                _renderizar_card_destaque(item, cor, "lo")
 
         with h3:
             st.markdown("#### 💰 Melhores DY")
             for item in highlights["melhores_dy"]:
-                st.markdown(
-                    f"**{item['ticker']}** "
-                    f"<span style='color:#667eea;font-weight:700'>"
-                    f"DY {item['dy']:.2f}%</span>"
-                    f" — R$ {item['preco']:.2f}",
-                    unsafe_allow_html=True
-                )
+                extra = f"<span style='color:#667eea;font-size:0.85em'>DY {item['dy']:.2f}%</span>"
+                _renderizar_card_destaque(item, "#333", "dy", extra)
 
         with h4:
             st.markdown("#### 📊 Menor P/L")
             for item in highlights["menor_pl"]:
-                st.markdown(
-                    f"**{item['ticker']}** "
-                    f"<span style='color:#764ba2;font-weight:700'>"
-                    f"P/L {item['pl']:.1f}</span>"
-                    f" — R$ {item['preco']:.2f}",
-                    unsafe_allow_html=True
-                )
+                extra = f"<span style='color:#764ba2;font-size:0.85em'>P/L {item['pl']:.1f}</span>"
+                _renderizar_card_destaque(item, "#333", "pl", extra)
 
         st.caption(f"📊 {highlights['total_analisados']} ativos analisados")
     else:
@@ -892,6 +977,51 @@ def tela_principal():
 
     st.markdown("---")
 
+    # -----------------------------------------------------------------------
+    # 👁️ Ativos Monitorados (Global Watchlist)
+    # -----------------------------------------------------------------------
+    st.markdown("### 👁️ Ativos Monitorados")
+    
+    watchlist_global = listar_watchlist_usuario(user["id"])
+    
+    if watchlist_global:
+        # Extrair filtros únicos
+        personas_unicas = sorted(list(set([w["persona_nome"] for w in watchlist_global])))
+        carteiras_unicas = sorted(list(set([w["portfolio_nome"] for w in watchlist_global])))
+        
+        col_f1, col_f2 = st.columns(2)
+        filtro_persona = col_f1.multiselect("Filtrar por Persona", options=personas_unicas)
+        filtro_carteira = col_f2.multiselect("Filtrar por Carteira", options=carteiras_unicas)
+        
+        # Aplicar filtros
+        wl_filtrada = watchlist_global
+        if filtro_persona:
+            wl_filtrada = [w for w in wl_filtrada if w["persona_nome"] in filtro_persona]
+        if filtro_carteira:
+            wl_filtrada = [w for w in wl_filtrada if w["portfolio_nome"] in filtro_carteira]
+            
+        if wl_filtrada:
+            for w in wl_filtrada:
+                with st.container(border=True):
+                    c1, c2, c3 = st.columns([3, 2, 1])
+                    with c1:
+                        st.markdown(f"**{w['ticker']}** - {nome_ativo(w['ticker'])}")
+                        st.caption(f"Monitorado em: {w['portfolio_nome']} ({w['persona_nome']})")
+                    with c2:
+                        p = buscar_preco_atual(w['ticker'])
+                        preco_val = p.get("preco_atual", 0) if isinstance(p, dict) else 0
+                        st.markdown(f"**Preço Atual:** {formatar_moeda_md(preco_val)}", unsafe_allow_html=True)
+                    with c3:
+                        if st.button("📄 Info", key=f"global_w_{w['id']}", use_container_width=True):
+                            st.session_state.view_asset_ticker = w['ticker']
+                            st.switch_page("pages/_8_📄_Ativo.py")
+        else:
+            st.info("Nenhum ativo corresponde aos filtros selecionados.")
+    else:
+        st.info("Você ainda não está monitorando nenhum ativo. Adicione através da página da Carteira ou do Ativo.")
+        
+    st.markdown("---")
+
     # Lista de Personas
     st.markdown("### 🧑 Suas Personas")
     for p in personas:
@@ -899,7 +1029,7 @@ def tela_principal():
             portfolios = listar_portfolios_persona(p["id"])
             if portfolios:
                 for port in portfolios:
-                    montante_txt = f" | Caixa: R$ {port['montante_disponivel']:,.2f}" if port.get('montante_disponivel') else ""
+                    montante_txt = f" | Caixa: {formatar_moeda(port['montante_disponivel'])}" if port.get('montante_disponivel') else ""
                     st.markdown(f"💼 **{port['nome']}** — Prazo: {port['objetivo_prazo']} | Meta DY: {port['meta_dividendos']}%{montante_txt}")
             else:
                 st.info("Nenhuma carteira nesta persona.")

@@ -20,7 +20,7 @@ Conceito de Eng. Software:
 from datetime import datetime, date
 from sqlalchemy import (
     Column, Integer, String, Float, Date, DateTime,
-    Text, ForeignKey, Enum as SAEnum
+    Text, ForeignKey, Boolean, Enum as SAEnum
 )
 from sqlalchemy.orm import relationship, declarative_base
 import enum
@@ -254,6 +254,11 @@ class Portfolio(Base):
         back_populates="portfolio",
         cascade="all, delete-orphan"
     )
+    watchlist_items = relationship(
+        "WatchlistItem",
+        back_populates="portfolio",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Portfolio(id={self.id}, nome='{self.nome}')>"
@@ -376,3 +381,23 @@ class Transaction(Base):
 
     def __repr__(self):
         return f"<Transaction(tipo='{self.tipo}', valor={self.valor}, ticker='{self.ticker}')>"
+
+
+class WatchlistItem(Base):
+    """
+    Item na lista de monitoramento (watchlist) de uma carteira.
+    Pode ter sido adicionado manualmente ou sugerido pela IA/algoritmo.
+    """
+    __tablename__ = "watchlist_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    portfolio_id = Column(Integer, ForeignKey("portfolios.id"), nullable=False)
+    ticker = Column(String(10), nullable=False)
+    adicionado_manualmente = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relacionamento
+    portfolio = relationship("Portfolio", back_populates="watchlist_items")
+
+    def __repr__(self):
+        return f"<WatchlistItem(ticker='{self.ticker}', manual={self.adicionado_manualmente})>"

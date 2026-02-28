@@ -66,18 +66,75 @@ def nome_ativo(ticker: str) -> str:
     return ticker  # Retorna o próprio ticker se nada funcionar
 
 
-def formatar_moeda(valor: float) -> str:
-    """Formata valor numérico para moeda brasileira (R$)."""
+def formatar_moeda(valor) -> str:
+    """Formata valor para R$ 1.234,56. Uso: st.metric() e contextos que NÃO interpretam LaTeX."""
     if valor is None:
         return "R$ 0,00"
-    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    try:
+        valor_float = float(str(valor).replace("R$", "").replace("R\\$", "").replace("R&#36;", "").replace(".", "").replace(",", ".").strip())
+    except ValueError:
+        return "R$ 0,00"
+    return f"R$ {valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def formatar_percentual(valor: float) -> str:
+def formatar_moeda_md(valor) -> str:
+    """
+    Formata valor para R$ 1.234,56 SEGURO para st.markdown().
+    Usa HTML entity &#36; no lugar de $ para evitar que Streamlit interprete como LaTeX.
+    REQUER unsafe_allow_html=True no st.markdown().
+    """
+    return formatar_moeda(valor).replace("$", "&#36;")
+
+
+def rendimento_anual_projetado(lucro: float, total_aportado: float, dias: int) -> float:
+    """
+    Calcula o rendimento anual projetado via regra de 3.
+    Se a carteira tem 30 dias e rendeu 2%, projeta ~24.3% ao ano.
+    """
+    if total_aportado <= 0 or dias <= 0:
+        return 0.0
+    rendimento_periodo = (lucro / total_aportado) * 100
+    rendimento_anual = (rendimento_periodo / dias) * 365
+    return round(rendimento_anual, 2)
+
+
+def render_ticker_link(ticker: str) -> str:
+    """
+    Retorna HTML de um ticker clicável que pode ser usado em st.markdown.
+    Nota: Links reais de navegação no Streamlit precisam de st.button, 
+    então retornamos o ticker em destaque com estilo de link.
+    """
+    return f"**{ticker}**"
+
+
+def buscar_ativos_por_nome(termo: str, max_resultados: int = 10) -> list[dict]:
+    """
+    Busca ativos por ticker OU nome parcial (case-insensitive).
+    Retorna lista de dicts com ticker e nome.
+    """
+    termo = termo.strip().upper()
+    if not termo:
+        return []
+    
+    resultados = []
+    for ticker, nome in NOMES_ATIVOS.items():
+        if termo in ticker or termo in nome.upper():
+            resultados.append({"ticker": ticker, "nome": nome})
+            if len(resultados) >= max_resultados:
+                break
+    
+    return resultados
+
+
+def formatar_percentual(valor) -> str:
     """Formata valor numérico para percentual."""
     if valor is None:
         return "0,00%"
-    return f"{valor:+.2f}%"
+    try:
+        valor_float = float(str(valor).replace("%", "").strip())
+    except ValueError:
+        return "0,00%"
+    return f"{valor_float:+.2f}%"
 
 
 def formatar_data_br(data) -> str:

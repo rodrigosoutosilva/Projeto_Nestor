@@ -172,6 +172,14 @@ def calcular_indicadores_tecnicos(df: pd.DataFrame) -> dict:
     else:
         tendencia = "neutra"
 
+    # --- Volume Ratio (vs média 20d) ---
+    vol = df.get("Volume")
+    volume_ratio = 1.0
+    if vol is not None and len(vol) >= 20:
+        vol_media_20 = float(vol.rolling(window=20, min_periods=1).mean().iloc[-1])
+        vol_atual = float(vol.iloc[-1])
+        volume_ratio = round(vol_atual / vol_media_20, 2) if vol_media_20 > 0 else 1.0
+
     return {
         "rsi": round(rsi_atual, 2),
         "sma_20": round(sma_20, 2),
@@ -179,8 +187,57 @@ def calcular_indicadores_tecnicos(df: pd.DataFrame) -> dict:
         "macd": round(macd_atual, 4),
         "macd_signal": round(signal_atual, 4),
         "preco_atual": round(preco_atual, 2),
-        "tendencia": tendencia
+        "tendencia": tendencia,
+        "volume_ratio": volume_ratio
     }
+
+
+def buscar_dados_fundamentalistas(ticker: str) -> dict:
+    """
+    Busca dados fundamentalistas de um ativo via yfinance.
+    
+    Retorna dict com:
+    - pl: Preço/Lucro (P/E ratio) — quanto o mercado paga por cada R$1 de lucro
+    - pvp: Preço/Valor Patrimonial (P/B ratio) — relação entre preço e patrimônio líquido
+    - dy: Dividend Yield — rendimento percentual anual de dividendos
+    - setor: Setor do ativo
+    - market_cap: Valor de mercado
+    """
+    try:
+        ticker_sa = _formatar_ticker_br(ticker)
+        ativo = yf.Ticker(ticker_sa)
+        info = ativo.info
+        
+        if not info:
+            return {"pl": None, "pvp": None, "dy": None, "setor": None, "market_cap": None}
+        
+        # P/L (trailingPE ou forwardPE)
+        pl = info.get("trailingPE") or info.get("forwardPE")
+        
+        # P/VP (priceToBook)
+        pvp = info.get("priceToBook")
+        
+        # Dividend Yield
+        dy = info.get("dividendYield")
+        if dy is not None:
+            dy = round(dy * 100, 2)  # Converter de decimal para %
+        
+        # Setor
+        setor = info.get("sector", info.get("industry", None))
+        
+        # Market Cap
+        market_cap = info.get("marketCap")
+        
+        return {
+            "pl": round(pl, 2) if pl else None,
+            "pvp": round(pvp, 2) if pvp else None,
+            "dy": round(dy, 2) if dy else None,
+            "setor": setor,
+            "market_cap": market_cap
+        }
+    except Exception as e:
+        print(f"[market_data] Erro ao buscar fundamentalistas de {ticker}: {e}")
+        return {"pl": None, "pvp": None, "dy": None, "setor": None, "market_cap": None}
 
 
 def buscar_precos_multiplos(tickers: list[str]) -> dict:
