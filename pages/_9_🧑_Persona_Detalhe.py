@@ -66,7 +66,7 @@ for port in portfolios:
     ativos_port = listar_ativos_portfolio(port["id"])
     total_ativos += len(ativos_port)
     resumo = resumo_transacoes_portfolio(port["id"])
-    total_aportado_global += resumo["total_aportes"]
+    total_aportado_global += (resumo["total_aportes"] - resumo["total_retiradas"])
     
     for a in ativos_port:
         dados_p = buscar_preco_atual(a["ticker"])
@@ -136,7 +136,7 @@ else:
                         patrimonio += a["quantidade"] * a["preco_medio"]
                 
                 vt = caixa + patrimonio
-                ta = resumo_port["total_aportes"]
+                ta = resumo_port["total_aportes"] - resumo_port["total_retiradas"]
                 la = vt - ta if ta > 0 else 0
                 lp = (la / ta * 100) if ta > 0 else 0
                 

@@ -166,7 +166,7 @@ else:
                     ativos_port = listar_ativos_portfolio(port["id"])
                     total_ativos += len(ativos_port)
                     resumo = resumo_transacoes_portfolio(port["id"])
-                    total_aportado += resumo["total_aportes"]
+                    total_aportado += (resumo["total_aportes"] - resumo["total_retiradas"])
                     for a in ativos_port:
                         dados_p = buscar_preco_atual(a["ticker"])
                         if dados_p and isinstance(dados_p, dict):

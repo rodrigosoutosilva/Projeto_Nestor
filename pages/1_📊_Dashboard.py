@@ -138,7 +138,7 @@ dados_tabela = []
 for port in portfolios_disponiveis:
     caixa_total += port.get("montante_disponivel", 0)
     resumo_port = resumo_transacoes_portfolio(port["id"])
-    total_aportado += resumo_port["total_aportes"]
+    total_aportado += (resumo_port["total_aportes"] - resumo_port["total_retiradas"])
 
 # Somar os ativos em carteira
 for ativo in todos_ativos:
