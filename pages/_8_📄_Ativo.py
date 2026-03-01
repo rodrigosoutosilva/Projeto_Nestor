@@ -27,10 +27,11 @@ if not ticker:
     if st.button("⬅️ Ir para Início"): st.switch_page("app.py")
     st.stop()
 
+voltar_para = st.session_state.get("voltar_para_pagina", "app.py")
 if st.button("⬅️ Voltar"):
-    st.switch_page("app.py")
+    st.switch_page(voltar_para)
 
-st.title(f"📄 {ticker} — {nome_ativo(ticker)}")
+st.header(f"📄 {ticker} — {nome_ativo(ticker)}")
 
 # --- DADOS DE MERCADO ---
 with st.spinner("Buscando dados do mercado..."):
@@ -61,12 +62,32 @@ with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=
     personas = listar_personas_usuario(st.session_state.user['id'])
     if personas:
         opcoes_p = {p["id"]: p["nome"] for p in personas}
-        pid = st.selectbox("Selecione a Persona", list(opcoes_p.keys()), format_func=lambda x: opcoes_p[x])
+        
+        # Tentar herdar a carteira que o usuario estava vendo
+        port_id_herdados = st.session_state.get("view_portfolio_id")
+        index_p = 0
+        if port_id_herdados:
+            # Achar a persona dona deste portfolio
+            port_detalhe_herdado = buscar_portfolio_por_id(port_id_herdados)
+            if port_detalhe_herdado:
+                pid_herdado = port_detalhe_herdado.get("persona_id")
+                lista_p_ids = list(opcoes_p.keys())
+                if pid_herdado in lista_p_ids:
+                    index_p = lista_p_ids.index(pid_herdado)
+                    
+        pid = st.selectbox("Selecione a Persona", list(opcoes_p.keys()), index=index_p, format_func=lambda x: opcoes_p[x])
         portfolios = listar_portfolios_persona(pid)
         
         if portfolios:
             opcoes_port = {pt["id"]: pt["nome"] for pt in portfolios}
-            port_id = st.selectbox("Selecione a Carteira", list(opcoes_port.keys()), format_func=lambda x: opcoes_port[x])
+            
+            index_port = 0
+            if port_id_herdados:
+                lista_port_ids = list(opcoes_port.keys())
+                if port_id_herdados in lista_port_ids:
+                    index_port = lista_port_ids.index(port_id_herdados)
+                    
+            port_id = st.selectbox("Selecione a Carteira", list(opcoes_port.keys()), index=index_port, format_func=lambda x: opcoes_port[x])
             
             port_detalhe = buscar_portfolio_por_id(port_id)
             persona_detalhe = buscar_persona_por_id(pid)

@@ -19,7 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.crud import (
     listar_personas_usuario, listar_portfolios_persona,
-    listar_ativos_portfolio, listar_acoes_portfolio
+    listar_ativos_portfolio, listar_acoes_portfolio,
+    resumo_transacoes_portfolio
 )
 from services.market_data import buscar_preco_atual, buscar_historico
 from utils.helpers import (
@@ -39,7 +40,7 @@ if "user" not in st.session_state or st.session_state.user is None:
 
 user = st.session_state.user
 
-st.markdown("# 📊 Dashboard de Investimentos")
+st.markdown("### 📊 Dashboard de Investimentos")
 st.markdown(f"*Visão geral das carteiras de **{user['nome']}***")
 st.markdown("---")
 
@@ -126,22 +127,29 @@ with st.spinner("🔄 Buscando preços atuais do mercado..."):
     precos = buscar_precos_cache(tuple(tickers_unicos))
 
 # ---------------------------------------------------------------------------
-# Calcular métricas
+# Calcular métricas Realistas (Incluem Caixa e Aportes)
 # ---------------------------------------------------------------------------
-patrimonio_total = 0
-custo_total = 0
+patrimonio_ativos = 0 # Valor investido varrido a mercado
+caixa_total = 0       # Dinheiro vivo nas carteiras
+total_aportado = 0    # Dinheiro que saiu do bolso do usuário
 dados_tabela = []
 
+# Calcular o impacto dos Aportes e Caixas primeiro
+for port in portfolios_disponiveis:
+    caixa_total += port.get("montante_disponivel", 0)
+    resumo_port = resumo_transacoes_portfolio(port["id"])
+    total_aportado += resumo_port["total_aportes"]
+
+# Somar os ativos em carteira
 for ativo in todos_ativos:
     ticker = ativo["ticker"]
     preco_info = precos.get(ticker, {})
     preco_atual = preco_info.get("preco_atual", ativo["preco_medio"])
 
     valor_atual = preco_atual * ativo["quantidade"]
-    custo = ativo["preco_medio"] * ativo["quantidade"]
-    patrimonio_total += valor_atual
-    custo_total += custo
+    patrimonio_ativos += valor_atual
 
+    # LP interno de posição continuará apenas para a Tabela e pizza, não interfere no Lucro Global
     lp = calcular_lucro_prejuizo(ativo["preco_medio"], preco_atual, ativo["quantidade"])
 
     dados_tabela.append({
@@ -156,8 +164,9 @@ for ativo in todos_ativos:
         "_variacao_num": lp["percentual"]
     })
 
-lucro_total = patrimonio_total - custo_total
-variacao_total = ((patrimonio_total - custo_total) / custo_total * 100) if custo_total > 0 else 0
+patrimonio_total_global = patrimonio_ativos + caixa_total
+lucro_total = patrimonio_total_global - total_aportado
+variacao_total = ((patrimonio_total_global - total_aportado) / total_aportado * 100) if total_aportado > 0 else 0
 
 # ---------------------------------------------------------------------------
 # Métricas no topo
@@ -166,11 +175,11 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.metric(
         "💰 Patrimônio Total",
-        formatar_moeda(patrimonio_total),
+        formatar_moeda(patrimonio_total_global),
         f"{variacao_total:+.2f}%"
     )
 with col2:
-    st.metric("💵 Total Investido", formatar_moeda(custo_total))
+    st.metric("💵 Total Investido", formatar_moeda(total_aportado))
 with col3:
     st.metric(
         "📈 Lucro/Prejuízo",
@@ -189,7 +198,7 @@ st.markdown("---")
 col_chart1, col_chart2 = st.columns(2)
 
 with col_chart1:
-    st.markdown("### 🍕 Distribuição por Ativo")
+    st.markdown("#### 🍕 Distribuição por Ativo")
     df_dist = pd.DataFrame([{
         "Ticker": d["Ticker"],
         "Valor (R$)": d["Valor Total"]
@@ -222,7 +231,7 @@ with col_chart1:
         st.plotly_chart(fig, use_container_width=True)
 
 with col_chart2:
-    st.markdown("### 📊 Lucro/Prejuízo por Ativo")
+    st.markdown("#### 📊 Lucro/Prejuízo por Ativo")
     df_lp = pd.DataFrame([{
         "Ticker": d["Ticker"],
         "L/P (R$)": d["Lucro/Prejuízo"]
@@ -269,7 +278,7 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Filtros
 # ---------------------------------------------------------------------------
-st.markdown("### 📋 Detalhamento de Ativos")
+st.markdown("#### 📋 Detalhamento de Ativos")
 
 col_f1, col_f2, col_f3 = st.columns([2, 2, 1])
 with col_f1:
@@ -325,7 +334,7 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Gráfico de Histórico (selecionar ativo)
 # ---------------------------------------------------------------------------
-st.markdown("### 📈 Histórico de Preço")
+st.markdown("#### 📈 Histórico de Preço")
 
 ticker_selecionado = st.selectbox(
     "Selecione um ativo para ver o histórico:",
@@ -387,7 +396,7 @@ else:
 # Ações Pendentes
 # ---------------------------------------------------------------------------
 st.markdown("---")
-st.markdown("### 📋 Ações Planejadas Pendentes")
+st.markdown("#### 📋 Ações Planejadas Pendentes")
 
 has_actions = False
 for port_id, port_info in portfolio_map.items():
@@ -408,4 +417,4 @@ for port_id, port_info in portfolio_map.items():
             )
 
 if not has_actions:
-    st.info("Nenhuma ação pendente. Gere recomendações na página 🧠 Recomendações.")
+    st.info("Nenhuma movimentação pendente.")

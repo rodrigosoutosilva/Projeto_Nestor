@@ -57,7 +57,7 @@ if "user" not in st.session_state or st.session_state.user is None:
 
 user = st.session_state.user
 
-st.markdown("# 💼 Gestão de Carteiras e Ativos")
+st.markdown("### 💼 Gestão de Carteiras e Ativos")
 st.markdown("*Gerencie seus portfolios, registre operações e acompanhe seu caixa*")
 st.markdown("---")
 
@@ -88,7 +88,7 @@ st.markdown("---")
 # Criar Nova Carteira
 # ---------------------------------------------------------------------------
 with st.expander("➕ Criar Nova Carteira", expanded=False):
-    with st.form("form_nova_carteira"):
+    with st.container():
         col1, col2 = st.columns(2)
 
         with col1:
@@ -119,10 +119,10 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
                 index=2
             )
             montante = st.number_input(
-                "💰 Montante inicial (R$)",
+                "💰 Aporte Inicial (R$)",
                 min_value=0.0, max_value=10_000_000.0, value=1000.0, step=100.0,
-                help="Montante em reais que você pode alocar nesta carteira. "
-                     "Isso ajuda a IA a não sugerir compras que você não pode bancar."
+                help="Dinheiro inicial em reais que você está destinando para iniciar os investimentos desta carteira. "
+                     "Este valor será seu de Caixa Livre na plataforma."
             )
 
         # --- Aportes periódicos ---
@@ -170,20 +170,38 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
         setores_selecionados = []
 
         if tipo in ("acoes", "misto"):
-            st.markdown("**Ações:**")
-            cols_setores = st.columns(3)
+            st.markdown("**Ações (Selecione os setores desejados):**")
+            cols_a = st.columns(3)
+            with cols_a[0]:
+                todos_a = st.checkbox("Selecionar Todos (Ações)", value=True, key="todos_a", help="Se marcar esta opção, todos os setores serão incluídos de forma automática.")
+            
+            sel_a_list = []
             for i, (chave, label) in enumerate(SETORES_ACOES):
-                with cols_setores[i % 3]:
-                    if st.checkbox(label, key=f"setor_a_{chave}"):
-                        setores_selecionados.append(chave)
+                with cols_a[(i + 1) % 3]:
+                    if st.checkbox(label, value=todos_a, disabled=todos_a, key=f"setor_a_{chave}"):
+                        sel_a_list.append(chave)
+            
+            if todos_a or not sel_a_list:
+                setores_selecionados.extend([k for k, _ in SETORES_ACOES])
+            else:
+                setores_selecionados.extend(sel_a_list)
 
         if tipo in ("fiis", "misto"):
-            st.markdown("**FIIs:**")
-            cols_fiis = st.columns(2)
+            st.markdown("**FIIs (Selecione os tipos desejados):**")
+            cols_f = st.columns(3)
+            with cols_f[0]:
+                todos_f = st.checkbox("Selecionar Todos (FIIs)", value=True, key="todos_f", help="Se marcar esta opção, todos os setores serão incluídos de forma automática.")
+            
+            sel_f_list = []
             for i, (chave, label) in enumerate(SETORES_FIIS):
-                with cols_fiis[i % 2]:
-                    if st.checkbox(label, key=f"setor_f_{chave}"):
-                        setores_selecionados.append(chave)
+                with cols_f[(i + 1) % 3]:
+                    if st.checkbox(label, value=todos_f, disabled=todos_f, key=f"setor_f_{chave}"):
+                        sel_f_list.append(chave)
+            
+            if todos_f or not sel_f_list:
+                setores_selecionados.extend([k for k, _ in SETORES_FIIS])
+            else:
+                setores_selecionados.extend(sel_f_list)
 
         # Meta DY automática
         meta_dy_auto = calcular_meta_dividendos_auto(
@@ -197,7 +215,7 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
             f"risco {persona_selecionada['tolerancia_risco']}/10, prazo {objetivo})"
         )
 
-        submitted = st.form_submit_button("✅ Criar Carteira", use_container_width=True)
+        submitted = st.button("✅ Criar Carteira", key="btn_criar_carteira", type="primary", use_container_width=True)
         if submitted:
             if not nome_cart:
                 st.error("O nome da carteira é obrigatório!")
@@ -296,10 +314,34 @@ else:
                     
                     st.divider()
                     
-                    if st.button("➡️ Ver Detalhes", key=f"btn_card_{port['id']}", use_container_width=True):
-                        st.session_state.view_portfolio_id = port["id"]
-                        st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
-                        
+                    # Botoes de acao (Detalhes e Excluir)
+                    b1, b2 = st.columns([3, 1])
+                    with b1:
+                        if st.button("➡️ Ver Detalhes", key=f"btn_card_{port['id']}", use_container_width=True):
+                            st.session_state.view_portfolio_id = port["id"]
+                            st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+                    with b2:
+                        if st.button("🗑️", key=f"btn_del_port_req_{port['id']}", use_container_width=True, help="Excluir Carteira"):
+                            st.session_state[f"confirmar_del_port_{port['id']}"] = True
+                            
+                    # Modal inline de confirmacao de exclusao
+                    if st.session_state.get(f"confirmar_del_port_{port['id']}", False):
+                        st.error(
+                            "⚠️ **Atenção:** Destruir Carteira?\n\n"
+                            "Todos os ativos, relatórios e depósitos dessa carteira serão dizimados."
+                        )
+                        c_conf1, c_conf2 = st.columns(2)
+                        with c_conf1:
+                            if st.button("❌ Cancelar", key=f"btn_cancel_del_po_{port['id']}", use_container_width=True):
+                                st.session_state[f"confirmar_del_port_{port['id']}"] = False
+                                st.rerun()
+                        with c_conf2:
+                            if st.button("✔️ Apagar Tudo", key=f"btn_confirm_del_po_{port['id']}", type="primary", use_container_width=True):
+                                from database.crud import deletar_portfolio
+                                deletar_portfolio(port["id"])
+                                st.session_state[f"confirmar_del_port_{port['id']}"] = False
+                                st.toast(f"Carteira '{port['nome']}' eliminada.", icon="💥")
+                                st.rerun()
     else:
         # Modo Lista expandível
         for port in portfolios:
@@ -314,6 +356,31 @@ else:
                         setores_list = port["setores_preferidos"].split(",")
                         st.markdown(f"🏭 **Setores:** {', '.join(s.capitalize() for s in setores_list)}")
                 with c2:
-                    if st.button("➡️ Ver Detalhes", key=f"btn_list_{port['id']}", use_container_width=True):
-                        st.session_state.view_portfolio_id = port["id"]
-                        st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+                    # Botoes de acao (Detalhes e Excluir)
+                    b1, b2 = st.columns([3, 1])
+                    with b1:
+                        if st.button("➡️ Ver Detalhes", key=f"btn_list_{port['id']}", use_container_width=True):
+                            st.session_state.view_portfolio_id = port["id"]
+                            st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+                    with b2:
+                        if st.button("🗑️", key=f"btn_del_port_list_{port['id']}", use_container_width=True, help="Excluir Carteira"):
+                            st.session_state[f"confirmar_del_port_{port['id']}"] = True
+                            
+                # Modal inline de confirmacao de exclusao (acoplado fora da coluna c2 para renderizar legível no expander)
+                if st.session_state.get(f"confirmar_del_port_{port['id']}", False):
+                    st.error(
+                        "⚠️ **Atenção:** Destruir Carteira?\n\n"
+                        "Todos os ativos, relatórios e depósitos dessa carteira serão dizimados."
+                    )
+                    c_conf1, c_conf2 = st.columns(2)
+                    with c_conf1:
+                        if st.button("❌ Cancelar", key=f"btn_cancel_del_po_{port['id']}", use_container_width=True):
+                            st.session_state[f"confirmar_del_port_{port['id']}"] = False
+                            st.rerun()
+                    with c_conf2:
+                        if st.button("✔️ Apagar Tudo", key=f"btn_confirm_del_po_{port['id']}", type="primary", use_container_width=True):
+                            from database.crud import deletar_portfolio
+                            deletar_portfolio(port["id"])
+                            st.session_state[f"confirmar_del_port_{port['id']}"] = False
+                            st.toast(f"Carteira '{port['nome']}' eliminada.", icon="💥")
+                            st.rerun()

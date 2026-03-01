@@ -342,14 +342,20 @@ def gerar_sugestoes_carteira(portfolio_id: int) -> list[dict]:
         resultado = pontuar_ativo(ativo["ticker"], persona, portfolio)
         if resultado.get("sucesso"):
             score = resultado["score"]
-            if score >= 60:
+            if score >= 75:
                 acao_sugerida = "compra"
+            elif score >= 60:
+                acao_sugerida = "observar"
             elif score <= 40:
                 acao_sugerida = "venda"
             else:
                 acao_sugerida = "manter"
 
             texto = gerar_texto_resumo(ativo["ticker"], resultado["indicadores"], score)
+            
+            if acao_sugerida == "observar":
+                texto = texto.replace("Momento neutro — acompanhe os próximos movimentos.", "Ativo forte e pontuação alta, mas **aguarde melhor ponto de entrada**.")
+                texto = texto.replace("Excelente alinhamento com a sua carteira e momento favorável.", "Excelente alinhamento, mas **aguarde melhor ponto de entrada** devido à saturação do preço atual.")
 
             sugestoes.append({
                 "ticker": ativo["ticker"],

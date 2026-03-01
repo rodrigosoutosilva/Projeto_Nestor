@@ -57,7 +57,7 @@ def voltar():
 # ---------------------------------------------------------------------------
 # Header com progresso
 # ---------------------------------------------------------------------------
-st.markdown("# 📥 Onboarding Inteligente")
+st.markdown("### 📥 Onboarding Inteligente")
 st.markdown("*Vamos montar sua carteira ideal com a ajuda da IA*")
 
 total_steps = 6

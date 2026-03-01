@@ -35,7 +35,7 @@ def gerar_relatorio_excel(user_id: int) -> bytes:
                     "Valor (R$)": t["valor"],
                     "Quantidade": t["quantidade"] or "-",
                     "Preço Unitário (R$)": t["preco_unitario"] or "-",
-                    "Recomendação IA?": "Sim" if t["origem"] == "ia" else "Não",
+                    "Recomendação IA?": "Sim" if t.get("origem") == "ia" or "IA " in str(t.get("descricao", "")).upper() else "Não",
                     "Observações": t["descricao"] or ""
                 }
                 todas_transacoes.append(linha)

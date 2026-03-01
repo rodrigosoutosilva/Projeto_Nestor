@@ -13,7 +13,7 @@ if "user" not in st.session_state or st.session_state.user is None:
     st.warning("⚠️ Faça login na página principal primeiro.")
     st.stop()
 
-st.title("📅 Calendário de Movimentos")
+st.header("📅 Calendário de Movimentos")
 st.markdown("Visualize suas operações planejadas e executadas organizadas cronologicamente.")
 
 personas = listar_personas_usuario(st.session_state.user['id'])

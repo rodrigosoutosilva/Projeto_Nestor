@@ -242,15 +242,15 @@ PERFIL DO INVESTIDOR:
 - Objetivo de Prazo: {portfolio_info.get('objetivo_prazo', 'longo')}
 - Meta de Dividendos: {portfolio_info.get('meta_dividendos', 6.0)}% ao ano
 - Tipo de Ativo: {portfolio_info.get('tipo_ativo', 'misto')}
-- Montante Disponível: R$ {montante:,.2f}
+- Montante Disponível no Caixa Lívre: {montante:.2f} BRL
 - Setores Preferidos: {setores if setores else 'Sem preferência específica'}
 
-IMPORTANTE: O investidor tem R$ {montante:,.2f} disponíveis. NÃO sugira compras de valores acima deste montante. Se o preço atual do ativo multiplicado por uma quantidade razoável ultrapassar o montante, ajuste a recomendação.
+IMPORTANTE: O investidor tem exatamente {montante:.2f} de capital livre. NÃO recomende compras se o montante de dinheiro livre disponível na carteira for menor do que o preço atual de 1 única ação. Nesses casos de caixa vazio, recomende expressamente 'MANTER'. E SEMPRE escreva os valores com a moeda na frente da formatação correta do Brasil (Ex: R$ 5,00).
 
 Com base em TODOS esses dados, responda EXATAMENTE no formato:
 ACAO: [COMPRA ou VENDA ou MANTER]
 CONFIANCA: [número de 0 a 100 indicando sua confiança na recomendação]
-EXPLICACAO: [Explicação detalhada em 3-5 frases justificando a decisão, citando indicadores específicos e como se alinham ao perfil do investidor. Use linguagem acessível.]
+EXPLICACAO: [Explicação detalhada em 3-5 frases justificando a decisão, citando indicadores específicos e como se alinham ao perfil do investidor. Use linguagem acessível e SEMPRE inclua "R$" em cada citação monetária.]
 """
 
     try:

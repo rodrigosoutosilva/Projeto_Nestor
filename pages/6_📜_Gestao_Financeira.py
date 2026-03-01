@@ -31,7 +31,7 @@ if "user" not in st.session_state or st.session_state.user is None:
 
 user = st.session_state.user
 
-st.markdown("# 📜 Gestão Financeira")
+st.markdown("### 📜 Gestão Financeira")
 st.markdown("*Acompanhe toda a movimentação financeira das suas carteiras*")
 st.markdown("---")
 
@@ -87,7 +87,7 @@ if not todos_portfolios:
 # ---------------------------------------------------------------------------
 # Filtros opcionais (começa mostrando tudo)
 # ---------------------------------------------------------------------------
-st.markdown("### 🔍 Filtros")
+st.markdown("#### 🔍 Filtros")
 col_f1, col_f2 = st.columns(2)
 
 with col_f1:
@@ -315,7 +315,7 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Tabela de Transações Consolidada
 # ---------------------------------------------------------------------------
-st.markdown("### 📋 Histórico de Transações")
+st.markdown("#### 📋 Histórico de Transações")
 
 # Filtro por tipo
 filtro_tipo = st.selectbox(
@@ -350,15 +350,15 @@ if todas_transacoes:
     for t in todas_transacoes:
         emoji = tipo_emoji.get(t["tipo"], "📊")
         ticker_txt = f" — {t['ticker']}" if t.get('ticker') else ""
-        qtd_txt = f" ({t['quantidade']}x @ {formatar_moeda(t['preco_unitario'])})" if t.get('quantidade') and t.get('preco_unitario') else ""
+        qtd_txt = f" ({t['quantidade']}x @ {formatar_moeda(t['preco_unitario'])})".replace('$', r'\$') if t.get('quantidade') and t.get('preco_unitario') else ""
         desc_txt = f" · _{t['descricao']}_" if t.get('descricao') else ""
         carteira_txt = f" | 📂 {t.get('carteira_nome', '')}"
 
         if t["tipo"] in ("aporte", "venda", "dividendo"):
-            valor_txt = f"+{formatar_moeda(t['valor'])}"
+            valor_txt = f"+{formatar_moeda(t['valor'])}".replace('$', r'\$')
             cor = "green"
         else:
-            valor_txt = f"-{formatar_moeda(t['valor'])}"
+            valor_txt = f"-{formatar_moeda(t['valor'])}".replace('$', r'\$')
             cor = "red"
 
         st.markdown(
@@ -369,7 +369,7 @@ if todas_transacoes:
 
     # Gráfico de evolução
     st.markdown("---")
-    st.markdown("### 📈 Evolução do Caixa")
+    st.markdown("#### 📈 Evolução do Caixa")
 
     transacoes_ordenadas = sorted(todas_transacoes, key=lambda t: t.get("data", ""))
     saldo = 0

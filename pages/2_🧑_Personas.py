@@ -27,7 +27,7 @@ if "user" not in st.session_state or st.session_state.user is None:
 
 user = st.session_state.user
 
-st.markdown("# 🧑 Gestão de Personas")
+st.markdown("### 🧑 Gestão de Personas")
 st.markdown("*Configure perfis de investimento com diferentes estratégias*")
 st.markdown("---")
 
@@ -185,6 +185,34 @@ else:
                 mc3.markdown(f"📊 <span style='color:{cor_lucro}'>{formatar_moeda_md(lucro)}</span>", unsafe_allow_html=True)
 
                 st.divider()
-                if st.button("➡️ Ver Detalhes", key=f"btn_persona_{persona['id']}", use_container_width=True):
-                    st.session_state.view_persona_id = persona["id"]
-                    st.switch_page("pages/_9_🧑_Persona_Detalhe.py")
+                
+                # Botoes de acao (Detalhes e Excluir)
+                b1, b2 = st.columns([3, 1])
+                with b1:
+                    if st.button("➡️ Ver Detalhes", key=f"btn_persona_{persona['id']}", use_container_width=True):
+                        st.session_state.view_persona_id = persona["id"]
+                        st.switch_page("pages/_9_🧑_Persona_Detalhe.py")
+                with b2:
+                    if st.button("🗑️", key=f"btn_del_persona_req_{persona['id']}", use_container_width=True, help="Excluir Persona"):
+                        st.session_state[f"confirmar_del_persona_{persona['id']}"] = True
+                        
+                # Modal inline de confirmacao de exclusao
+                if st.session_state.get(f"confirmar_del_persona_{persona['id']}", False):
+                    st.error(
+                        "⚠️ **Atenção:** Você está prestes a apagar esta Persona.\n\n"
+                        "Ao confirmar, **todas as carteiras, ativos, movimentações "
+                        "e históricos** atrelados a ela serão dizimados do sistema como se nunca tivessem existido. "
+                        "Esta ação não tem volta."
+                    )
+                    c_conf1, c_conf2 = st.columns(2)
+                    with c_conf1:
+                        if st.button("❌ Cancelar", key=f"btn_cancel_del_p_{persona['id']}", use_container_width=True):
+                            st.session_state[f"confirmar_del_persona_{persona['id']}"] = False
+                            st.rerun()
+                    with c_conf2:
+                        if st.button("✔️ Confirmar Exclusão", key=f"btn_confirm_del_p_{persona['id']}", type="primary", use_container_width=True):
+                            from database.crud import deletar_persona
+                            deletar_persona(persona["id"])
+                            st.session_state[f"confirmar_del_persona_{persona['id']}"] = False
+                            st.toast(f"Persona '{persona['nome']}' eliminada das cinzas.", icon="💥")
+                            st.rerun()

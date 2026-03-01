@@ -50,7 +50,7 @@ else:
 freq_label = {"diario": "📅 Diário", "semanal": "📆 Semanal", "mensal": "🗓️ Mensal"}.get(persona.get("frequencia_acao", ""), "")
 estilo_label = {"dividendos": "💰 Dividendos", "crescimento": "🚀 Crescimento", "equilibrado": "⚖️ Equilibrado"}.get(persona.get("estilo", ""), "")
 
-st.title(f"{cor} {persona['nome']}")
+st.header(f"{cor} {persona['nome']}")
 st.caption(f"Perfil: **{perfil}** | Risco: {persona['tolerancia_risco']}/10 | Estilo: {estilo_label} | Frequência: {freq_label}")
 
 # --- MÉTRICAS CONSOLIDADAS DA PERSONA ---
@@ -155,38 +155,115 @@ else:
                     st.caption(f"💸 Aporte: {formatar_moeda(port['aporte_periodico'])}/{fl} | 📈 {len(ativos_port)} ativo(s)")
                 
                 st.divider()
-                if st.button("➡️ Ver Detalhes", key=f"btn_prt_{port['id']}", use_container_width=True):
-                    st.session_state.view_portfolio_id = port["id"]
-                    st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+                # Botoes de acao (Detalhes e Excluir)
+                b1, b2 = st.columns([3, 1])
+                with b1:
+                    if st.button("➡️ Ver Detalhes", key=f"btn_prt_{port['id']}", use_container_width=True):
+                        st.session_state.view_portfolio_id = port["id"]
+                        st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+                with b2:
+                    if st.button("🗑️", key=f"btn_del_port_req_pd_{port['id']}", use_container_width=True, help="Excluir Carteira"):
+                        st.session_state[f"confirmar_del_port_pd_{port['id']}"] = True
+                        
+                # Modal inline de confirmacao de exclusao
+                if st.session_state.get(f"confirmar_del_port_pd_{port['id']}", False):
+                    st.error(
+                        "⚠️ **Atenção:** Destruir Carteira?\n\n"
+                        "Todos os ativos, relatórios e depósitos dessa carteira serão dizimados."
+                    )
+                    c_conf1, c_conf2 = st.columns(2)
+                    with c_conf1:
+                        if st.button("❌ Cancelar", key=f"btn_cancel_del_po_pd_{port['id']}", use_container_width=True):
+                            st.session_state[f"confirmar_del_port_pd_{port['id']}"] = False
+                            st.rerun()
+                    with c_conf2:
+                        if st.button("✔️ Apagar Tudo", key=f"btn_confirm_del_po_pd_{port['id']}", type="primary", use_container_width=True):
+                            from database.crud import deletar_portfolio
+                            deletar_portfolio(port["id"])
+                            st.session_state[f"confirmar_del_port_pd_{port['id']}"] = False
+                            st.toast(f"Carteira '{port['nome']}' eliminada.", icon="💥")
+                            st.rerun()
 
 # --- CRIAR CARTEIRA ---
 st.markdown("---")
 with st.expander("➕ Criar Nova Carteira para esta Persona"):
-    with st.form("form_new_port_persona"):
+    with st.container():
         col1, col2 = st.columns(2)
         with col1:
             port_nome = st.text_input("Nome da Carteira", placeholder="Ex: Mix Ações")
             tipo_ativo = st.selectbox("Tipo de Ativo", ["acoes", "fiis", "misto"],
                                        format_func=lambda x: {"acoes":"📈 Ações","fiis":"🏢 FIIs","misto":"🔀 Misto"}[x])
+            montante = st.number_input(
+                "💰 Aporte Inicial (R$)",
+                min_value=0.0, max_value=10_000_000.0, value=1000.0, step=100.0,
+                help="Dinheiro inicial em reais que você está destinando para iniciar os investimentos desta carteira."
+            )
         with col2:
             prazo = st.selectbox("Objetivo Prazo", ["curto", "medio", "longo"],
                                   format_func=lambda x: {"curto":"⚡ Curto","medio":"📅 Médio","longo":"🏔️ Longo"}[x])
             meta_dy = st.number_input("Meta DY (%)", min_value=0.0, value=6.0, step=0.5)
         
-        setores = st.text_input("Setores preferidos (separados por vírgula)", placeholder="Ex: bancos, energia")
-        aporte = st.number_input("Aporte periódico (R$)", min_value=0.0, value=100.0, step=50.0)
-        freq_aporte = st.selectbox("Frequência aporte", ["mensal", "quinzenal", "semanal"])
+        # Importar as constantes de setores
+        from utils.helpers import SETORES_ACOES, SETORES_FIIS
         
-        if st.form_submit_button("✅ Criar Carteira", use_container_width=True):
+        st.markdown("**Setores preferidos** *(opcional)*")
+        setores_selecionados = []
+        
+        if tipo_ativo in ("acoes", "misto"):
+            st.markdown("**Ações:**")
+            cols_a = st.columns(3)
+            with cols_a[0]:
+                todos_a = st.checkbox("Selecionar Todos (Ações)", value=True, key="todos_a_pd", help="Se marcar esta opção, todos os setores serão incluídos de forma automática.")
+            sel_a_list = []
+            for i, (chave, label) in enumerate(SETORES_ACOES):
+                with cols_a[(i + 1) % 3]:
+                    if st.checkbox(label, value=todos_a, disabled=todos_a, key=f"setor_a_pd_{chave}"):
+                        sel_a_list.append(chave)
+            if todos_a or not sel_a_list:
+                setores_selecionados.extend([k for k, _ in SETORES_ACOES])
+            else:
+                setores_selecionados.extend(sel_a_list)
+
+        if tipo_ativo in ("fiis", "misto"):
+            st.markdown("**FIIs:**")
+            cols_f = st.columns(3)
+            with cols_f[0]:
+                todos_f = st.checkbox("Selecionar Todos (FIIs)", value=True, key="todos_f_pd", help="Se marcar esta opção, todos os setores serão incluídos de forma automática.")
+            sel_f_list = []
+            for i, (chave, label) in enumerate(SETORES_FIIS):
+                with cols_f[(i + 1) % 3]:
+                    if st.checkbox(label, value=todos_f, disabled=todos_f, key=f"setor_f_pd_{chave}"):
+                        sel_f_list.append(chave)
+            if todos_f or not sel_f_list:
+                setores_selecionados.extend([k for k, _ in SETORES_FIIS])
+            else:
+                setores_selecionados.extend(sel_f_list)
+                
+        col_ap1, col_ap2 = st.columns(2)
+        with col_ap1:
+            aporte = st.number_input("Aporte periódico (R$)", min_value=0.0, value=100.0, step=50.0)
+        with col_ap2:
+            freq_aporte = st.selectbox("Frequência aporte", ["mensal", "quinzenal", "semanal"])
+        
+        if st.button("✅ Criar Carteira", key="btn_criar_carteira_px", type="primary", use_container_width=True):
             if not port_nome:
                 st.error("Nome obrigatório!")
             else:
-                criar_portfolio(
+                setores_str = ",".join(setores_selecionados)
+                result = criar_portfolio(
                     persona_id=persona_id, nome=port_nome,
                     objetivo_prazo=prazo, meta_dividendos=meta_dy,
-                    tipo_ativo=tipo_ativo, setores_preferidos=setores,
+                    tipo_ativo=tipo_ativo, setores_preferidos=setores_str,
                     montante_disponivel=0,
                     aporte_periodico=aporte, frequencia_aporte=freq_aporte
                 )
+                if montante > 0:
+                    from database.crud import registrar_transacao
+                    registrar_transacao(
+                        portfolio_id=result["id"],
+                        tipo="aporte",
+                        valor=montante,
+                        descricao="Aporte inicial ao criar carteira"
+                    )
                 st.toast(f"Carteira '{port_nome}' criada! 🎉")
                 st.rerun()
