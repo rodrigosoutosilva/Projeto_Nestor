@@ -330,8 +330,8 @@ Com base no perfil, na carteira atual e no montante disponível, sugira:
 1. Novos ativos que complementariam a carteira (diversificação)
 2. Ativos existentes que valem reforçar (comprar mais)
 
-O valor TOTAL das sugestões NÃO deve ultrapassar R$ {montante:,.2f}.
-Sugira de 2 a 5 operações.
+O valor TOTAL somado de todas as sugestões (QTD * PRECO_ESTIMADO) é ESTRITAMENTE LIMITADO ao CAIXA de R$ {montante:,.2f}. NUNCA sugira quantidades que extrapolem esse valor de caixa livre.
+Sugira de 1 a 5 operações viáveis com esse dinheiro.
 
 Responda EXATAMENTE no formato (uma sugestão por linha):
 TICKER: [código] | TIPO: [Novo/Reforço] | QTD: [quantidade sugerida] | PRECO_ESTIMADO: [preço estimado por unidade] | MOTIVO: [explicação curta de 1 frase]
