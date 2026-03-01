@@ -804,27 +804,26 @@ def tela_principal():
         with col2:
             if st.button("🧑 Criar Persona Manualmente", use_container_width=True):
                 st.switch_page("pages/2_🧑_Personas.py")
-        return
+    else:
+        # Métricas rápidas
+        total_personas = len(personas)
+        total_portfolios = 0
+        total_ativos = 0
 
-    # Métricas rápidas
-    total_personas = len(personas)
-    total_portfolios = 0
-    total_ativos = 0
+        for p in personas:
+            portfolios = listar_portfolios_persona(p["id"])
+            total_portfolios += len(portfolios)
+            for port in portfolios:
+                ativos = listar_ativos_portfolio(port["id"])
+                total_ativos += len(ativos)
 
-    for p in personas:
-        portfolios = listar_portfolios_persona(p["id"])
-        total_portfolios += len(portfolios)
-        for port in portfolios:
-            ativos = listar_ativos_portfolio(port["id"])
-            total_ativos += len(ativos)
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("🧑 Personas", total_personas)
-    with col2:
-        st.metric("💼 Carteiras", total_portfolios)
-    with col3:
-        st.metric("📊 Ativos", total_ativos)
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("🧑 Personas", total_personas)
+        with col2:
+            st.metric("💼 Carteiras", total_portfolios)
+        with col3:
+            st.metric("📊 Ativos", total_ativos)
 
     st.markdown("---")
 
@@ -844,8 +843,7 @@ def tela_principal():
     with col_btn:
         buscar_direto = st.button("Buscar 🔎", use_container_width=True, type="primary")
     
-    # Se digitou algo, mostrar resultados fuzzy
-    if ticker_busca and len(ticker_busca) >= 2:
+    if buscar_direto and ticker_busca:
         from utils.helpers import buscar_ativos_por_nome
         resultados = buscar_ativos_por_nome(ticker_busca)
         
@@ -857,13 +855,11 @@ def tela_principal():
                     if st.button(f"📄 {r['ticker']}\n{r['nome']}", key=f"sr_{r['ticker']}", use_container_width=True):
                         st.session_state.view_asset_ticker = r['ticker']
                         st.switch_page("pages/_8_📄_Ativo.py")
-        elif buscar_direto:
-            # Tentar buscar diretamente como ticker
+        else:
+            # Tentar buscar diretamente como ticker se não obteve resultado fuzzy
             st.session_state.view_asset_ticker = ticker_busca.upper()
             st.switch_page("pages/_8_📄_Ativo.py")
-    elif buscar_direto and ticker_busca:
-        st.session_state.view_asset_ticker = ticker_busca.upper()
-        st.switch_page("pages/_8_📄_Ativo.py")
+            
     elif buscar_direto:
         st.toast("Digite um código ou nome válido primeiro", icon="⚠️")
                 
@@ -872,14 +868,21 @@ def tela_principal():
     # -----------------------------------------------------------------------
     # 📈 Destaques do Mercado (Highlights da Bolsa)
     # -----------------------------------------------------------------------
-    st.markdown("### 📈 Destaques do Mercado")
-    st.caption("Rankings de ações populares da B3 — atualizado a cada 5 min")
-
     from services.market_highlights import buscar_highlights_mercado
     from database.crud import adicionar_watchlist
 
-    with st.spinner("🔄 Buscando destaques do mercado..."):
-        highlights = buscar_highlights_mercado()
+    c_tit1, c_tit2 = st.columns([5, 1])
+    with c_tit1:
+        st.markdown("### 📈 Destaques do Mercado")
+        st.caption("Rankings de ações populares da B3")
+    with c_tit2:
+        if st.button("🔄 Atualizar Painel", use_container_width=True, key="btn_refresh_destaques", help="Puxa cotações em tempo real da B3"):
+            buscar_highlights_mercado.clear()
+            st.rerun()
+
+    with st.spinner("🔄 Carregando destaques do mercado..."):
+        st.cache_data.clear()  # <-- Forçar limpeza brutal pre-hit do cache
+        highlights = buscar_highlights_mercado(_cache_buster=1)
 
     if highlights:
         # Pre-load user portfolios mappings for the quick actions
@@ -889,6 +892,19 @@ def tela_principal():
             for pt in ports:
                 todas_carteiras.append({"id": pt["id"], "nome": f"{pt['nome']} ({p['nome']})"})
                 
+        # Filtro de Ações ou FIIs
+        filtro_destaques = st.radio(
+            "Filtrar rankigs por tipo:",
+            ["Todos", "Ações", "FIIs"],
+            horizontal=True,
+            key="filtro_destaques"
+        )
+
+        def filtrar_lista(lista):
+            if filtro_destaques == "Todos":
+                return lista
+            return [x for x in lista if x.get("tipo") == filtro_destaques]
+
         h1, h2, h3, h4 = st.columns(4)
 
         def _renderizar_card_destaque(item, cor_variacao, prefix, label_extra=""):
@@ -926,31 +942,49 @@ def tela_principal():
                                     st.session_state.view_portfolio_id = sel_port
                                     st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
 
+        # Refazendo o ranking no frontend (para permitir filtros ricos sobre toda a base cacheada)
+        base_ativos = filtrar_lista(highlights.get("todos_ativos", []))
+        
+        m_altas = sorted(base_ativos, key=lambda x: x["variacao"], reverse=True)[:5]
+        m_quedas = sorted(base_ativos, key=lambda x: x["variacao"])[:5]
+        com_dy = [r for r in base_ativos if r.get("dy") and r["dy"] > 0]
+        m_dy = sorted(com_dy, key=lambda x: x["dy"], reverse=True)[:5]
+        com_pl = [r for r in base_ativos if r.get("pl") and r["pl"] > 0]
+        m_pl = sorted(com_pl, key=lambda x: x["pl"])[:5]
+
         with h1:
             st.markdown("#### 🟢 Maiores Altas")
-            for item in highlights["maiores_altas"]:
+            for item in m_altas:
                 cor = "#00C851" if item["variacao"] >= 0 else "#FF4444"
                 _renderizar_card_destaque(item, cor, "hi")
+            if not m_altas:
+                st.caption(f"Sem dados para {filtro_destaques}")
 
         with h2:
             st.markdown("#### 🔴 Maiores Quedas")
-            for item in highlights["maiores_quedas"]:
+            for item in m_quedas:
                 cor = "#00C851" if item["variacao"] >= 0 else "#FF4444"
                 _renderizar_card_destaque(item, cor, "lo")
+            if not m_quedas:
+                st.caption(f"Sem dados para {filtro_destaques}")
 
         with h3:
             st.markdown("#### 💰 Melhores DY")
-            for item in highlights["melhores_dy"]:
+            for item in m_dy:
                 extra = f"<span style='color:#667eea;font-size:0.85em'>DY {item['dy']:.2f}%</span>"
                 _renderizar_card_destaque(item, "#333", "dy", extra)
+            if not m_dy:
+                st.caption(f"Sem dados para {filtro_destaques}")
 
         with h4:
             st.markdown("#### 📊 Menor P/L")
-            for item in highlights["menor_pl"]:
+            for item in m_pl:
                 extra = f"<span style='color:#764ba2;font-size:0.85em'>P/L {item['pl']:.1f}</span>"
                 _renderizar_card_destaque(item, "#333", "pl", extra)
+            if not m_pl:
+                st.caption(f"Sem dados para {filtro_destaques}")
 
-        st.caption(f"📊 {highlights['total_analisados']} ativos analisados")
+        st.caption(f"📊 {len(base_ativos)} ativos filtrados de um total de {highlights['total_analisados']}")
     else:
         st.info("⏳ Não foi possível carregar os destaques do mercado. Tente novamente em instantes.")
 

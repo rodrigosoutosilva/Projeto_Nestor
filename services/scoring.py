@@ -275,15 +275,14 @@ def gerar_texto_resumo(ticker: str, indicadores: dict, score: float) -> str:
         else:
             texto += f"O **P/VP ({pvp:.2f})** está em faixa normal. "
 
-    # DY
+    # Dividend Yield
     if dy is not None and dy > 0:
-        texto += f"O **Dividend Yield ({dy:.1f}%)** "
         if dy >= LIMITES["dy_otimo"]:
-            texto += "é **excelente** para renda passiva. "
+            texto += f"Distribui excelentes dividendos (**DY {dy:.2f}%** ao ano). "
         elif dy >= LIMITES["dy_bom"]:
-            texto += "é **bom** para quem busca dividendos. "
+            texto += f"Paga bons dividendos (**DY {dy:.2f}%** ao ano). "
         else:
-            texto += "é modesto. "
+            texto += f"Paga dividendos modestos (**DY {dy:.2f}%** ao ano). "
 
     # Volume
     if volume_ratio > LIMITES["volume_alto"]:

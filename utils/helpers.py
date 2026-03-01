@@ -70,10 +70,20 @@ def formatar_moeda(valor) -> str:
     """Formata valor para R$ 1.234,56. Uso: st.metric() e contextos que NÃO interpretam LaTeX."""
     if valor is None:
         return "R$ 0,00"
-    try:
-        valor_float = float(str(valor).replace("R$", "").replace("R\\$", "").replace("R&#36;", "").replace(".", "").replace(",", ".").strip())
-    except ValueError:
-        return "R$ 0,00"
+    
+    if isinstance(valor, (int, float)):
+        valor_float = float(valor)
+    else:
+        try:
+            val_str = str(valor).replace("R$", "").replace("R\\$", "").replace("R&#36;", "").strip()
+            if "," in val_str and "." in val_str:
+                val_str = val_str.replace(".", "").replace(",", ".")
+            elif "," in val_str:
+                val_str = val_str.replace(",", ".")
+            valor_float = float(val_str)
+        except ValueError:
+            return "R$ 0,00"
+            
     return f"R$ {valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 

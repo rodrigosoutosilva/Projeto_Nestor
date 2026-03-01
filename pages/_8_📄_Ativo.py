@@ -13,7 +13,7 @@ buscar_dados_fundamentalistas = _md.buscar_dados_fundamentalistas
 from services.news_scraper import buscar_noticias_ticker
 from services.scoring import pontuar_ativo, gerar_texto_resumo
 from services.recommendation import gerar_recomendacao_completa
-from utils.helpers import formatar_moeda, formatar_percentual, nome_ativo
+from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_percentual, nome_ativo
 
 st.set_page_config(page_title="Detalhes do Ativo", page_icon="📄", layout="wide")
 
@@ -68,21 +68,57 @@ with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=
             opcoes_port = {pt["id"]: pt["nome"] for pt in portfolios}
             port_id = st.selectbox("Selecione a Carteira", list(opcoes_port.keys()), format_func=lambda x: opcoes_port[x])
             
+            port_detalhe = buscar_portfolio_por_id(port_id)
+            persona_detalhe = buscar_persona_por_id(pid)
+            
             c1, c2 = st.columns(2)
             with c1:
                 if st.button("👀 Adicionar à Watchlist", use_container_width=True):
                     adicionar_watchlist(port_id, ticker, manual=True)
                     st.success(f"{ticker} adicionado à watchlist da carteira '{opcoes_port[port_id]}'!")
             with c2:
-                if st.button("🛒 Operar na Carteira Selecionada", use_container_width=True):
+                if st.button("📂 Ir para Carteira", use_container_width=True):
                     st.session_state.view_portfolio_id = port_id
                     st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+
+            with st.expander("🛒 Registrar Compra", expanded=False):
+                caixa_disp = port_detalhe.get('montante_disponivel', 0) if port_detalhe else 0
+                st.markdown(f"**Saldo em caixa:** {formatar_moeda_md(caixa_disp)}", unsafe_allow_html=True)
+                
+                preco_atual_val = cotacao.get('preco_atual', 0) if isinstance(cotacao, dict) else 0
+                if preco_atual_val > 0:
+                    qtd_compra = st.number_input("Quantidade para comprar", min_value=1, value=1, step=1)
+                    total_compra = qtd_compra * preco_atual_val
+                    
+                    st.markdown(f"**Preço unitário:** {formatar_moeda_md(preco_atual_val)}<br>**Total:** **{formatar_moeda_md(total_compra)}**", unsafe_allow_html=True)
+                    
+                    if total_compra > caixa_disp:
+                        st.error("Saldo insuficiente para esta compra.")
+                    else:
+                        if st.button("Confirmar Compra", type="primary", use_container_width=True):
+                            from database.crud import adicionar_ativo, atualizar_ativo, registrar_transacao, listar_ativos_portfolio
+                            from datetime import date
+                            ativos_cart = listar_ativos_portfolio(port_id)
+                            ativo_existente = next((x for x in ativos_cart if x["ticker"] == ticker), None)
+                            
+                            if ativo_existente:
+                                q_ant = ativo_existente["quantidade"]
+                                p_ant = ativo_existente["preco_medio"]
+                                q_nova = q_ant + qtd_compra
+                                p_novo = ((q_ant * p_ant) + total_compra) / q_nova
+                                atualizar_ativo(ativo_existente["id"], quantidade=q_nova, preco_medio=p_novo)
+                            else:
+                                adicionar_ativo(port_id, ticker, preco_atual_val, qtd_compra, date.today())
+                            
+                            registrar_transacao(port_id, "compra", total_compra, ticker, qtd_compra, preco_atual_val, "Compra Manual", date.today())
+                            st.toast(f"{qtd_compra}x {ticker} comprados com sucesso! 🎉", icon="✅")
+                            st.rerun()
+                else:
+                    st.warning("Não foi possível obter o preço atual do ativo para calcular a compra.")
             
             # Insights rapidos
             st.markdown("---")
             st.markdown(f"**Insights Rápidos para {opcoes_port[port_id]}:**")
-            port_detalhe = buscar_portfolio_por_id(port_id)
-            persona_detalhe = buscar_persona_por_id(pid)
             
             if port_detalhe and persona_detalhe:
                 res = pontuar_ativo(ticker, persona_detalhe, port_detalhe)

@@ -138,7 +138,7 @@ elif step == 2:
     mapa_risco = {
         "😰": 1, "😟": 3, "🤔": 5, "😎": 7, "🤑": 10
     }
-    tolerancia = mapa_risco.get(opcao_risco[:2], 5)
+    tolerancia = mapa_risco.get(opcao_risco.split()[0], 5)
 
     st.markdown(f"**Tolerância a risco: {tolerancia}/10**")
 
@@ -159,7 +159,7 @@ elif step == 2:
             respostas["tolerancia_risco"] = tolerancia
             respostas["opcao_risco_idx"] = [
                 "😰", "😟", "🤔", "😎", "🤑"
-            ].index(opcao_risco[:2])
+            ].index(opcao_risco.split()[0])
             avancar()
             st.rerun()
 

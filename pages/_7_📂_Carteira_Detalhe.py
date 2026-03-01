@@ -99,7 +99,7 @@ with tab1:
                 with c3:
                     st.markdown(f"**Preço Médio:** {formatar_moeda_md(a['preco_medio'])}", unsafe_allow_html=True)
                 with c4:
-                    col_b1, col_b2 = st.columns(2)
+                    col_b1, col_b2, col_bc, col_bv = st.columns(4)
                     with col_b1:
                         if st.button("📄 Info", key=f"info_{a['id']}", use_container_width=True):
                             st.session_state.view_asset_ticker = a["ticker"]
@@ -108,60 +108,121 @@ with tab1:
                         if st.button("🗑️", key=f"del_{a['id']}", use_container_width=True):
                             deletar_ativo(a["id"])
                             st.rerun()
-    else:
+                    with col_bc:
+                        if st.button("🛒", key=f"btn_c_{a['id']}", help="Comprar Mais"):
+                            st.session_state[f"op_inline_{a['id']}"] = "compra"
+                    with col_bv:
+                        if st.button("📉", key=f"btn_v_{a['id']}", help="Vender"):
+                            st.session_state[f"op_inline_{a['id']}"] = "venda"
+                            
+                # --- INLINE COMPRA / VENDA ---
+                op_ativa = st.session_state.get(f"op_inline_{a['id']}", None)
+                if op_ativa:
+                    with st.expander(f"Registrar {op_ativa.capitalize()} para {a['ticker']}", expanded=True):
+                        # Puxar cotação pra facilitar
+                        preco_sug_inline = 10.0
+                        from services.market_data import buscar_preco_atual
+                        cot = buscar_preco_atual(a["ticker"])
+                        if isinstance(cot, dict) and cot.get("preco_atual", 0) > 0:
+                            preco_sug_inline = float(cot["preco_atual"])
+                            
+                        ic1, ic2, ic3 = st.columns(3)
+                        with ic1: i_qtd = st.number_input("Quantidade", min_value=1, value=100, key=f"iq_{a['id']}")
+                        with ic2: i_preco = st.number_input("Preço", min_value=0.01, value=preco_sug_inline, format="%.2f", key=f"ip_{a['id']}")
+                        with ic3: i_data = st.date_input("Data", value=date.today(), key=f"id_{a['id']}")
+                        
+                        i_total = i_qtd * i_preco
+                        
+                        st.markdown(f"**Total Estimado:** {formatar_moeda_md(i_total)}", unsafe_allow_html=True)
+                        if op_ativa == "compra":
+                            caixa_disp = port.get("montante_disponivel", 0)
+                            if i_total > caixa_disp:
+                                st.error(f"Caixa insuficiente. Disponível: {formatar_moeda(caixa_disp)}")
+                            else:
+                                if st.button("Confirmar Compra", type="primary", key=f"conf_c_{a['id']}", use_container_width=True):
+                                    q_ant = a["quantidade"]
+                                    p_ant = a["preco_medio"]
+                                    q_nova = q_ant + i_qtd
+                                    p_novo = ((q_ant * p_ant) + i_total) / q_nova
+                                    atualizar_ativo(a["id"], quantidade=q_nova, preco_medio=p_novo)
+                                    registrar_transacao(port["id"], "compra", i_total, a["ticker"], i_qtd, i_preco, "Compra Direta", i_data)
+                                    st.session_state[f"op_inline_{a['id']}"] = None
+                                    st.rerun()
+                        elif op_ativa == "venda":
+                            if i_qtd > a["quantidade"]:
+                                st.error(f"Quantidade insuficiente. Você possui {a['quantidade']} cotas.")
+                            else:
+                                if st.button("Confirmar Venda", type="primary", key=f"conf_v_{a['id']}", use_container_width=True):
+                                    nova_qtd = a["quantidade"] - i_qtd
+                                    if nova_qtd <= 0:
+                                        deletar_ativo(a["id"])
+                                    else:
+                                        atualizar_ativo(a["id"], quantidade=nova_qtd, preco_medio=a["preco_medio"])
+                                    registrar_transacao(port["id"], "venda", i_total, a["ticker"], i_qtd, i_preco, "Venda Direta", i_data)
+                                    st.session_state[f"op_inline_{a['id']}"] = None
+                                    st.rerun()
         st.info("Sua carteira ainda não possui ativos.")
         
     st.markdown("#### 🛒 Registrar Operação Manual")
     with st.expander("Registrar Compra / Venda / Inserção"):
-        with st.form("form_operacao"):
-            op_tipo = st.radio("Operação", ["Compra", "Venda", "Inserção Direta (Sem descontar caixa)"], horizontal=True)
-            op_ticker = st.text_input("Ticker", placeholder="PETR4")
-            c1, c2, c3 = st.columns(3)
-            with c1: op_qtd = st.number_input("Quantidade", min_value=1, value=100)
-            with c2: op_preco = st.number_input("Preço", min_value=0.01, value=10.0)
-            with c3: op_data = st.date_input("Data", value=date.today())
-            
-            if st.form_submit_button("Confirmar Operação", use_container_width=True):
-                if not op_ticker:
-                    st.error("Informe o ticker!")
-                else:
-                    ticker_upper = op_ticker.upper().strip()
-                    ativo_existente = next((x for x in ativos if x["ticker"] == ticker_upper), None)
-                    valor_total = op_qtd * op_preco
-                    
-                    if op_tipo == "Compra":
-                        caixa = port.get("montante_disponivel", 0)
-                        if valor_total > caixa:
-                            st.error(f"Caixa insuficiente. Necessário: {formatar_moeda(valor_total)}")
-                        else:
-                            if ativo_existente:
-                                q_ant = ativo_existente["quantidade"]
-                                p_ant = ativo_existente["preco_medio"]
-                                q_nova = q_ant + op_qtd
-                                p_novo = ((q_ant * p_ant) + valor_total) / q_nova
-                                atualizar_ativo(ativo_existente["id"], quantidade=q_nova, preco_medio=p_novo)
-                            else:
-                                adicionar_ativo(port["id"], ticker_upper, op_preco, op_qtd, op_data)
-                            registrar_transacao(port["id"], "compra", valor_total, ticker_upper, op_qtd, op_preco, "Compra manual", op_data)
-                            st.rerun()
-                            
-                    elif op_tipo == "Venda":
-                        if not ativo_existente or op_qtd > ativo_existente["quantidade"]:
-                            st.error("Você não possui quantidade suficiente deste ativo na carteira.")
-                        else:
-                            nova_qtd = ativo_existente["quantidade"] - op_qtd
-                            if nova_qtd == 0: deletar_ativo(ativo_existente["id"])
-                            else: atualizar_ativo(ativo_existente["id"], quantidade=nova_qtd)
-                            registrar_transacao(port["id"], "venda", valor_total, ticker_upper, op_qtd, op_preco, "Venda manual", op_data)
-                            st.rerun()
-                            
-                    else: # Inserção Direta
+        op_tipo = st.radio("Operação", ["Compra", "Venda", "Inserção Direta (Sem descontar caixa)"], horizontal=True)
+        op_ticker = st.text_input("Ticker", placeholder="PETR4", help="Digite o ticker e pressione Enter ou tire o foco do campo para buscar a cotação atual.")
+        
+        preco_sug = 10.0
+        if op_ticker:
+            from services.market_data import buscar_preco_atual
+            cot = buscar_preco_atual(op_ticker)
+            if isinstance(cot, dict) and cot.get("preco_atual", 0) > 0:
+                preco_sug = float(cot["preco_atual"])
+                
+        c1, c2, c3 = st.columns(3)
+        with c1: op_qtd = st.number_input("Quantidade", min_value=1, value=100)
+        with c2: op_preco = st.number_input("Preço", min_value=0.01, value=preco_sug, format="%.2f")
+        with c3: op_data = st.date_input("Data", value=date.today())
+        
+        valor_total = op_qtd * op_preco
+        st.markdown(f"**Total da Operação Estimado:** {formatar_moeda_md(valor_total)}", unsafe_allow_html=True)
+        
+        if st.button("Confirmar Operação", type="primary", use_container_width=True):
+            if not op_ticker:
+                st.error("Informe o ticker!")
+            else:
+                ticker_upper = op_ticker.upper().strip()
+                ativo_existente = next((x for x in ativos if x["ticker"] == ticker_upper), None)
+                
+                if op_tipo == "Compra":
+                    caixa = port.get("montante_disponivel", 0)
+                    if valor_total > caixa:
+                        st.error(f"Caixa insuficiente. Necessário: {formatar_moeda(valor_total)}")
+                    else:
                         if ativo_existente:
-                            st.error("Ativo já existe na carteira. Use Compra para aumentar a posição.")
+                            q_ant = ativo_existente["quantidade"]
+                            p_ant = ativo_existente["preco_medio"]
+                            q_nova = q_ant + op_qtd
+                            p_novo = ((q_ant * p_ant) + valor_total) / q_nova
+                            atualizar_ativo(ativo_existente["id"], quantidade=q_nova, preco_medio=p_novo)
                         else:
                             adicionar_ativo(port["id"], ticker_upper, op_preco, op_qtd, op_data)
-                            st.toast("Inserido!")
-                            st.rerun()
+                        registrar_transacao(port["id"], "compra", valor_total, ticker_upper, op_qtd, op_preco, "Compra manual", op_data)
+                        st.rerun()
+                        
+                elif op_tipo == "Venda":
+                    if not ativo_existente or op_qtd > ativo_existente["quantidade"]:
+                        st.error("Você não possui quantidade suficiente deste ativo na carteira.")
+                    else:
+                        nova_qtd = ativo_existente["quantidade"] - op_qtd
+                        if nova_qtd == 0: deletar_ativo(ativo_existente["id"])
+                        else: atualizar_ativo(ativo_existente["id"], quantidade=nova_qtd, preco_medio=ativo_existente["preco_medio"])
+                        registrar_transacao(port["id"], "venda", valor_total, ticker_upper, op_qtd, op_preco, "Venda manual", op_data)
+                        st.rerun()
+                        
+                else: # Inserção Direta
+                    if ativo_existente:
+                        st.error("Ativo já existe na carteira. Use Compra para aumentar a posição diretamente pelo mercado.")
+                    else:
+                        adicionar_ativo(port["id"], ticker_upper, op_preco, op_qtd, op_data)
+                        st.toast("Inserido com sucesso!")
+                        st.rerun()
 
 with tab2:
     st.subheader("Ativos em Monitoramento")

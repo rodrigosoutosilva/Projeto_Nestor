@@ -218,9 +218,22 @@ def buscar_dados_fundamentalistas(ticker: str) -> dict:
         pvp = info.get("priceToBook")
         
         # Dividend Yield
-        dy = info.get("dividendYield")
-        if dy is not None:
-            dy = round(dy * 100, 2)  # Converter de decimal para %
+        dy_raw = info.get("trailingAnnualDividendYield")
+        dy_fallback = info.get("dividendYield")
+        
+        dy_val = 0.0
+        if dy_raw is not None and float(dy_raw) > 0:
+            dy_val = float(dy_raw)
+        elif dy_fallback is not None and float(dy_fallback) > 0:
+            dy_val = float(dy_fallback)
+            
+        if dy_val > 0:
+            if dy_val < 1.0:
+                dy = round(dy_val * 100, 2)
+            else:
+                dy = round(dy_val, 2)
+        else:
+            dy = None
         
         # Setor
         setor = info.get("sector", info.get("industry", None))

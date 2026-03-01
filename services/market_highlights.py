@@ -28,11 +28,11 @@ TICKERS_POPULARES = [
 ]
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def buscar_highlights_mercado() -> Optional[dict]:
+@st.cache_data(show_spinner=False)
+def buscar_highlights_mercado(_cache_buster: int = 0) -> Optional[dict]:
     """
     Busca dados de mercado para tickers populares e retorna rankings.
-    Cache de 5 minutos para performance.
+    Cache armazenado até que a função de limpeza seja chamada.
     
     Retorna dict com 4 listas rankeadas (top 5 cada):
     - maiores_altas: maiores variações positivas do dia
@@ -60,16 +60,40 @@ def buscar_highlights_mercado() -> Optional[dict]:
                     continue
                 
                 variacao = info.get("regularMarketChangePercent", 0) or 0
-                dy = info.get("dividendYield", 0) or 0
                 pl = info.get("trailingPE") or info.get("forwardPE")
                 nome = info.get("shortName", ticker)
                 
+                # Extrair Dividend Yield uniformemente
+                dy_raw = info.get("trailingAnnualDividendYield")
+                dy_fallback = info.get("dividendYield")
+                
+                dy_val = 0.0
+                if dy_raw is not None and float(dy_raw) > 0:
+                    dy_val = float(dy_raw)
+                elif dy_fallback is not None and float(dy_fallback) > 0:
+                    dy_val = float(dy_fallback)
+                    
+                dy = 0.0
+                if dy_val > 0:
+                    if dy_val < 1.0:
+                        dy = round(dy_val * 100, 2)
+                    else:
+                        dy = round(dy_val, 2)
+                
+                # Identificar tipo de ativo
+                tipo_ativo = "Ações"
+                if len(ticker) == 6 and ticker.endswith("11") and ticker not in ["TAEE11", "KLBN11", "ENGI11", "SANB11", "ALUP11"]:
+                    tipo_ativo = "FIIs"
+                elif ticker in ["HGLG11", "XPLG11", "MXRF11", "KNRI11", "VISC11"]:
+                    tipo_ativo = "FIIs"
+
                 resultados.append({
                     "ticker": ticker,
                     "nome": nome[:25] if nome else ticker,
+                    "tipo": tipo_ativo,
                     "preco": preco,
                     "variacao": round(variacao, 2),
-                    "dy": round(dy * 100, 2) if dy and dy < 1 else round(dy, 2) if dy else 0,
+                    "dy": dy,
                     "pl": round(pl, 2) if pl and pl > 0 else None
                 })
             except Exception:
@@ -96,6 +120,7 @@ def buscar_highlights_mercado() -> Optional[dict]:
         menor_pl = sorted(com_pl, key=lambda x: x["pl"])[:5]
         
         return {
+            "todos_ativos": resultados,
             "maiores_altas": maiores_altas,
             "maiores_quedas": maiores_quedas,
             "melhores_dy": melhores_dy,
