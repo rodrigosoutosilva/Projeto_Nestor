@@ -303,6 +303,7 @@ def gerar_sugestoes_compra(
     """
     Sugere novos ativos para comprar OU reforço de posição em ativos existentes,
     baseado no montante disponível, perfil e setores preferidos.
+    A IA retorna % de alocação e o algoritmo calcula quantos papéis inteiros cabem.
     """
     montante = portfolio_info.get('montante_disponivel', 0)
     setores = portfolio_info.get('setores_preferidos', '')
@@ -326,18 +327,19 @@ PERFIL DO INVESTIDOR:
 
 MONTANTE DISPONÍVEL PARA COMPRAS: R$ {montante:,.2f}
 
-Com base no perfil, na carteira atual e no montante disponível, sugira:
-1. Novos ativos que complementariam a carteira (diversificação)
-2. Ativos existentes que valem reforçar (comprar mais)
+Com base no perfil, na carteira atual e no montante disponível, sugira de 3 a 6 ativos para investir.
+Para CADA ativo, informe que PERCENTUAL do montante disponível deve ser alocado nele.
+A soma de todos os percentuais DEVE ser exatamente 100%.
 
-O valor TOTAL somado de todas as sugestões (QTD * PRECO_ESTIMADO) é ESTRITAMENTE LIMITADO ao CAIXA de R$ {montante:,.2f}. NUNCA sugira quantidades que extrapolem esse valor de caixa livre.
-Sugira de 1 a 5 operações viáveis com esse dinheiro.
+IMPORTANTE:
+- Sugira ativos que complementem a carteira (diversificação) ou reforcem posições existentes.
+- Todos os ativos devem ser negociados na B3 (ações terminando em 3/4 ou FIIs terminando em 11).
 
 Responda EXATAMENTE no formato (uma sugestão por linha):
-TICKER: [código] | TIPO: [Novo/Reforço] | QTD: [quantidade sugerida] | PRECO_ESTIMADO: [preço estimado por unidade] | MOTIVO: [explicação curta de 1 frase]
+TICKER: [código] | TIPO: [Novo/Reforço] | ALOCACAO: [percentual inteiro, ex: 30] | MOTIVO: [explicação curta de 1 frase]
 
 No final, adicione:
-RESUMO: [Explicação geral de 2-3 frases sobre as sugestões]
+RESUMO: [Explicação geral de 2-3 frases sobre a estratégia de alocação]
 """
 
     try:
@@ -361,13 +363,11 @@ RESUMO: [Explicação geral de 2-3 frases sobre as sugestões]
                             sugestao["ticker"] = valor.upper().replace(".SA", "")
                         elif chave == "TIPO":
                             sugestao["tipo"] = valor
-                        elif chave == "QTD":
+                        elif chave in ("ALOCACAO", "ALOCAÇÃO"):
                             try:
-                                sugestao["quantidade"] = int(valor)
+                                sugestao["alocacao_pct"] = float(valor.replace("%", ""))
                             except ValueError:
-                                sugestao["quantidade"] = 1
-                        elif chave == "PRECO_ESTIMADO":
-                            pass # Ignorar preço inventado da IA, vamos buscar o real depois
+                                sugestao["alocacao_pct"] = 0
                         elif chave == "MOTIVO":
                             sugestao["motivo"] = valor
                 if sugestao.get("ticker"):
@@ -380,10 +380,36 @@ RESUMO: [Explicação geral de 2-3 frases sobre as sugestões]
                     except Exception:
                         sugestao["preco_estimado"] = 0
 
-                    sugestao["valor_total"] = sugestao.get("quantidade", 1) * sugestao.get("preco_estimado", 0)
+                    # Calcular quantidade baseada na alocação percentual
+                    alocacao_pct = sugestao.get("alocacao_pct", 0)
+                    valor_alocado = montante * (alocacao_pct / 100) if alocacao_pct > 0 else 0
+                    preco_unit = sugestao.get("preco_estimado", 0)
+                    
+                    if preco_unit > 0 and valor_alocado > 0:
+                        qtd_papeis = int(valor_alocado / preco_unit)  # Papéis inteiros
+                        sugestao["quantidade"] = qtd_papeis
+                        sugestao["valor_total"] = qtd_papeis * preco_unit
+                        sugestao["valor_alocado"] = valor_alocado
+                    else:
+                        sugestao["quantidade"] = 0
+                        sugestao["valor_total"] = 0
+                        sugestao["valor_alocado"] = valor_alocado
+                    
                     sugestoes.append(sugestao)
             elif linha.upper().startswith("RESUMO:"):
                 resumo = linha.split(":", 1)[1].strip()
+
+        # Validar que o total não excede o caixa
+        total_sugestoes = sum(s.get("valor_total", 0) for s in sugestoes)
+        if total_sugestoes > montante and sugestoes:
+            # Recalcular proporcionalmente se excedeu
+            fator = montante / total_sugestoes if total_sugestoes > 0 else 1
+            for s in sugestoes:
+                preco_unit = s.get("preco_estimado", 0)
+                if preco_unit > 0:
+                    novo_valor = s["valor_total"] * fator
+                    s["quantidade"] = int(novo_valor / preco_unit)
+                    s["valor_total"] = s["quantidade"] * preco_unit
 
         return {
             "sugestoes": sugestoes,

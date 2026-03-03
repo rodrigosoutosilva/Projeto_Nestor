@@ -10,10 +10,11 @@ from database.crud import (
 )
 from services.scoring import gerar_sugestoes_carteira
 from services.recommendation import gerar_recomendacao_completa
-from services.market_data import buscar_preco_atual
-from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, nome_ativo
+from services.market_data import buscar_preco_atual, buscar_dados_fundamentalistas, buscar_historico, calcular_indicadores_tecnicos
+from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, nome_ativo, injetar_css_global
 
 st.set_page_config(page_title="Detalhes da Carteira", page_icon="📂", layout="wide")
+injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:
     st.warning("⚠️ Faça login na página principal primeiro.")
@@ -89,24 +90,32 @@ with st.expander("✏️ Editar Configurações da Carteira"):
 
 st.markdown("---")
 
-# --- TABS: ATIVOS | MONITORANDO | SUGESTÕES ---
-tab1, tab2, tab3 = st.tabs(["📊 Meus Ativos", "👁️ Monitorando", "⚡ Sugestões da Carteira"])
+# --- TABS: ATIVOS | MONITORANDO | SUGESTÕES ATIVOS | SUGESTÕES MOVIMENTAÇÕES ---
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Meus Ativos", "👁️ Monitorando", "💡 Sugestões de Ativos", "🔄 Sugestões de Movimentações"])
 
 with tab1:
     st.markdown("### Ativos Atuais")
     
     if ativos:
         for a in ativos:
+            # Buscar preço atual para calcular posição e lucro
+            preco_info = buscar_preco_atual(a['ticker'])
+            preco_atual = preco_info.get("preco_atual", a['preco_medio']) if isinstance(preco_info, dict) else a['preco_medio']
+            
+            total_investido = a['quantidade'] * a['preco_medio']
+            posicao_atual = a['quantidade'] * preco_atual
+            lucro_valor = posicao_atual - total_investido
+            lucro_pct = ((preco_atual - a['preco_medio']) / a['preco_medio'] * 100) if a['preco_medio'] > 0 else 0
+            cor_lucro = "#00C851" if lucro_valor >= 0 else "#FF4444"
+            sinal = "+" if lucro_valor >= 0 else ""
+            
             with st.container(border=True):
-                c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
-                with c1:
-                    st.markdown(f"**{a['ticker']}** - {nome_ativo(a['ticker'])}")
+                # Linha 1: Ticker + Botões
+                c_nome, c_btns = st.columns([5, 2])
+                with c_nome:
+                    st.markdown(f"**{a['ticker']}** — {nome_ativo(a['ticker'])}  |  **{a['quantidade']}** cotas")
                     st.caption(f"Posição desde: {formatar_data_br(a['data_posicao'])}")
-                with c2:
-                    st.markdown(f"**Qtd:** {a['quantidade']}")
-                with c3:
-                    st.markdown(f"**Preço Médio:** {formatar_moeda_md(a['preco_medio'])}", unsafe_allow_html=True)
-                with c4:
+                with c_btns:
                     col_bi, col_bd = st.columns(2)
                     with col_bi:
                         if st.button("ℹ️ Info", key=f"info_{a['id']}", use_container_width=True):
@@ -117,6 +126,24 @@ with tab1:
                         if st.button("🗑️ Excluir", key=f"del_{a['id']}", use_container_width=True):
                             deletar_ativo(a["id"])
                             st.rerun()
+                
+                # Linha 2: Métricas financeiras
+                m1, m2, m3, m4, m5 = st.columns(5)
+                with m1:
+                    st.markdown(f"<small>Preço Médio</small><br><b>R\\$ {a['preco_medio']:,.2f}</b>".replace(",", "X").replace(".", ",").replace("X", "."), unsafe_allow_html=True)
+                with m2:
+                    st.markdown(f"<small>Preço Atual</small><br><b>R\\$ {preco_atual:,.2f}</b>".replace(",", "X").replace(".", ",").replace("X", "."), unsafe_allow_html=True)
+                with m3:
+                    st.markdown(f"<small>Total Investido</small><br><b>R\\$ {total_investido:,.2f}</b>".replace(",", "X").replace(".", ",").replace("X", "."), unsafe_allow_html=True)
+                with m4:
+                    st.markdown(f"<small>Posição Atual</small><br><b>R\\$ {posicao_atual:,.2f}</b>".replace(",", "X").replace(".", ",").replace("X", "."), unsafe_allow_html=True)
+                with m5:
+                    st.markdown(
+                        f"<small>Lucro/Prejuízo</small><br>"
+                        f"<b style='color:{cor_lucro}'>{sinal}R\\$ {abs(lucro_valor):,.2f}</b>"
+                        f" <span style='color:{cor_lucro};font-size:0.78em'>({sinal}{lucro_pct:.2f}%)</span>".replace(",", "X").replace(".", ",").replace("X", "."),
+                        unsafe_allow_html=True
+                    )
                 
                 with st.expander("💸 Negociar (Comprar / Vender)"):
                     c_op1, c_op2, c_op3, c_op4, c_op5 = st.columns(5)
@@ -215,7 +242,7 @@ with tab1:
                 valor_total_nova_compra = novo_qtd * novo_preco
                 caixa = port.get("montante_disponivel", 0)
                 if valor_total_nova_compra > caixa:
-                    st.error(f"⚠️ Saldo em caixa insuficiente (Necessário {formatar_moeda(valor_total_nova_compra)}). Registre um aporte no caixa primeiro.")
+                    st.error(f"⚠️ Saldo em caixa insuficiente (Necessário {formatar_moeda(valor_total_nova_compra)}). Registre um aporte no caixa primeiro.".replace("$", r"\$"))
                 else:
                     ativo_ext = next((x for x in ativos if x["ticker"] == ticker_upper), None)
                     if ativo_ext:
@@ -246,30 +273,98 @@ with tab2:
                 
     if watchlist:
         for w in watchlist:
+            ticker_w = w['ticker']
             with st.container(border=True):
-                c1, c2, c3 = st.columns([3, 1, 1])
-                with c1:
-                    st.markdown(f"**{w['ticker']}** - {nome_ativo(w['ticker'])}")
+                # Buscar dados de mercado
+                preco_w = buscar_preco_atual(ticker_w)
+                fund_w = buscar_dados_fundamentalistas(ticker_w)
+                
+                preco_val = preco_w.get("preco_atual", 0) if isinstance(preco_w, dict) else 0
+                var_dia = preco_w.get("variacao_dia", 0) if isinstance(preco_w, dict) else 0
+                nome_w = nome_ativo(ticker_w)
+                
+                # Indicadores técnicos (RSI, MACD)
+                hist_w = buscar_historico(ticker_w, "6mo")
+                ind_w = calcular_indicadores_tecnicos(hist_w) if hist_w is not None else {}
+                rsi_val = ind_w.get("rsi", None)
+                macd_val = ind_w.get("macd", None)
+                macd_sig = ind_w.get("macd_signal", None)
+                tendencia = ind_w.get("tendencia", "neutra")
+                
+                # Tipo e setor
+                is_fii = ticker_w.endswith("11") and len(ticker_w) >= 5
+                tipo_ativo_w = "FII" if is_fii else "Ação"
+                setor_w = fund_w.get("setor", "—") if fund_w else "—"
+                
+                # Cor da variação
+                cor_var = "#00C851" if var_dia >= 0 else "#FF4444"
+                sinal_var = "+" if var_dia >= 0 else ""
+                
+                # Linha 1: Nome + tipo + setor
+                c_nome_w, c_acoes_w = st.columns([5, 3])
+                with c_nome_w:
+                    st.markdown(
+                        f"**{ticker_w}** — {nome_w} "
+                        f"<span style='background:#667eea;color:#fff;padding:1px 8px;border-radius:10px;font-size:0.7em'>{tipo_ativo_w}</span> "
+                        f"<span style='color:#888;font-size:0.8em'>| {setor_w or '—'}</span>",
+                        unsafe_allow_html=True
+                    )
                     if w["adicionado_manualmente"]: st.caption("Adicionado manualmente")
                     else: st.caption("Sugerido pela IA")
-                with c2:
-                    if st.button("ℹ️ Info", key=f"w_info_{w['id']}", use_container_width=True):
-                        st.session_state.view_asset_ticker = w["ticker"]
-                        st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
-                        st.switch_page("pages/_8_📄_Ativo.py")
-                with c3:
-                    if st.button("🗑️", key=f"w_del_{w['id']}", help="Remover", use_container_width=True):
-                        remover_watchlist(w["id"])
-                        st.rerun()
-    else:
-        st.info("Sua watchlist está vazia.")
+                with c_acoes_w:
+                    bc1, bc2, bc3, bc4 = st.columns(4)
+                    with bc1:
+                        if st.button("🛒", key=f"w_buy_{w['id']}", help="Comprar este ativo", use_container_width=True):
+                            st.session_state.view_asset_ticker = ticker_w
+                            st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
+                            st.switch_page("pages/_8_📄_Ativo.py")
+                    with bc2:
+                        if st.button("ℹ️", key=f"w_info_{w['id']}", help="Ver detalhes", use_container_width=True):
+                            st.session_state.view_asset_ticker = ticker_w
+                            st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
+                            st.switch_page("pages/_8_📄_Ativo.py")
+                    with bc3:
+                        if st.button("📂", key=f"w_cart_{w['id']}", help="Ir para Carteira", use_container_width=True):
+                            pass  # Already on this page
+                    with bc4:
+                        if st.button("🗑️", key=f"w_del_{w['id']}", help="Remover", use_container_width=True):
+                            remover_watchlist(w["id"])
+                            st.rerun()
+                
+                # Linha 2: Indicadores financeiros
+                i1, i2, i3, i4, i5, i6, i7 = st.columns(7)
+                with i1:
+                    st.markdown(f"<small>Preço</small><br><b>R\\$ {preco_val:,.2f}</b>".replace(",", "X").replace(".", ",").replace("X", "."), unsafe_allow_html=True)
+                with i2:
+                    st.markdown(f"<small>Variação</small><br><b style='color:{cor_var}'>{sinal_var}{var_dia:.2f}%</b>", unsafe_allow_html=True)
+                with i3:
+                    pvp_txt = f"{fund_w.get('pvp', 0):.2f}" if fund_w and fund_w.get("pvp") else "—"
+                    st.markdown(f"<small>P/VP</small><br><b>{pvp_txt}</b>", unsafe_allow_html=True)
+                with i4:
+                    pl_txt = f"{fund_w.get('pl', 0):.1f}" if fund_w and fund_w.get("pl") else "—"
+                    st.markdown(f"<small>P/L</small><br><b>{pl_txt}</b>", unsafe_allow_html=True)
+                with i5:
+                    dy_txt = f"{fund_w.get('dy', 0):.1f}%" if fund_w and fund_w.get("dy") else "—"
+                    st.markdown(f"<small>DY</small><br><b>{dy_txt}</b>", unsafe_allow_html=True)
+                with i6:
+                    rsi_txt = f"{rsi_val:.0f}" if rsi_val is not None else "—"
+                    cor_rsi = "#FF4444" if rsi_val and rsi_val > 70 else ("#00C851" if rsi_val and rsi_val < 30 else "#333")
+                    st.markdown(f"<small>RSI</small><br><b style='color:{cor_rsi}'>{rsi_txt}</b>", unsafe_allow_html=True)
+                with i7:
+                    if macd_val is not None and macd_sig is not None:
+                        macd_status = "Compra" if macd_val > macd_sig else "Venda"
+                        cor_macd = "#00C851" if macd_val > macd_sig else "#FF4444"
+                    else:
+                        macd_status = "—"
+                        cor_macd = "#333"
+                    st.markdown(f"<small>MACD</small><br><b style='color:{cor_macd}'>{macd_status}</b>", unsafe_allow_html=True)
 
 with tab3:
-    st.subheader("Sugestões de Movimentos")
-    st.markdown("O sistema pontuou seus ativos e sugere movimentos através de algoritmo local. Para uma análise profunda com Inteligência Artificial, clique nos botões de IA abaixo.")
+    st.subheader("Sugestões de Ativos")
+    st.markdown("Ativos sugeridos para **compra ou observação**. Use para montar sua carteira ou alocar saldo disponível.")
     
-    # 1. Botão Geral de IA Inteligente da Carteira toda
-    if st.button("💡 Gerar Sugestões da Carteira com IA", type="primary", use_container_width=True):
+    # 1. Botão Geral de IA — Sugestões de Compra
+    if st.button("💡 Gerar Sugestões de Compra com IA", type="primary", use_container_width=True):
         st.session_state["ia_loading_geral"] = True
     
     if st.session_state.get("ia_loading_geral"):
@@ -289,110 +384,250 @@ with tab3:
     if st.session_state.get("ia_resumo_geral"):
         st.success(f"✅ **Análise da IA:** {st.session_state['ia_resumo_geral']}")
         sugestoes_ia = st.session_state.get("ia_sugestoes_raw", [])
+        
+        total_todas_sugestoes = sum(s.get("valor_total", 0) for s in sugestoes_ia if s.get("quantidade", 0) > 0)
+        caixa_disponivel = port.get("montante_disponivel", 0)
+        
+        st.markdown(f"**💰 Caixa disponível:** R\\$ {caixa_disponivel:,.2f} | **🛒 Total das sugestões:** R\\$ {total_todas_sugestoes:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        
+        sugestoes_validas = []
+        
         for i, sug in enumerate(sugestoes_ia):
             with st.container(border=True):
-                col1, col2, col3 = st.columns([1.5, 4, 1.5])
                 ticker_sug = sug.get("ticker", "")
-                qtd_sug = sug.get("quantidade", 1)
+                qtd_sug = sug.get("quantidade", 0)
                 preco_sug = sug.get("preco_estimado", 0.0)
+                alocacao_pct = sug.get("alocacao_pct", 0)
+                valor_total_sug = sug.get("valor_total", 0)
                 
-                with col1:
+                col_ticker, col_aloc, col_preco, col_qtd, col_total, col_info = st.columns([2, 1.2, 1.5, 1, 1.5, 0.8])
+                
+                with col_ticker:
                     st.markdown(f"**{ticker_sug}**")
                     st.caption(sug.get("tipo", "Ação/FII"))
-                with col2:
-                    st.markdown(f"**Ação:** {sug.get('acao', 'COMPRAR').upper()} | **Preço Unit:** {formatar_moeda_md(preco_sug)}", unsafe_allow_html=True)
-                    st.caption(sug.get("motivo", ""))
-                with col3:
-                    qtd_escolhida = st.number_input(f"Qtd sugerida:", min_value=1, value=qtd_sug, key=f"qtd_ia_{i}_{ticker_sug}")
-                    valor_total = qtd_escolhida * preco_sug
-                    caixa = port.get("montante_disponivel", 0)
-                    
-                    block_btn = False
-                    if valor_total > caixa and sug.get("acao", "compra").lower() == "compra":
-                        aviso_txt = f"Caixa insuficiente. Custará {formatar_moeda(valor_total)}, mas você tem {formatar_moeda(caixa)}.".replace("$", r"\$")
-                        st.warning(aviso_txt, icon="⚠️")
-                        block_btn = True
-                    else:
-                        st.markdown(f"**Total Estimado:** {formatar_moeda_md(valor_total)}", unsafe_allow_html=True)
+                with col_aloc:
+                    st.markdown(f"**Alocação**")
+                    st.markdown(f"{alocacao_pct:.0f}%")
+                with col_preco:
+                    st.markdown(f"**Preço Unit.**")
+                    st.markdown(f"R\\$ {preco_sug:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                with col_qtd:
+                    st.markdown(f"**Qtd**")
+                    st.markdown(f"{qtd_sug}")
+                with col_total:
+                    st.markdown(f"**Total**")
+                    st.markdown(f"R\\$ {valor_total_sug:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                with col_info:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("ℹ️", key=f"info_sug_{i}_{ticker_sug}", use_container_width=True, help="Ver detalhes do ativo"):
+                        st.session_state.view_asset_ticker = ticker_sug
+                        st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
+                        st.switch_page("pages/_8_📄_Ativo.py")
+                
+                st.caption(f"📝 {sug.get('motivo', '')}")
+                
+                if qtd_sug > 0 and valor_total_sug <= caixa_disponivel:
+                    sugestoes_validas.append(sug)
+                elif qtd_sug == 0:
+                    st.warning("⚠️ Preço do ativo não disponível ou alocação insuficiente para 1 papel.")
+        
+        # Botão "Comprar Tudo"
+        st.markdown("---")
+        if sugestoes_validas:
+            total_compra_tudo = sum(s.get("valor_total", 0) for s in sugestoes_validas)
+            
+            if total_compra_tudo > caixa_disponivel:
+                st.error(f"⚠️ O total das sugestões (R\\$ {total_compra_tudo:,.2f}) excede o caixa disponível (R\\$ {caixa_disponivel:,.2f}).".replace(",", "X").replace(".", ",").replace("X", "."))
+            else:
+                col_btn1, col_btn2 = st.columns([3, 1])
+                with col_btn1:
+                    st.markdown(
+                        f"**🛒 Comprar todos os {len(sugestoes_validas)} ativos sugeridos** — "
+                        f"Total: R\\$ {total_compra_tudo:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                    )
+                with col_btn2:
+                    if st.button("🛒 Comprar Tudo", key="btn_comprar_tudo_ia", type="primary", use_container_width=True):
+                        caixa_restante = caixa_disponivel
+                        compras_ok = 0
                         
-                    if st.button("🛒 Seguir Sugestão", disabled=block_btn, key=f"exec_ia_{ticker_sug}_{i}", use_container_width=True):
-                        if sug.get("acao", "compra").lower() == "venda":
-                            ativo_existente = next((x for x in ativos if x["ticker"] == ticker_sug), None)
-                            if not ativo_existente or qtd_escolhida > ativo_existente["quantidade"]:
-                                st.toast("Quantidade insuficiente em carteira para venda!", icon="❌")
-                            else:
-                                nova_qtd = ativo_existente["quantidade"] - qtd_escolhida
-                                if nova_qtd <= 0:
-                                    deletar_ativo(ativo_existente["id"])
-                                else:
-                                    atualizar_ativo(ativo_existente["id"], quantidade=nova_qtd, preco_medio=ativo_existente["preco_medio"])
-                                registrar_transacao(port["id"], "venda", valor_total, ticker_sug, qtd_escolhida, preco_sug, "Venda IA Executada", date.today())
-                                st.toast(f"{qtd_escolhida}x {ticker_sug} vendidos com sucesso! 🎉", icon="✅")
-                                st.rerun()
-                        else:
-                            ativo_existente = next((x for x in ativos if x["ticker"] == ticker_sug), None)
+                        for sug_exec in sugestoes_validas:
+                            t_sug = sug_exec["ticker"]
+                            q_sug = sug_exec["quantidade"]
+                            p_sug = sug_exec["preco_estimado"]
+                            v_total = q_sug * p_sug
+                            
+                            if v_total > caixa_restante:
+                                continue
+                            
+                            ativo_existente = next((x for x in ativos if x["ticker"] == t_sug), None)
                             if ativo_existente:
                                 q_ant = ativo_existente["quantidade"]
                                 p_ant = ativo_existente["preco_medio"]
-                                q_nova = q_ant + qtd_escolhida
-                                p_novo = ((q_ant * p_ant) + valor_total) / q_nova
+                                q_nova = q_ant + q_sug
+                                p_novo = ((q_ant * p_ant) + v_total) / q_nova
                                 atualizar_ativo(ativo_existente["id"], quantidade=q_nova, preco_medio=p_novo)
                             else:
-                                adicionar_ativo(port["id"], ticker_sug, preco_sug, qtd_escolhida, date.today())
+                                adicionar_ativo(port["id"], t_sug, p_sug, q_sug, date.today())
                             
-                            registrar_transacao(port["id"], "compra", valor_total, ticker_sug, qtd_escolhida, preco_sug, "Compra IA Executada", date.today())
-                            st.toast(f"{qtd_escolhida}x {ticker_sug} comprados com sucesso! 🎉", icon="✅")
-                            st.rerun()
+                            registrar_transacao(port["id"], "compra", v_total, t_sug, q_sug, p_sug, "Compra IA (Lote)", date.today())
+                            caixa_restante -= v_total
+                            compras_ok += 1
+                        
+                        atualizar_portfolio(port["id"], montante_disponivel=caixa_restante)
+                        st.toast(f"{compras_ok} ativo(s) comprado(s) com sucesso! 🎉", icon="✅")
+                        st.session_state["ia_resumo_geral"] = None
+                        st.session_state["ia_sugestoes_raw"] = []
+                        st.rerun()
+        else:
+            st.warning("Nenhuma sugestão viável para compra com o caixa disponível.")
+        
         st.markdown("---")
         
-    # 2. Recomendações locais (Algoritmo) + IA individual
+    # 2. Sugestões técnicas — APENAS compra e observar
     st.markdown("#### Sugestões do Algoritmo Técnico")
     sugestoes = gerar_sugestoes_carteira(portfolio_id)
     
     if sugestoes:
-        for s in sugestoes:
-            with st.container(border=True):
-                novo_label = " 🆕 **NOVO**" if s.get("novo") else ""
-                c1, c2 = st.columns([5, 2])
-                with c1:
-                    st.markdown(f"### {s['ticker']}{novo_label}")
-                    st.caption(nome_ativo(s['ticker']))
-                    cor_acao = "#00C851" if s['acao'] == "compra" else "#FF4444" if s['acao'] == "venda" else "#FFBB33" if s['acao'] == "observar" else "#888"
-                    # Resgatar cotacao real pro card
-                    preco_sug_inline = 0.0
-                    from services.market_data import buscar_preco_atual
-                    cot = buscar_preco_atual(s["ticker"])
-                    if isinstance(cot, dict) and cot.get("preco_atual", 0) > 0:
-                        preco_sug_inline = float(cot["preco_atual"])
-                        
-                    st.markdown(f"**Ação sugerida:** <span style='color:{cor_acao}'>{s['acao'].upper()}</span> (Score: {s['score']}/100) | **Preço Unit:** {formatar_moeda_md(preco_sug_inline)}", unsafe_allow_html=True)
-                    st.info(s['texto'])
-                with c2:
-                    c_bi, c_bia = st.columns(2)
-                    with c_bi:
-                        if st.button("ℹ️ Info", key=f"alc_i_{s['ticker']}", use_container_width=True):
-                            st.session_state.view_asset_ticker = s['ticker']
-                            st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
-                            st.switch_page("pages/_8_📄_Ativo.py")
-                    with c_bia:
-                        if st.button("💡 Análise IA", key=f"btn_ia_{s['ticker']}", use_container_width=True):
-                            st.session_state[f"run_ia_{s['ticker']}"] = True
-                        
-                if st.session_state.get(f"run_ia_{s['ticker']}"):
-                    with st.spinner(f"Consultando IA para {s['ticker']}..."):
-                        rec_ia = gerar_recomendacao_completa(s['ticker'], persona["id"], portfolio_id)
-                        st.session_state[f"res_ia_{s['ticker']}"] = rec_ia
-                        st.session_state[f"run_ia_{s['ticker']}"] = False
-                        
-                if st.session_state.get(f"res_ia_{s['ticker']}"):
-                    rec = st.session_state[f"res_ia_{s['ticker']}"]
-                    st.markdown("---")
-                    if rec["sucesso"]:
-                        st.success(f"**Visão da IA ({rec['recomendacao']['confianca']}% confiança):** {rec['recomendacao']['explicacao']}")
-                    else:
-                        st.error(rec.get("erro", "Erro ao consultar IA."))
+        sugestoes_compra_obs = [s for s in sugestoes if s.get("acao") in ("compra", "observar")]
+        if sugestoes_compra_obs:
+            for s in sugestoes_compra_obs:
+                with st.container(border=True):
+                    novo_label = " 🆕 **NOVO**" if s.get("novo") else ""
+                    c1, c2 = st.columns([5, 2])
+                    with c1:
+                        st.markdown(f"### {s['ticker']}{novo_label}")
+                        st.caption(nome_ativo(s['ticker']))
+                        cor_acao = "#00C851" if s['acao'] == "compra" else "#FFBB33"
+                        preco_sug_inline = 0.0
+                        cot = buscar_preco_atual(s["ticker"])
+                        if isinstance(cot, dict) and cot.get("preco_atual", 0) > 0:
+                            preco_sug_inline = float(cot["preco_atual"])
+                            
+                        st.markdown(f"**Ação sugerida:** <span style='color:{cor_acao}'>{s['acao'].upper()}</span> (Score: {s['score']}/100) | **Preço Unit:** {formatar_moeda_md(preco_sug_inline)}", unsafe_allow_html=True)
+                        st.info(s['texto'])
+                    with c2:
+                        c_bi, c_bia = st.columns(2)
+                        with c_bi:
+                            if st.button("ℹ️ Info", key=f"alc_i_{s['ticker']}", use_container_width=True):
+                                st.session_state.view_asset_ticker = s['ticker']
+                                st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
+                                st.switch_page("pages/_8_📄_Ativo.py")
+                        with c_bia:
+                            if st.button("💡 Análise IA", key=f"btn_ia_{s['ticker']}", use_container_width=True):
+                                st.session_state[f"run_ia_{s['ticker']}"] = True
+                            
+                    if st.session_state.get(f"run_ia_{s['ticker']}"):
+                        with st.spinner(f"Consultando IA para {s['ticker']}..."):
+                            rec_ia = gerar_recomendacao_completa(s['ticker'], persona["id"], portfolio_id)
+                            st.session_state[f"res_ia_{s['ticker']}"] = rec_ia
+                            st.session_state[f"run_ia_{s['ticker']}"] = False
+                            
+                    if st.session_state.get(f"res_ia_{s['ticker']}"):
+                        rec = st.session_state[f"res_ia_{s['ticker']}"]
+                        st.markdown("---")
+                        if rec["sucesso"]:
+                            st.success(f"**Visão da IA ({rec['recomendacao']['confianca']}% confiança):** {rec['recomendacao']['explicacao']}")
+                        else:
+                            st.error(rec.get("erro", "Erro ao consultar IA."))
+        else:
+            st.info("Nenhuma sugestão de compra/observação encontrada pelo algoritmo técnico.")
     else:
         st.info("Nenhuma sugestão encontrada. Adicione ativos ou configure os setores preferidos da carteira para receber sugestões.")
+
+with tab4:
+    st.subheader("Sugestões de Movimentações")
+    st.markdown("Avalie se é necessário **rebalancear ou vender** algum ativo da sua carteira atual.")
+    
+    # Tickers que já estão na carteira
+    tickers_na_carteira = {a["ticker"] for a in ativos}
+    
+    # 1. Sugestões técnicas — APENAS venda, e somente se ativo já está na carteira
+    st.markdown("#### Algoritmo Técnico — Movimentações Sugeridas")
+    sugestoes_mov = gerar_sugestoes_carteira(portfolio_id)
+    
+    if sugestoes_mov:
+        sugestoes_venda = [s for s in sugestoes_mov if s.get("acao") == "venda" and s.get("ticker") in tickers_na_carteira]
+        if sugestoes_venda:
+            for s in sugestoes_venda:
+                with st.container(border=True):
+                    c1, c2 = st.columns([5, 2])
+                    with c1:
+                        st.markdown(f"### {s['ticker']}")
+                        st.caption(nome_ativo(s['ticker']))
+                        
+                        # Buscar info do ativo na carteira
+                        ativo_cart = next((a for a in ativos if a["ticker"] == s["ticker"]), None)
+                        qtd_cart = ativo_cart["quantidade"] if ativo_cart else 0
+                        pm_cart = ativo_cart["preco_medio"] if ativo_cart else 0
+                        
+                        cot = buscar_preco_atual(s["ticker"])
+                        preco_atual_mov = float(cot["preco_atual"]) if isinstance(cot, dict) and cot.get("preco_atual", 0) > 0 else pm_cart
+                        
+                        lucro_un = preco_atual_mov - pm_cart
+                        lucro_total = lucro_un * qtd_cart
+                        cor_lucro = "#00C851" if lucro_total >= 0 else "#FF4444"
+                        
+                        st.markdown(
+                            f"**Ação sugerida:** <span style='color:#FF4444'>VENDA</span> (Score: {s['score']}/100) | "
+                            f"Em carteira: {qtd_cart} papéis | PM: {formatar_moeda_md(pm_cart)} | "
+                            f"Atual: {formatar_moeda_md(preco_atual_mov)} | "
+                            f"L/P: <span style='color:{cor_lucro}'>{formatar_moeda_md(lucro_total)}</span>",
+                            unsafe_allow_html=True
+                        )
+                        st.info(s['texto'])
+                    with c2:
+                        c_bi, c_bia = st.columns(2)
+                        with c_bi:
+                            if st.button("ℹ️ Info", key=f"mov_i_{s['ticker']}", use_container_width=True):
+                                st.session_state.view_asset_ticker = s['ticker']
+                                st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
+                                st.switch_page("pages/_8_📄_Ativo.py")
+                        with c_bia:
+                            if st.button("💡 Análise IA", key=f"btn_ia_mov_{s['ticker']}", use_container_width=True):
+                                st.session_state[f"run_ia_mov_{s['ticker']}"] = True
+                            
+                    if st.session_state.get(f"run_ia_mov_{s['ticker']}"):
+                        with st.spinner(f"Consultando IA para {s['ticker']}..."):
+                            rec_ia = gerar_recomendacao_completa(s['ticker'], persona["id"], portfolio_id)
+                            st.session_state[f"res_ia_mov_{s['ticker']}"] = rec_ia
+                            st.session_state[f"run_ia_mov_{s['ticker']}"] = False
+                            
+                    if st.session_state.get(f"res_ia_mov_{s['ticker']}"):
+                        rec = st.session_state[f"res_ia_mov_{s['ticker']}"]
+                        st.markdown("---")
+                        if rec["sucesso"]:
+                            st.success(f"**Visão da IA ({rec['recomendacao']['confianca']}% confiança):** {rec['recomendacao']['explicacao']}")
+                        else:
+                            st.error(rec.get("erro", "Erro ao consultar IA."))
+        else:
+            st.info("✅ Nenhuma sugestão de venda para os ativos da sua carteira no momento.")
+    else:
+        st.info("Nenhuma sugestão encontrada. Adicione ativos à carteira para receber análises de movimentação.")
+    
+    # 2. IA Geral — Análise de Rebalanceamento
+    st.markdown("---")
+    st.markdown("#### 🧠 Análise de Rebalanceamento com IA")
+    st.markdown("A IA analisa sua carteira atual e sugere movimentações (compra, venda, rebalanceamento) e próximos passos.")
+    
+    if st.button("🔄 Analisar Movimentações com IA", type="primary", use_container_width=True):
+        st.session_state["ia_loading_mov"] = True
+    
+    if st.session_state.get("ia_loading_mov"):
+        with st.spinner("🧠 Analisando movimentações com IA..."):
+            from services.ai_brain import gerar_sugestoes_compra
+            portfolios_analise = buscar_portfolio_por_id(portfolio_id)
+            rec_mov = gerar_sugestoes_compra(ativos, persona, portfolios_analise)
+            
+            if rec_mov and rec_mov.get("sucesso"):
+                st.session_state["ia_resumo_mov"] = rec_mov.get("resumo", "")
+                st.session_state["ia_loading_mov"] = False
+            else:
+                st.error(rec_mov.get("resumo", "Falha ao consultar IA."))
+                st.session_state["ia_loading_mov"] = False
+    
+    if st.session_state.get("ia_resumo_mov"):
+        st.success(f"🔄 **Análise da IA:** {st.session_state['ia_resumo_mov']}")
+        st.caption("💡 Use esta análise junto com as sugestões técnicas acima para tomar decisões informadas.")
 
 st.markdown("---")
 

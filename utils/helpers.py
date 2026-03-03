@@ -359,3 +359,39 @@ SETORES_FIIS = [
     ("hibrido", "🔀 FIIs Híbridos (tijolo + papel)"),
     ("fof", "📦 Fundos de Fundos (FoFs)"),
 ]
+
+
+def injetar_css_global():
+    """Injeta CSS global para reduzir tamanho de métricas, headers e dropdowns.
+    DEVE ser chamada em TODAS as páginas logo após st.set_page_config()."""
+    import streamlit as st
+    st.markdown("""<style>
+    /* Métricas — reduzidas mas legíveis */
+    [data-testid="stMetricLabel"] { font-size: 0.82rem !important; font-weight: 600 !important; }
+    [data-testid="stMetricValue"] { font-size: 1.4rem !important; font-weight: 700 !important; }
+    [data-testid="stMetricDelta"] { font-size: 0.72rem !important; }
+    /* Headers menores */
+    h1, .main-header { font-size: 1.4rem !important; }
+    h2 { font-size: 1.15rem !important; }
+    h3 { font-size: 1rem !important; }
+    h4 { font-size: 0.9rem !important; }
+    /* Dropdowns não-editáveis */
+    div[data-baseweb="select"] input { caret-color: transparent !important; cursor: pointer !important; }
+    /* Fonte base menor */
+    .stApp p, .stApp li, .stApp span { font-size: 0.88rem; }
+    .stApp .stCaption, .stApp caption { font-size: 0.72rem !important; }
+    hr { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
+    /* Botões "Ver detalhes" como links de texto */
+    button[kind="secondary"] > div > p {font-size: 0.82rem !important;}
+    button[kind="secondary"]:has(div p) {
+        background: none !important;
+        border: none !important;
+        padding: 0 !important;
+        color: #667eea !important;
+        box-shadow: none !important;
+    }
+    button[kind="secondary"]:has(div p):hover {
+        text-decoration: underline !important;
+        background: none !important;
+    }
+</style>""", unsafe_allow_html=True)

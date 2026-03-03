@@ -25,11 +25,12 @@ from database.crud import (
 from services.market_data import buscar_preco_atual, buscar_historico
 from utils.helpers import (
     formatar_moeda, formatar_percentual, calcular_lucro_prejuizo,
-    emoji_status, formatar_data_br
+    emoji_status, formatar_data_br, injetar_css_global
 )
 import io
 
-st.set_page_config(page_title="📊 Dashboard", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Análise de Desempenho", page_icon="📊", layout="wide")
+injetar_css_global()
 
 # ---------------------------------------------------------------------------
 # Verificar login
@@ -40,7 +41,7 @@ if "user" not in st.session_state or st.session_state.user is None:
 
 user = st.session_state.user
 
-st.markdown("### 📊 Dashboard de Investimentos")
+st.markdown("### 📊 Análise de Desempenho")
 st.markdown(f"*Visão geral das carteiras de **{user['nome']}***")
 st.markdown("---")
 

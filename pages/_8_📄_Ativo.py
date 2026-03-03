@@ -13,9 +13,10 @@ buscar_dados_fundamentalistas = _md.buscar_dados_fundamentalistas
 from services.news_scraper import buscar_noticias_ticker
 from services.scoring import pontuar_ativo, gerar_texto_resumo
 from services.recommendation import gerar_recomendacao_completa
-from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_percentual, nome_ativo
+from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_percentual, nome_ativo, injetar_css_global
 
 st.set_page_config(page_title="Detalhes do Ativo", page_icon="📄", layout="wide")
+injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:
     st.warning("⚠️ Faça login.")
@@ -49,13 +50,56 @@ variacao = cotacao.get("variacao_dia", 0)
 col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Preço Atual", formatar_moeda(preco), f"{variacao:+.2f}%", help="Variação em relação ao fechamento do último pregão")
 if fundamentos.get("pl"):
-    col2.metric("P/L", f"{fundamentos['pl']:.1f}", help="Preço/Lucro: quanto o mercado paga por cada R$1 de lucro. Menor = mais barato")
+    col2.metric("P/L", f"{fundamentos['pl']:.1f}", help="Preço/Lucro: quanto o mercado paga por cada R\\$1 de lucro. Menor = mais barato")
 if fundamentos.get("pvp"):
     col3.metric("P/VP", f"{fundamentos['pvp']:.2f}", help="Preço/Valor Patrimonial: relação entre preço de mercado e patrimônio líquido. Abaixo de 1 = negocia abaixo do patrimônio")
 if fundamentos.get("dy"):
     col4.metric("Div. Yield", f"{fundamentos['dy']:.1f}%", help="Dividend Yield: rendimento anual estimado em dividendos")
 if fundamentos.get("setor"):
     col5.metric("Setor", fundamentos["setor"][:20])
+
+# --- REFERÊNCIA DO SETOR (P/VP, P/L, DY) ---
+st.markdown("---")
+st.markdown("#### 📊 Referência do Setor")
+
+with st.spinner("Buscando dados de referência do setor..."):
+    from services.market_data import buscar_referencia_setor
+    ref = buscar_referencia_setor(ticker, fundamentos.get("setor"))
+
+if ref and ref.get("peers_analisados", 0) > 0:
+    st.caption(f"Setor: **{ref['setor']}** — {ref['peers_analisados']} peers analisados")
+    
+    # Montar tabela de referência
+    indicadores_ref = []
+    
+    # Valores do ativo atual
+    ativo_pvp = fundamentos.get("pvp")
+    ativo_pl = fundamentos.get("pl")
+    ativo_dy = fundamentos.get("dy")
+    
+    for nome_ind, dados_ref, val_ativo in [
+        ("P/VP", ref.get("pvp", {}), ativo_pvp),
+        ("P/L", ref.get("pl", {}), ativo_pl),
+        ("DY (%)", ref.get("dy", {}), ativo_dy),
+    ]:
+        if dados_ref and dados_ref.get("min") is not None:
+            indicadores_ref.append({
+                "Indicador": nome_ind,
+                f"{ticker}": f"{val_ativo:.2f}" if val_ativo else "—",
+                "Mínimo": f"{dados_ref['min']:.2f}",
+                "Máximo": f"{dados_ref['max']:.2f}",
+                "Média": f"{dados_ref['media']:.2f}",
+                "Moda": f"{dados_ref['moda']:.2f}",
+            })
+    
+    if indicadores_ref:
+        import pandas as pd
+        df_ref = pd.DataFrame(indicadores_ref)
+        st.dataframe(df_ref, use_container_width=True, hide_index=True)
+    else:
+        st.info("Dados de referência não disponíveis para este setor.")
+else:
+    st.info("Não foi possível obter dados de referência. Setor não identificado ou sem peers cadastrados.")
 
 # --- AÇÕES RÁPIDAS ---
 with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=True):

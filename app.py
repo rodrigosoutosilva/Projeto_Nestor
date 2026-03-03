@@ -410,6 +410,57 @@ st.markdown("""
         padding: 12px;
         margin: 8px 0;
     }
+
+    /* ============ FIX 4: DROPDOWNS NÃO-EDITÁVEIS ============ */
+    /* Ocultar cursor de texto nos selectbox/multiselect para impedir digitação */
+    div[data-baseweb="select"] input {
+        caret-color: transparent !important;
+        cursor: pointer !important;
+    }
+    div[data-baseweb="select"] input::placeholder {
+        color: #666 !important;
+    }
+
+    /* ============ FIX 5: HEADERS E MÉTRICAS COMPACTOS ============ */
+
+    /* Headers menores */
+    h1, .main-header {
+        font-size: 1.4rem !important;
+    }
+    h2 {
+        font-size: 1.15rem !important;
+    }
+    h3 {
+        font-size: 1rem !important;
+    }
+    h4 {
+        font-size: 0.9rem !important;
+    }
+
+    /* Métricas (st.metric) — valores 40% menores que o padrão */
+    [data-testid="stMetricLabel"] {
+        font-size: 0.65rem !important;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 0.72rem !important;
+    }
+    [data-testid="stMetricDelta"] {
+        font-size: 0.55rem !important;
+    }
+
+    /* Fonte base levemente menor */
+    .stApp p, .stApp li, .stApp span {
+        font-size: 0.88rem;
+    }
+    .stApp .stCaption, .stApp caption {
+        font-size: 0.72rem !important;
+    }
+
+    /* Dividers mais compactos */
+    hr {
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -817,13 +868,32 @@ def tela_principal():
                 ativos = listar_ativos_portfolio(port["id"])
                 total_ativos += len(ativos)
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         with col1:
-            st.metric("🧑 Personas", total_personas)
+            with st.container(border=True):
+                st.markdown(f"#### 🧑 Personas ({total_personas})")
+                for p in personas:
+                    n_ports = len(listar_portfolios_persona(p["id"]))
+                    c_pn, c_pb = st.columns([4, 2])
+                    with c_pn:
+                        st.markdown(f"**{p['nome']}** — {n_ports} carteira(s)")
+                    with c_pb:
+                        if st.button("Ver detalhes →", key=f"hp_p_{p['id']}"):
+                            st.session_state.view_persona_id = p["id"]
+                            st.switch_page("pages/_9_🧑_Persona_Detalhe.py")
         with col2:
-            st.metric("💼 Carteiras", total_portfolios)
-        with col3:
-            st.metric("📊 Ativos", total_ativos)
+            with st.container(border=True):
+                st.markdown(f"#### 💼 Carteiras ({total_portfolios})")
+                for p in personas:
+                    for port in listar_portfolios_persona(p["id"]):
+                        n_ats = len(listar_ativos_portfolio(port["id"]))
+                        c_cn, c_cb = st.columns([4, 2])
+                        with c_cn:
+                            st.markdown(f"**{port['nome']}** — {n_ats} ativo(s)")
+                        with c_cb:
+                            if st.button("Ver detalhes →", key=f"hp_c_{port['id']}"):
+                                st.session_state.view_portfolio_id = port["id"]
+                                st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
 
     st.markdown("---")
 
@@ -885,6 +955,13 @@ def tela_principal():
         highlights = buscar_highlights_mercado(_cache_buster=1)
 
     if highlights:
+        # Mostrar toasts de watchlist pendentes (após rerun do popover)
+        for key in list(st.session_state.keys()):
+            if key.startswith("_wl_added_") and st.session_state[key]:
+                ticker_added = key.replace("_wl_added_", "")
+                st.toast(f"✅ {ticker_added} adicionado à watchlist!", icon="👀")
+                del st.session_state[key]
+        
         # Pre-load user portfolios mappings for the quick actions
         todas_carteiras = []
         for p in personas:
@@ -934,11 +1011,12 @@ def tela_principal():
                             
                             c_w, c_o = st.columns(2)
                             with c_w:
-                                if st.button("👀", key=f"btn_w_{prefix}_{item['ticker']}", help="Monitorar"):
+                                if st.button("👀 Monitorar", key=f"btn_w_{prefix}_{item['ticker']}"):
                                     adicionar_watchlist(sel_port, item['ticker'], manual=True)
-                                    st.toast(f"{item['ticker']} na watchlist!")
+                                    st.session_state[f"_wl_added_{item['ticker']}"] = True
+                                    st.rerun()
                             with c_o:
-                                if st.button("🛒", key=f"btn_op_{prefix}_{item['ticker']}", help="Operar na Carteira"):
+                                if st.button("🛒 Operar", key=f"btn_op_{prefix}_{item['ticker']}"):
                                     st.session_state.view_portfolio_id = sel_port
                                     st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
 
@@ -1063,8 +1141,8 @@ def tela_principal():
             portfolios = listar_portfolios_persona(p["id"])
             if portfolios:
                 for port in portfolios:
-                    montante_txt = f" | Caixa: {formatar_moeda(port['montante_disponivel'])}" if port.get('montante_disponivel') else ""
-                    st.markdown(f"💼 **{port['nome']}** — Prazo: {port['objetivo_prazo']} | Meta DY: {port['meta_dividendos']}%{montante_txt}")
+                    montante_txt = f" | Caixa: {formatar_moeda_md(port['montante_disponivel'])}" if port.get('montante_disponivel') else ""
+                    st.markdown(f"💼 **{port['nome']}** — Prazo: {port['objetivo_prazo']} | Meta DY: {port['meta_dividendos']}%{montante_txt}", unsafe_allow_html=True)
             else:
                 st.info("Nenhuma carteira nesta persona.")
 

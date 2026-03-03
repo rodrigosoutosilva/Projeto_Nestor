@@ -19,10 +19,11 @@ from database.crud import (
     listar_transacoes_portfolio, resumo_transacoes_portfolio,
     registrar_transacao, buscar_portfolio_por_id
 )
-from utils.helpers import formatar_moeda, formatar_data_br, formatar_moeda_md
+from utils.helpers import formatar_moeda, formatar_data_br, formatar_moeda_md, injetar_css_global
 from datetime import date
 
 st.set_page_config(page_title="📜 Gestão Financeira", page_icon="📜", layout="wide")
+injetar_css_global()
 
 # Verificar login
 if "user" not in st.session_state or st.session_state.user is None:
@@ -178,7 +179,7 @@ with tab_compra:
             caixa_disp = port_info.get("montante_disponivel", 0) if port_info else 0
             
             if compra_total > caixa_disp:
-                st.error(f"Caixa insuficiente! Disponível: {formatar_moeda(caixa_disp)}")
+                st.error(f"Caixa insuficiente! Disponível: {formatar_moeda(caixa_disp)}".replace("$", r"\$"))
             else:
                 from database.crud import adicionar_ativo, atualizar_ativo, listar_ativos_portfolio
                 ativos_cart = listar_ativos_portfolio(port_compra)
@@ -256,7 +257,7 @@ with tab_aporte:
                 valor=aporte_valor, descricao=aporte_desc or "Aporte",
                 data_transacao=aporte_data
             )
-            st.toast(f"Aporte de {formatar_moeda(aporte_valor)} registrado! 📥")
+            st.toast(f"Aporte de {formatar_moeda(aporte_valor)} registrado! 📥".replace("$", r"\$"))
             st.rerun()
 
 with tab_retirada:
@@ -274,14 +275,14 @@ with tab_retirada:
             port_info = buscar_portfolio_por_id(port_ret)
             caixa_disp = port_info.get("montante_disponivel", 0) if port_info else 0
             if ret_valor > caixa_disp:
-                st.error(f"Caixa insuficiente! Disponível: {formatar_moeda(caixa_disp)}")
+                st.error(f"Caixa insuficiente! Disponível: {formatar_moeda(caixa_disp)}".replace("$", r"\$"))
             else:
                 registrar_transacao(
                     portfolio_id=port_ret, tipo="retirada",
                     valor=ret_valor, descricao=ret_desc or "Retirada",
                     data_transacao=ret_data
                 )
-                st.toast(f"Retirada de {formatar_moeda(ret_valor)} registrada! 📤")
+                st.toast(f"Retirada de {formatar_moeda(ret_valor)} registrada! 📤".replace("$", r"\$"))
                 st.rerun()
 
 with tab_dividendo:
@@ -307,7 +308,7 @@ with tab_dividendo:
                     descricao=div_desc or f"Dividendo {div_ticker.upper()}",
                     data_transacao=div_data
                 )
-                st.toast(f"Dividendo de {formatar_moeda(div_valor)} de {div_ticker.upper()} registrado! 💰")
+                st.toast(f"Dividendo de {formatar_moeda(div_valor)} de {div_ticker.upper()} registrado! 💰".replace("$", r"\$"))
                 st.rerun()
 
 st.markdown("---")
@@ -350,21 +351,22 @@ if todas_transacoes:
     for t in todas_transacoes:
         emoji = tipo_emoji.get(t["tipo"], "📊")
         ticker_txt = f" — {t['ticker']}" if t.get('ticker') else ""
-        qtd_txt = f" ({t['quantidade']}x @ {formatar_moeda(t['preco_unitario'])})".replace('$', r'\$') if t.get('quantidade') and t.get('preco_unitario') else ""
-        desc_txt = f" · _{t['descricao']}_" if t.get('descricao') else ""
+        qtd_txt = f" ({t['quantidade']}x @ {formatar_moeda_md(t['preco_unitario'])})" if t.get('quantidade') and t.get('preco_unitario') else ""
+        desc_txt = f" · <em>{t['descricao']}</em>" if t.get('descricao') else ""
         carteira_txt = f" | 📂 {t.get('carteira_nome', '')}"
 
         if t["tipo"] in ("aporte", "venda", "dividendo"):
-            valor_txt = f"+{formatar_moeda(t['valor'])}".replace('$', r'\$')
-            cor = "green"
+            valor_txt = f"+{formatar_moeda_md(t['valor'])}"
+            cor = "#00C851"
         else:
-            valor_txt = f"-{formatar_moeda(t['valor'])}".replace('$', r'\$')
-            cor = "red"
+            valor_txt = f"-{formatar_moeda_md(t['valor'])}"
+            cor = "#FF4444"
 
         st.markdown(
             f"{emoji} **{t['tipo'].upper()}**{ticker_txt}{qtd_txt} | "
-            f"**:{cor}[{valor_txt}]** | "
-            f"📅 {formatar_data_br(t['data'])}{carteira_txt}{desc_txt}"
+            f"<span style='color:{cor};font-weight:700'>{valor_txt}</span> | "
+            f"📅 {formatar_data_br(t['data'])}{carteira_txt}{desc_txt}",
+            unsafe_allow_html=True
         )
 
     # Gráfico de evolução

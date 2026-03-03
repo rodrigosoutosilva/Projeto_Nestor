@@ -25,7 +25,7 @@ from database.crud import (
 )
 from utils.helpers import (
     parsear_csv_ativos, formatar_moeda, formatar_moeda_md, formatar_data_br,
-    calcular_meta_dividendos_auto,
+    calcular_meta_dividendos_auto, injetar_css_global,
     SETORES_ACOES, SETORES_FIIS
 )
 from services.market_data import buscar_preco_atual
@@ -49,6 +49,7 @@ def frequencias_permitidas(freq_persona: str) -> list:
     return [f for f, n in FREQ_ORDEM.items() if n >= nivel_persona]
 
 st.set_page_config(page_title="💼 Carteiras", page_icon="💼", layout="wide")
+injetar_css_global()
 
 # Verificar login
 if "user" not in st.session_state or st.session_state.user is None:
@@ -87,6 +88,12 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Criar Nova Carteira
 # ---------------------------------------------------------------------------
+# Estado para controle de criação em andamento
+if "criando_carteira" not in st.session_state:
+    st.session_state.criando_carteira = False
+
+_criando = st.session_state.criando_carteira
+
 with st.expander("➕ Criar Nova Carteira", expanded=False):
     with st.container():
         col1, col2 = st.columns(2)
@@ -94,7 +101,9 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
         with col1:
             nome_cart = st.text_input(
                 "Nome da Carteira",
-                placeholder="Ex: Ações Blue Chip, FIIs Renda, Long & Short..."
+                placeholder="Ex: Ações Blue Chip, FIIs Renda, Long & Short...",
+                disabled=_criando,
+                key="nome_cart_input"
             )
             objetivo = st.selectbox(
                 "Objetivo de Prazo",
@@ -104,7 +113,8 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
                     "medio": "🚶 Médio Prazo (1-5 anos)",
                     "longo": "🧘 Longo Prazo (> 5 anos)"
                 }[x],
-                index=2
+                index=2,
+                disabled=_criando
             )
 
         with col2:
@@ -116,13 +126,15 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
                     "fiis": "🏢 FIIs",
                     "misto": "🔀 Misto (Ações + FIIs)"
                 }[x],
-                index=2
+                index=2,
+                disabled=_criando
             )
             montante = st.number_input(
                 "💰 Aporte Inicial (R$)",
                 min_value=0.0, max_value=10_000_000.0, value=1000.0, step=100.0,
                 help="Dinheiro inicial em reais que você está destinando para iniciar os investimentos desta carteira. "
-                     "Este valor será seu de Caixa Livre na plataforma."
+                     "Este valor será seu de Caixa Livre na plataforma.",
+                disabled=_criando
             )
 
         # --- Aportes periódicos ---
@@ -132,7 +144,8 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
             aporte_valor = st.number_input(
                 "Valor do aporte periódico (R$)",
                 min_value=0.0, max_value=1_000_000.0, value=0.0, step=50.0,
-                help="Valor em reais que você pretende aportar recorrentemente."
+                help="Valor em reais que você pretende aportar recorrentemente.",
+                disabled=_criando
             )
         with col_ap2:
             freq_aporte_opcoes = ["", "semanal", "quinzenal", "mensal"]
@@ -145,7 +158,8 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
             freq_aporte = st.selectbox(
                 "Frequência do aporte",
                 options=freq_aporte_opcoes,
-                format_func=lambda x: freq_aporte_labels[x]
+                format_func=lambda x: freq_aporte_labels[x],
+                disabled=_criando
             )
 
         # --- Frequência de manuseio ---
@@ -161,7 +175,8 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
             options=freq_manuseio_opcoes,
             format_func=lambda x: freq_manuseio_labels.get(x, x),
             help=f"Deve ser igual ou menos frequente que a da persona ({persona_selecionada['frequencia_acao']}). "
-                 "Ex: se a persona é diária, a carteira pode ser diária, semanal ou mensal."
+                 "Ex: se a persona é diária, a carteira pode ser diária, semanal ou mensal.",
+            disabled=_criando
         )
 
         # Setores preferidos
@@ -173,12 +188,12 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
             st.markdown("**Ações (Selecione os setores desejados):**")
             cols_a = st.columns(3)
             with cols_a[0]:
-                todos_a = st.checkbox("Selecionar Todos (Ações)", value=True, key="todos_a", help="Se marcar esta opção, todos os setores serão incluídos de forma automática.")
+                todos_a = st.checkbox("Selecionar Todos (Ações)", value=True, key="todos_a", help="Se marcar esta opção, todos os setores serão incluídos de forma automática.", disabled=_criando)
             
             sel_a_list = []
             for i, (chave, label) in enumerate(SETORES_ACOES):
                 with cols_a[(i + 1) % 3]:
-                    if st.checkbox(label, value=todos_a, disabled=todos_a, key=f"setor_a_{chave}"):
+                    if st.checkbox(label, value=todos_a, disabled=(todos_a or _criando), key=f"setor_a_{chave}"):
                         sel_a_list.append(chave)
             
             if todos_a or not sel_a_list:
@@ -190,12 +205,12 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
             st.markdown("**FIIs (Selecione os tipos desejados):**")
             cols_f = st.columns(3)
             with cols_f[0]:
-                todos_f = st.checkbox("Selecionar Todos (FIIs)", value=True, key="todos_f", help="Se marcar esta opção, todos os setores serão incluídos de forma automática.")
+                todos_f = st.checkbox("Selecionar Todos (FIIs)", value=True, key="todos_f", help="Se marcar esta opção, todos os setores serão incluídos de forma automática.", disabled=_criando)
             
             sel_f_list = []
             for i, (chave, label) in enumerate(SETORES_FIIS):
                 with cols_f[(i + 1) % 3]:
-                    if st.checkbox(label, value=todos_f, disabled=todos_f, key=f"setor_f_{chave}"):
+                    if st.checkbox(label, value=todos_f, disabled=(todos_f or _criando), key=f"setor_f_{chave}"):
                         sel_f_list.append(chave)
             
             if todos_f or not sel_f_list:
@@ -215,36 +230,59 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
             f"risco {persona_selecionada['tolerancia_risco']}/10, prazo {objetivo})"
         )
 
-        submitted = st.button("✅ Criar Carteira", key="btn_criar_carteira", type="primary", use_container_width=True)
+        submitted = st.button("✅ Criar Carteira", key="btn_criar_carteira", type="primary", use_container_width=True, disabled=_criando)
         if submitted:
             if not nome_cart:
                 st.error("O nome da carteira é obrigatório!")
             elif aporte_valor > 0 and not freq_aporte:
                 st.error("Se definiu um valor de aporte, selecione a frequência!")
             else:
-                setores_str = ",".join(setores_selecionados)
-                result = criar_portfolio(
-                    persona_id=persona_selecionada["id"],
-                    nome=nome_cart,
-                    objetivo_prazo=objetivo,
-                    meta_dividendos=meta_dy_auto,
-                    tipo_ativo=tipo,
-                    setores_preferidos=setores_str,
-                    montante_disponivel=0.0, # Começa zerado para o aporte inicial somar corretamente
-                    aporte_periodico=aporte_valor,
-                    frequencia_aporte=freq_aporte,
-                    frequencia_manuseio=freq_manuseio
-                )
-                # Registrar aporte inicial se montante > 0
-                if montante > 0:
-                    registrar_transacao(
-                        portfolio_id=result["id"],
-                        tipo="aporte",
-                        valor=montante,
-                        descricao="Aporte inicial ao criar carteira"
-                    )
-                st.toast(f"Carteira **{nome_cart}** criada! 🎉")
-                st.rerun()
+                # Verificar nome duplicado
+                portfolios_existentes = listar_portfolios_persona(persona_selecionada["id"])
+                nomes_existentes = [p["nome"].strip().lower() for p in portfolios_existentes]
+                if nome_cart.strip().lower() in nomes_existentes:
+                    st.error(f"⚠️ Já existe uma carteira com o nome **{nome_cart}** nesta persona! Escolha outro nome.")
+                else:
+                    # Bloquear campos
+                    st.session_state.criando_carteira = True
+                    with st.spinner("⏳ Criando carteira... Aguarde."):
+                        setores_str = ",".join(setores_selecionados)
+                        result = criar_portfolio(
+                            persona_id=persona_selecionada["id"],
+                            nome=nome_cart,
+                            objetivo_prazo=objetivo,
+                            meta_dividendos=meta_dy_auto,
+                            tipo_ativo=tipo,
+                            setores_preferidos=setores_str,
+                            montante_disponivel=0.0,
+                            aporte_periodico=aporte_valor,
+                            frequencia_aporte=freq_aporte,
+                            frequencia_manuseio=freq_manuseio
+                        )
+                        # Registrar aporte inicial se montante > 0
+                        if montante > 0:
+                            registrar_transacao(
+                                portfolio_id=result["id"],
+                                tipo="aporte",
+                                valor=montante,
+                                descricao="Aporte inicial ao criar carteira"
+                            )
+                    st.session_state.criando_carteira = False
+                    # Aviso visível perto do botão (toast aparece no canto inferior)
+                    st.toast(f"Carteira {nome_cart} criada com sucesso! 🎉", icon="✅")
+                    # Limpar TODOS os campos para resetar o formulário
+                    keys_to_clear = [
+                        "nome_cart_input", "btn_criar_carteira",
+                        "todos_a", "todos_f",
+                    ]
+                    # Limpar checkboxes de setores
+                    for k in list(st.session_state.keys()):
+                        if k.startswith("setor_a_") or k.startswith("setor_f_"):
+                            keys_to_clear.append(k)
+                    for key in keys_to_clear:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    st.rerun()
 
 st.markdown("---")
 
@@ -310,7 +348,7 @@ else:
                     
                     if port.get('aporte_periodico', 0) > 0:
                         freq_label = {"semanal": "sem", "quinzenal": "quinz", "mensal": "mês"}.get(port.get('frequencia_aporte', ''), '')
-                        st.caption(f"💸 Aporte: {formatar_moeda(port['aporte_periodico'])}/{freq_label} | 📈 {len(ativos_port)} ativo(s)")
+                        st.caption(f"💸 Aporte: {formatar_moeda(port['aporte_periodico'])}/{freq_label} | 📈 {len(ativos_port)} ativo(s)".replace("$", r"\$"))
                     
                     st.divider()
                     

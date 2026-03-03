@@ -253,6 +253,103 @@ def buscar_dados_fundamentalistas(ticker: str) -> dict:
         return {"pl": None, "pvp": None, "dy": None, "setor": None, "market_cap": None}
 
 
+# Mapeamento de setores para tickers representativos da B3
+_SETOR_PEERS = {
+    # Ações
+    "Financial Services": ["ITUB4", "BBDC4", "BBAS3", "SANB11", "BPAC11"],
+    "Financial": ["ITUB4", "BBDC4", "BBAS3", "SANB11", "BPAC11"],
+    "Oil & Gas": ["PETR4", "PETR3", "PRIO3", "RECV3", "CSAN3"],
+    "Energy": ["PETR4", "ELET3", "ELET6", "CMIG4", "CPFE3", "ENEV3"],
+    "Basic Materials": ["VALE3", "SUZB3", "KLBN11", "GGBR4", "CSNA3"],
+    "Utilities": ["ELET3", "CPFE3", "CMIG4", "SBSP3", "SAPR11", "TAEE11"],
+    "Consumer Cyclical": ["MGLU3", "LREN3", "ARZZ3", "SOMA3", "VIVT3"],
+    "Consumer Defensive": ["ABEV3", "NTCO3", "PCAR3", "ASAI3", "CRFB3"],
+    "Industrials": ["WEGE3", "EMBR3", "RENT3", "CCRO3", "RAIL3"],
+    "Technology": ["TOTS3", "LWSA3", "POSI3", "CASH3", "BMOB3"],
+    "Healthcare": ["HAPV3", "RDOR3", "FLRY3", "QUAL3", "HYPE3"],
+    "Real Estate": ["CYRE3", "MRVE3", "EZTC3", "MULT3", "IGTI11"],
+    "Communication Services": ["VIVT3", "TIMS3", "OIBR3"],
+    # FIIs por tipo
+    "Tijolo": ["HGLG11", "XPML11", "VISC11", "BTLG11", "KNRI11"],
+    "Papel": ["KNCR11", "KNIP11", "MXRF11", "CPTS11", "IRDM11"],
+    "Híbrido": ["HGLG11", "KNRI11", "MXRF11", "XPML11", "VISC11"],
+}
+
+
+def buscar_referencia_setor(ticker: str, setor: str = None) -> dict:
+    """
+    Busca valores de referência (mín, máx, média, mediana) de P/VP, P/L e DY
+    para os peers do mesmo setor na B3.
+    
+    Retorna dict com:
+    - setor: nome do setor usado
+    - peers_analisados: quantidade de peers com dados
+    - pvp: {min, max, media, mediana}
+    - pl: {min, max, media, mediana}
+    - dy: {min, max, media, mediana}
+    """
+    import statistics
+    
+    if not setor:
+        fund = buscar_dados_fundamentalistas(ticker)
+        setor = fund.get("setor") if fund else None
+    
+    if not setor:
+        return {"setor": None, "peers_analisados": 0}
+    
+    # Encontrar peers do setor
+    peers = _SETOR_PEERS.get(setor, [])
+    
+    # Fallback: tentar match parcial
+    if not peers:
+        for key, val in _SETOR_PEERS.items():
+            if key.lower() in setor.lower() or setor.lower() in key.lower():
+                peers = val
+                setor = key
+                break
+    
+    if not peers:
+        return {"setor": setor, "peers_analisados": 0}
+    
+    # Buscar dados de cada peer (excluir o próprio ticker para não enviesar)
+    pvp_list, pl_list, dy_list = [], [], []
+    
+    for peer in peers:
+        try:
+            fund = buscar_dados_fundamentalistas(peer)
+            if fund:
+                if fund.get("pvp") and fund["pvp"] > 0:
+                    pvp_list.append(fund["pvp"])
+                if fund.get("pl") and fund["pl"] > 0:
+                    pl_list.append(fund["pl"])
+                if fund.get("dy") and fund["dy"] > 0:
+                    dy_list.append(fund["dy"])
+        except Exception:
+            continue
+    
+    def _stats(vals):
+        if not vals:
+            return {"min": None, "max": None, "media": None, "moda": None}
+        try:
+            moda_val = round(statistics.mode(vals), 2)
+        except statistics.StatisticsError:
+            moda_val = round(statistics.median(vals), 2)  # fallback se todos únicos
+        return {
+            "min": round(min(vals), 2),
+            "max": round(max(vals), 2),
+            "media": round(statistics.mean(vals), 2),
+            "moda": moda_val,
+        }
+    
+    return {
+        "setor": setor,
+        "peers_analisados": max(len(pvp_list), len(pl_list), len(dy_list)),
+        "pvp": _stats(pvp_list),
+        "pl": _stats(pl_list),
+        "dy": _stats(dy_list),
+    }
+
+
 def buscar_precos_multiplos(tickers: list[str]) -> dict:
     """
     Busca preço atual de múltiplos ativos de uma vez.

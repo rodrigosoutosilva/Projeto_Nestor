@@ -5,9 +5,10 @@ from database.crud import (
     listar_personas_usuario, listar_portfolios_persona,
     listar_acoes_portfolio, listar_transacoes_portfolio
 )
-from utils.helpers import formatar_moeda, nome_ativo
+from utils.helpers import formatar_moeda, nome_ativo, injetar_css_global
 
 st.set_page_config(page_title="Calendário de Movimentos", page_icon="📅", layout="wide")
+injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:
     st.warning("⚠️ Faça login na página principal primeiro.")

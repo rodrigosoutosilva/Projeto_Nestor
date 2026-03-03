@@ -19,9 +19,10 @@ from database.crud import (
 )
 from services.ai_brain import gerar_sugestao_onboarding, configurar_gemini
 from services.market_data import buscar_preco_atual
-from utils.helpers import formatar_moeda, calcular_meta_dividendos_auto
+from utils.helpers import formatar_moeda, calcular_meta_dividendos_auto, injetar_css_global
 
 st.set_page_config(page_title="📥 Onboarding", page_icon="📥", layout="wide")
+injetar_css_global()
 
 # Verificar login
 if "user" not in st.session_state or st.session_state.user is None:
@@ -119,8 +120,8 @@ elif step == 1:
 elif step == 2:
     st.markdown("### 📊 Qual sua tolerância a risco?")
     st.markdown("""
-    _Imagine que você investiu R$ 10.000 e no mês seguinte
-    seu investimento caiu para R$ 8.000 (-20%). O que você faria?_
+    _Imagine que você investiu R\$ 10.000 e no mês seguinte
+    seu investimento caiu para R\$ 8.000 (-20%). O que você faria?_
     """)
 
     opcao_risco = st.radio(

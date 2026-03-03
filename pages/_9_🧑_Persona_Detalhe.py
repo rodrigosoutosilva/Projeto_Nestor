@@ -17,9 +17,10 @@ from database.crud import (
     resumo_transacoes_portfolio, criar_portfolio
 )
 from services.market_data import buscar_preco_atual
-from utils.helpers import formatar_moeda, formatar_moeda_md
+from utils.helpers import formatar_moeda, formatar_moeda_md, injetar_css_global
 
 st.set_page_config(page_title="Persona Detalhe", page_icon="🧑", layout="wide")
+injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:
     st.warning("⚠️ Faça login.")
@@ -152,7 +153,7 @@ else:
                 
                 if port.get('aporte_periodico', 0) > 0:
                     fl = {"semanal":"sem","quinzenal":"quinz","mensal":"mês"}.get(port.get('frequencia_aporte',''),'')
-                    st.caption(f"💸 Aporte: {formatar_moeda(port['aporte_periodico'])}/{fl} | 📈 {len(ativos_port)} ativo(s)")
+                    st.caption(f"💸 Aporte: {formatar_moeda(port['aporte_periodico'])}/{fl} | 📈 {len(ativos_port)} ativo(s)".replace("$", r"\$"))
                 
                 st.divider()
                 # Botoes de acao (Detalhes e Excluir)
