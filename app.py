@@ -868,6 +868,17 @@ def tela_principal():
                 ativos = listar_ativos_portfolio(port["id"])
                 total_ativos += len(ativos)
 
+        # CSS local para botões de link nas caixinhas
+        st.markdown("""<style>
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"] {
+            background: none !important; border: none !important;
+            color: #667eea !important; padding: 0 4px !important;
+            box-shadow: none !important; font-size: 0.82rem !important;
+        }
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"]:hover {
+            text-decoration: underline !important; background: none !important;
+        }
+        </style>""", unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         with col1:
             with st.container(border=True):

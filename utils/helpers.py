@@ -381,17 +381,4 @@ def injetar_css_global():
     .stApp p, .stApp li, .stApp span { font-size: 0.88rem; }
     .stApp .stCaption, .stApp caption { font-size: 0.72rem !important; }
     hr { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
-    /* Botões "Ver detalhes" como links de texto */
-    button[kind="secondary"] > div > p {font-size: 0.82rem !important;}
-    button[kind="secondary"]:has(div p) {
-        background: none !important;
-        border: none !important;
-        padding: 0 !important;
-        color: #667eea !important;
-        box-shadow: none !important;
-    }
-    button[kind="secondary"]:has(div p):hover {
-        text-decoration: underline !important;
-        background: none !important;
-    }
 </style>""", unsafe_allow_html=True)
