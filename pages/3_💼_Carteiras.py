@@ -232,8 +232,8 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
 
         submitted = st.button("✅ Criar Carteira", key="btn_criar_carteira", type="primary", use_container_width=True, disabled=_criando)
         if submitted:
-            if not nome_cart:
-                st.error("O nome da carteira é obrigatório!")
+            if not nome_cart or not nome_cart.strip():
+                st.error("O nome da carteira é obrigatório (não pode ser vazio ou apenas espaços)!")
             elif aporte_valor > 0 and not freq_aporte:
                 st.error("Se definiu um valor de aporte, selecione a frequência!")
             else:

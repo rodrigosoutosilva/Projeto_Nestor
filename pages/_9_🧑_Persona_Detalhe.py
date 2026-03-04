@@ -38,7 +38,8 @@ if not persona:
     st.error("Persona não encontrada.")
     st.stop()
 
-st.button("⬅️ Voltar para Personas", on_click=lambda: st.switch_page("pages/2_🧑_Personas.py"))
+if st.button("⬅️ Voltar para Personas", key="btn_voltar_personas_top"):
+    st.switch_page("pages/2_🧑_Personas.py")
 
 # --- CABEÇALHO ---
 if persona["tolerancia_risco"] <= 3:
@@ -89,24 +90,37 @@ m5.metric("📉 Rend.", f"{lucro_pct:+.1f}%")
 m6.metric("📦 Ativos", total_ativos)
 
 # --- EDIÇÃO DA PERSONA ---
-with st.expander("✏️ Editar Persona"):
-    col1, col2 = st.columns(2)
-    with col1:
-        novo_nome = st.text_input("Nome:", value=persona["nome"], key="edit_pn")
-        nova_freq = st.selectbox("Frequência:", ["diario", "semanal", "mensal"],
-                                  index=["diario", "semanal", "mensal"].index(persona.get("frequencia_acao", "mensal")),
-                                  format_func=lambda x: {"diario": "📅 Diário", "semanal": "📆 Semanal", "mensal": "🗓️ Mensal"}[x],
-                                  key="edit_pf")
-    with col2:
-        nova_tol = st.slider("Tolerância:", 0, 10, persona["tolerancia_risco"], key="edit_pt")
-        novo_estilo = st.selectbox("Estilo:", ["dividendos", "crescimento", "equilibrado"],
-                                    index=["dividendos", "crescimento", "equilibrado"].index(persona.get("estilo", "dividendos")),
-                                    format_func=lambda x: {"dividendos":"💰 Dividendos","crescimento":"🚀 Crescimento","equilibrado":"⚖️ Equilibrado"}[x],
-                                    key="edit_pe")
-    if st.button("💾 Salvar", key="save_persona", use_container_width=True):
-        atualizar_persona(persona_id, nome=novo_nome, tolerancia_risco=nova_tol, frequencia_acao=nova_freq, estilo=novo_estilo)
-        st.toast("Persona atualizada! ✅")
-        st.rerun()
+if "persona_edit_open" not in st.session_state:
+    st.session_state.persona_edit_open = False
+
+if st.session_state.get("persona_salva_msg"):
+    st.success("✅ Persona atualizada com sucesso!")
+    st.session_state.persona_salva_msg = False
+
+if st.button("✏️ Editar Persona", key="toggle_edit_persona"):
+    st.session_state.persona_edit_open = not st.session_state.persona_edit_open
+    st.rerun()
+
+if st.session_state.persona_edit_open:
+    with st.container(border=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            novo_nome = st.text_input("Nome:", value=persona["nome"], key="edit_pn")
+            nova_freq = st.selectbox("Frequência:", ["diario", "semanal", "mensal"],
+                                      index=["diario", "semanal", "mensal"].index(persona.get("frequencia_acao", "mensal")),
+                                      format_func=lambda x: {"diario": "📅 Diário", "semanal": "📆 Semanal", "mensal": "🗓️ Mensal"}[x],
+                                      key="edit_pf")
+        with col2:
+            nova_tol = st.slider("Tolerância:", 0, 10, persona["tolerancia_risco"], key="edit_pt")
+            novo_estilo = st.selectbox("Estilo:", ["dividendos", "crescimento", "equilibrado"],
+                                        index=["dividendos", "crescimento", "equilibrado"].index(persona.get("estilo", "dividendos")),
+                                        format_func=lambda x: {"dividendos":"💰 Dividendos","crescimento":"🚀 Crescimento","equilibrado":"⚖️ Equilibrado"}[x],
+                                        key="edit_pe")
+        if st.button("💾 Salvar", key="save_persona", use_container_width=True):
+            atualizar_persona(persona_id, nome=novo_nome, tolerancia_risco=nova_tol, frequencia_acao=nova_freq, estilo=novo_estilo)
+            st.session_state.persona_edit_open = False
+            st.session_state.persona_salva_msg = True
+            st.rerun()
 
 st.markdown("---")
 
@@ -247,8 +261,8 @@ with st.expander("➕ Criar Nova Carteira para esta Persona"):
             freq_aporte = st.selectbox("Frequência aporte", ["mensal", "quinzenal", "semanal"])
         
         if st.button("✅ Criar Carteira", key="btn_criar_carteira_px", type="primary", use_container_width=True):
-            if not port_nome:
-                st.error("Nome obrigatório!")
+            if not port_nome or not port_nome.strip():
+                st.error("Nome obrigatório (não pode ser vazio ou apenas espaços)!")
             else:
                 setores_str = ",".join(setores_selecionados)
                 result = criar_portfolio(

@@ -412,51 +412,55 @@ st.markdown("""
     }
 
     /* ============ FIX 4: DROPDOWNS NÃO-EDITÁVEIS ============ */
-    /* Ocultar cursor de texto nos selectbox/multiselect para impedir digitação */
     div[data-baseweb="select"] input {
         caret-color: transparent !important;
+        cursor: pointer !important;
+        pointer-events: none !important;
+    }
+    div[data-baseweb="select"] {
         cursor: pointer !important;
     }
     div[data-baseweb="select"] input::placeholder {
         color: #666 !important;
     }
 
-    /* ============ FIX 5: HEADERS E MÉTRICAS COMPACTOS ============ */
+    /* ============ FIX 5: HEADERS E MÉTRICAS ============ */
 
-    /* Headers menores */
+    /* Headers */
     h1, .main-header {
-        font-size: 1.4rem !important;
+        font-size: 1.82rem !important;
     }
     h2 {
-        font-size: 1.15rem !important;
+        font-size: 1.5rem !important;
     }
     h3 {
-        font-size: 1rem !important;
+        font-size: 1.3rem !important;
     }
     h4 {
-        font-size: 0.9rem !important;
+        font-size: 1.17rem !important;
     }
 
-    /* Métricas (st.metric) — valores 40% menores que o padrão */
+    /* Métricas (st.metric) */
     [data-testid="stMetricLabel"] {
-        font-size: 0.65rem !important;
+        font-size: 0.85rem !important;
     }
     [data-testid="stMetricValue"] {
-        font-size: 0.72rem !important;
+        font-size: 1.82rem !important;
+        font-weight: 700 !important;
     }
     [data-testid="stMetricDelta"] {
-        font-size: 0.55rem !important;
-    }
-
-    /* Fonte base levemente menor */
-    .stApp p, .stApp li, .stApp span {
-        font-size: 0.88rem;
-    }
-    .stApp .stCaption, .stApp caption {
         font-size: 0.72rem !important;
     }
 
-    /* Dividers mais compactos */
+    /* Fonte base */
+    .stApp p, .stApp li, .stApp span {
+        font-size: 1.14rem;
+    }
+    .stApp .stCaption, .stApp caption {
+        font-size: 0.94rem !important;
+    }
+
+    /* Dividers */
     hr {
         margin-top: 0.5rem !important;
         margin-bottom: 0.5rem !important;
