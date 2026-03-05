@@ -52,7 +52,10 @@ else:
 freq_label = {"diario": "📅 Diário", "semanal": "📆 Semanal", "mensal": "🗓️ Mensal"}.get(persona.get("frequencia_acao", ""), "")
 estilo_label = {"dividendos": "💰 Dividendos", "crescimento": "🚀 Crescimento", "equilibrado": "⚖️ Equilibrado"}.get(persona.get("estilo", ""), "")
 
-st.header(f"{cor} {persona['nome']}")
+st.markdown(f"""
+<style>.big-name {{ font-size: 1.76rem !important; font-weight: 700 !important; margin-bottom: 0.3rem; }}</style>
+<div class='big-name'>{cor} {persona['nome']}</div>
+""", unsafe_allow_html=True)
 st.caption(f"Perfil: **{perfil}** | Risco: {persona['tolerancia_risco']}/10 | Estilo: {estilo_label} | Frequência: {freq_label}")
 
 # --- MÉTRICAS CONSOLIDADAS DA PERSONA ---
@@ -281,4 +284,5 @@ with st.expander("➕ Criar Nova Carteira para esta Persona"):
                         descricao="Aporte inicial ao criar carteira"
                     )
                 st.toast(f"Carteira '{port_nome}' criada! 🎉")
-                st.rerun()
+                st.session_state.view_portfolio_id = result["id"]
+                st.switch_page("pages/_7_📂_Carteira_Detalhe.py")

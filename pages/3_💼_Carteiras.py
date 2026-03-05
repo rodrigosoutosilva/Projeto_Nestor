@@ -268,21 +268,10 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
                                 descricao="Aporte inicial ao criar carteira"
                             )
                     st.session_state.criando_carteira = False
-                    # Aviso visível perto do botão (toast aparece no canto inferior)
                     st.toast(f"Carteira {nome_cart} criada com sucesso! 🎉", icon="✅")
-                    # Limpar TODOS os campos para resetar o formulário
-                    keys_to_clear = [
-                        "nome_cart_input", "btn_criar_carteira",
-                        "todos_a", "todos_f",
-                    ]
-                    # Limpar checkboxes de setores
-                    for k in list(st.session_state.keys()):
-                        if k.startswith("setor_a_") or k.startswith("setor_f_"):
-                            keys_to_clear.append(k)
-                    for key in keys_to_clear:
-                        if key in st.session_state:
-                            del st.session_state[key]
-                    st.rerun()
+                    # Redirecionar para a página da carteira criada
+                    st.session_state.view_portfolio_id = result["id"]
+                    st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
 
 st.markdown("---")
 

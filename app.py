@@ -79,12 +79,12 @@ st.markdown("""
     /* Hero Section */
     .hero-section {
         text-align: center;
-        padding: 3rem 1rem 2rem;
+        padding: 1.5rem 1rem 1rem;
     }
 
     .hero-logo {
-        font-size: 4.5rem;
-        margin-bottom: 0.3rem;
+        font-size: 3rem;
+        margin-bottom: 0.2rem;
         animation: float 3s ease-in-out infinite;
     }
 
@@ -95,33 +95,33 @@ st.markdown("""
 
     .hero-title {
         font-family: 'Inter', sans-serif;
-        font-size: 3.5rem;
+        font-size: 2.5rem;
         font-weight: 900;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         letter-spacing: -1px;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.3rem;
         line-height: 1.1;
     }
 
     .hero-slogan {
         font-family: 'Inter', sans-serif;
-        font-size: 1.5rem;
+        font-size: 1.1rem;
         font-weight: 300;
         color: #667eea;
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
         letter-spacing: 2px;
         text-transform: uppercase;
     }
 
     .hero-description {
         font-family: 'Inter', sans-serif;
-        font-size: 1.15rem;
+        font-size: 0.95rem;
         color: #555;
-        max-width: 700px;
-        margin: 0 auto 2rem;
-        line-height: 1.7;
+        max-width: 600px;
+        margin: 0 auto 1rem;
+        line-height: 1.5;
     }
 
     /* Feature Cards */
@@ -130,8 +130,8 @@ st.markdown("""
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.6);
-        border-radius: 20px;
-        padding: 2rem 1.5rem;
+        border-radius: 16px;
+        padding: 1.2rem 1rem;
         text-align: center;
         transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
@@ -201,14 +201,14 @@ st.markdown("""
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 48px;
-        height: 48px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         font-weight: 800;
-        font-size: 1.3rem;
-        margin-bottom: 1rem;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
         font-family: 'Inter', sans-serif;
     }
 
@@ -230,11 +230,11 @@ st.markdown("""
     /* Stats Bar */
     .stats-bar {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 20px;
-        padding: 2rem;
+        border-radius: 16px;
+        padding: 1.2rem;
         display: flex;
         justify-content: space-around;
-        margin: 1.5rem 0;
+        margin: 1rem 0;
     }
 
     .stat-item {
@@ -244,7 +244,7 @@ st.markdown("""
 
     .stat-value {
         font-family: 'Inter', sans-serif;
-        font-size: 2.2rem;
+        font-size: 1.6rem;
         font-weight: 800;
         display: block;
     }
@@ -428,36 +428,47 @@ st.markdown("""
 
     /* Headers */
     h1, .main-header {
-        font-size: 1.82rem !important;
+        font-size: 1.4rem !important;
     }
     h2 {
-        font-size: 1.5rem !important;
+        font-size: 2rem !important;
     }
     h3 {
-        font-size: 1.3rem !important;
+        font-size: 1rem !important;
     }
     h4 {
-        font-size: 1.17rem !important;
+        font-size: 0.9rem !important;
     }
 
-    /* Métricas (st.metric) */
+    /* Métricas (st.metric) — valores de destaque */
     [data-testid="stMetricLabel"] {
-        font-size: 0.85rem !important;
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
+    }
+    [data-testid="stMetricValue"] > div {
+        font-size: 1.82rem !important;
+        font-weight: 800 !important;
     }
     [data-testid="stMetricValue"] {
         font-size: 1.82rem !important;
-        font-weight: 700 !important;
+        font-weight: 800 !important;
     }
     [data-testid="stMetricDelta"] {
         font-size: 0.72rem !important;
     }
 
-    /* Fonte base */
+    /* Nomes de carteiras e personas nos cards */
+    .metric-card .value {
+        font-size: 2.2rem !important;
+        font-weight: 700 !important;
+    }
+
+    /* Fonte base — tamanho original */
     .stApp p, .stApp li, .stApp span {
-        font-size: 1.14rem;
+        font-size: 0.88rem;
     }
     .stApp .stCaption, .stApp caption {
-        font-size: 0.94rem !important;
+        font-size: 0.72rem !important;
     }
 
     /* Dividers */

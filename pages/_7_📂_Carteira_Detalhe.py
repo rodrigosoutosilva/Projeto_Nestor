@@ -47,10 +47,19 @@ with btn_col2:
     if st.button("Carteiras", key="btn_volt_carteiras", use_container_width=True):
         st.switch_page("pages/3_💼_Carteiras.py")
 
-# --- CABEÇALHO COMPACTO ---
+# --- CABEÇALHO ---
 tipo_emoji = {"acoes": "📈", "fiis": "🏢", "misto": "🔀"}.get(port["tipo_ativo"], "📊")
-st.header(f"{tipo_emoji} {port['nome']}")
+st.markdown(f"""
+<style>.big-name {{ font-size: 1.76rem !important; font-weight: 700 !important; margin-bottom: 0.3rem; }}</style>
+<div class='big-name'>{tipo_emoji} {port['nome']}</div>
+""", unsafe_allow_html=True)
 st.caption(f"Persona: **{persona['nome'] if persona else 'N/A'}** | Prazo: {port['objetivo_prazo'].capitalize()} | Meta DY: {port['meta_dividendos']}%")
+
+# CSS para métricas maiores nesta página
+st.markdown("""<style>
+[data-testid="stMetricValue"] > div { font-size: 1.5rem !important; font-weight: 700 !important; }
+[data-testid="stMetricValue"] { font-size: 1.5rem !important; font-weight: 700 !important; }
+</style>""", unsafe_allow_html=True)
 
 # Métricas financeiras compactas
 caixa = port.get("montante_disponivel", 0)
@@ -76,24 +85,107 @@ cor_delta = "normal" if lucro_acum >= 0 else "inverse"
 mh4.metric("📈 Lucro", formatar_moeda(lucro_acum), help="Valor Total − Total Aportado")
 mh5.metric("📉 Rendimento", f"{lucro_pct:+.1f}%", help="Lucro acumulado / Total aportado")
 
-with st.expander("✏️ Editar Configurações da Carteira"):
-    with st.form("form_edit_port"):
-        e_nome = st.text_input("Nome", value=port["nome"])
-        
-        c_fix, c_ap = st.columns([1, 2])
-        with c_fix:
-            st.metric("Caixa Atual Registrado", formatar_moeda(port.get("montante_disponivel", 0)))
-            st.caption("Para inserir mais caixa, registre um **Aporte** no painel de Gestão.")
-        
-        with c_ap:
-            e_aporte = st.number_input("Aporte Periódico (R$)", value=float(port.get("aporte_periodico", 0)), step=50.0)
-            e_freq = st.selectbox("Frequência Aporte", ["", "semanal", "quinzenal", "mensal"], index=["", "semanal", "quinzenal", "mensal"].index(port.get("frequencia_aporte", "")))
-        
-        if st.form_submit_button("Salvar Edição"):
-            # Caixa não é listado no db-commit
-            atualizar_portfolio(port["id"], nome=e_nome, aporte_periodico=e_aporte, frequencia_aporte=e_freq)
-            st.toast("Carteira atualizada! ✅")
-            st.rerun()
+# --- 3 BOTÕES DE AÇÃO INLINE ---
+btn_c1, btn_c2, btn_c3 = st.columns(3)
+with btn_c1:
+    if st.button("✏️ Editar Carteira", key="tgl_edit", use_container_width=True):
+        st.session_state["show_edit_port"] = not st.session_state.get("show_edit_port", False)
+        st.session_state["show_aporte"] = False
+        st.session_state["show_compra_dir"] = False
+        st.rerun()
+with btn_c2:
+    if st.button("📥 Aporte / Retirada", key="tgl_aporte", use_container_width=True):
+        st.session_state["show_aporte"] = not st.session_state.get("show_aporte", False)
+        st.session_state["show_edit_port"] = False
+        st.session_state["show_compra_dir"] = False
+        st.rerun()
+with btn_c3:
+    if st.button("🛒 Comprar Ativo", key="tgl_compra", use_container_width=True):
+        st.session_state["show_compra_dir"] = not st.session_state.get("show_compra_dir", False)
+        st.session_state["show_edit_port"] = False
+        st.session_state["show_aporte"] = False
+        st.rerun()
+
+# Painel: Editar Carteira
+if st.session_state.get("show_edit_port"):
+    with st.container(border=True):
+        with st.form("form_edit_port"):
+            e_nome = st.text_input("Nome", value=port["nome"])
+            c_fix, c_ap = st.columns([1, 2])
+            with c_fix:
+                st.metric("Caixa Atual Registrado", formatar_moeda(port.get("montante_disponivel", 0)))
+                st.caption("Para inserir mais caixa, registre um **Aporte**.")
+            with c_ap:
+                e_aporte = st.number_input("Aporte Periódico (R$)", value=float(port.get("aporte_periodico", 0)), step=50.0)
+                e_freq = st.selectbox("Frequência Aporte", ["", "semanal", "quinzenal", "mensal"], index=["", "semanal", "quinzenal", "mensal"].index(port.get("frequencia_aporte", "")))
+            if st.form_submit_button("Salvar Edição"):
+                atualizar_portfolio(port["id"], nome=e_nome, aporte_periodico=e_aporte, frequencia_aporte=e_freq)
+                st.session_state["show_edit_port"] = False
+                st.toast("Carteira atualizada! ✅")
+                st.rerun()
+
+# Painel: Aporte / Retirada
+if st.session_state.get("show_aporte"):
+    with st.container(border=True):
+        c_ap1, c_ap2, c_ap3, c_ap4 = st.columns([2, 3, 3, 4])
+        with c_ap1:
+            tipo_movimento = st.selectbox("Movimento", ["Aporte (+)", "Retirada (-)"], key="tipo_mov_caixa")
+        with c_ap2:
+            valor_movimento = st.number_input("Valor (R$)", min_value=0.01, value=100.0, step=50.0, key="valor_mov_caixa")
+        with c_ap3:
+            data_movimento = st.date_input("Data", value=date.today(), key="data_mov_caixa")
+        with c_ap4:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("✅ Confirmar", key="btn_conf_mov_caixa", type="primary", use_container_width=True):
+                tipo_db = "aporte" if "Aporte" in tipo_movimento else "retirada"
+                caixa_c = port.get("montante_disponivel", 0)
+                if tipo_db == "retirada" and valor_movimento > caixa_c:
+                    st.error("⚠️ Saldo insuficiente!")
+                else:
+                    registrar_transacao(portfolio_id=port["id"], tipo=tipo_db, valor=valor_movimento,
+                                       descricao=f"{tipo_db.capitalize()} de caixa", data_transacao=data_movimento)
+                    novo_caixa = caixa_c + (valor_movimento if tipo_db == "aporte" else -valor_movimento)
+                    atualizar_portfolio(port["id"], montante_disponivel=novo_caixa)
+                    st.session_state["show_aporte"] = False
+                    st.toast(f"{tipo_db.capitalize()} registrado! ✅")
+                    st.rerun()
+
+# Painel: Comprar Ativo Direto
+if st.session_state.get("show_compra_dir"):
+    with st.container(border=True):
+        c_na1, c_na2, c_na3, c_na4 = st.columns(4)
+        with c_na1:
+            novo_ticker = st.text_input("Ticker", placeholder="MGLU3", key="novo_ticker_compra")
+        with c_na2:
+            novo_qtd = st.number_input("Quantidade", min_value=1, value=100, step=10, key="novo_qtd_compra")
+        with c_na3:
+            novo_preco = st.number_input("Preço (R$)", min_value=0.01, value=10.0, step=0.1, key="novo_preco_compra")
+        with c_na4:
+            novo_data = st.date_input("Data", value=date.today(), key="novo_data_compra")
+        if st.button("✅ Registrar Compra", key="btn_novo_ativo_compra", type="primary", use_container_width=True):
+            if not novo_ticker:
+                st.error("Informe o Ticker.")
+            else:
+                ticker_upper = novo_ticker.upper().strip()
+                valor_total_nova_compra = novo_qtd * novo_preco
+                caixa = port.get("montante_disponivel", 0)
+                if valor_total_nova_compra > caixa:
+                    st.error(f"⚠️ Caixa insuficiente!")
+                else:
+                    ativo_ext = next((x for x in ativos if x["ticker"] == ticker_upper), None)
+                    if ativo_ext:
+                        q_ant = ativo_ext["quantidade"]
+                        p_ant = ativo_ext["preco_medio"]
+                        q_nova = q_ant + novo_qtd
+                        p_novo = ((q_ant * p_ant) + valor_total_nova_compra) / q_nova
+                        atualizar_ativo(ativo_ext["id"], quantidade=q_nova, preco_medio=p_novo)
+                    else:
+                        adicionar_ativo(port["id"], ticker_upper, novo_preco, novo_qtd, novo_data)
+                    registrar_transacao(port["id"], "compra", valor_total_nova_compra, ticker_upper, novo_qtd, novo_preco, "Compra Direta", novo_data)
+                    atualizar_portfolio(port["id"], montante_disponivel=caixa - valor_total_nova_compra)
+                    st.session_state["show_compra_dir"] = False
+                    st.toast(f"Ativo {ticker_upper} comprado! 🎉")
+                    st.rerun()
 
 st.markdown("---")
 
@@ -197,75 +289,6 @@ with tab1:
                                     st.rerun()
                             
         st.info("Sua carteira ainda não possui ativos.")
-        
-    st.markdown("---")
-    st.markdown("#### 💸 Gerenciar Caixa da Carteira")
-    
-    with st.expander("📥 Registrar Aporte / 📤 Retirada"):
-        c_ap1, c_ap2, c_ap3, c_ap4 = st.columns([2, 3, 3, 4])
-        with c_ap1:
-            tipo_movimento = st.selectbox("Movimento", ["Aporte (+)", "Retirada (-)"], key="tipo_mov_caixa")
-        with c_ap2:
-            valor_movimento = st.number_input("Valor (R$)", min_value=0.01, value=100.0, step=50.0, key="valor_mov_caixa")
-        with c_ap3:
-            data_movimento = st.date_input("Data", value=date.today(), key="data_mov_caixa")
-        with c_ap4:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("✅ Confirmar Movimentação", key="btn_conf_mov_caixa", type="primary", use_container_width=True):
-                tipo_db = "aporte" if "Aporte" in tipo_movimento else "retirada"
-                caixa_c = port.get("montante_disponivel", 0)
-                
-                if tipo_db == "retirada" and valor_movimento > caixa_c:
-                    st.error("⚠️ Saldo em caixa insuficiente para esta retirada!")
-                else:
-                    registrar_transacao(
-                        portfolio_id=port["id"],
-                        tipo=tipo_db,
-                        valor=valor_movimento,
-                        descricao=f"{tipo_db.capitalize()} de caixa",
-                        data_transacao=data_movimento
-                    )
-                    novo_caixa = caixa_c + (valor_movimento if tipo_db == "aporte" else -valor_movimento)
-                    atualizar_portfolio(port["id"], montante_disponivel=novo_caixa)
-                    st.toast(f"{tipo_db.capitalize()} registrado no caixa com sucesso! ✅")
-                    st.rerun()
-
-    st.markdown("#### ➕ Adicionar Novo Ativo à Carteira")
-    with st.expander("🛒 Comprar ativo não listado nativamente"):
-        c_na1, c_na2, c_na3, c_na4 = st.columns(4)
-        with c_na1:
-            novo_ticker = st.text_input("Ticker", placeholder="MGLU3", key="novo_ticker_compra")
-        with c_na2:
-            novo_qtd = st.number_input("Quantidade", min_value=1, value=100, step=10, key="novo_qtd_compra")
-        with c_na3:
-            novo_preco = st.number_input("Preço Compra (R$)", min_value=0.01, value=10.0, step=0.1, key="novo_preco_compra")
-        with c_na4:
-            novo_data = st.date_input("Data Compra", value=date.today(), key="novo_data_compra")
-            
-        if st.button("✅ Registrar Compra Direta", key="btn_novo_ativo_compra", type="primary", use_container_width=True):
-            if not novo_ticker:
-                st.error("Informe o Ticker do ativo.")
-            else:
-                ticker_upper = novo_ticker.upper().strip()
-                valor_total_nova_compra = novo_qtd * novo_preco
-                caixa = port.get("montante_disponivel", 0)
-                if valor_total_nova_compra > caixa:
-                    st.error(f"⚠️ Saldo em caixa insuficiente (Necessário {formatar_moeda(valor_total_nova_compra)}). Registre um aporte no caixa primeiro.".replace("$", r"\$"))
-                else:
-                    ativo_ext = next((x for x in ativos if x["ticker"] == ticker_upper), None)
-                    if ativo_ext:
-                        q_ant = ativo_ext["quantidade"]
-                        p_ant = ativo_ext["preco_medio"]
-                        q_nova = q_ant + novo_qtd
-                        p_novo = ((q_ant * p_ant) + valor_total_nova_compra) / q_nova
-                        atualizar_ativo(ativo_ext["id"], quantidade=q_nova, preco_medio=p_novo)
-                    else:
-                        adicionar_ativo(port["id"], ticker_upper, novo_preco, novo_qtd, novo_data)
-                    
-                    registrar_transacao(port["id"], "compra", valor_total_nova_compra, ticker_upper, novo_qtd, novo_preco, "Compra Direta", novo_data)
-                    atualizar_portfolio(port["id"], montante_disponivel=caixa - valor_total_nova_compra)
-                    st.toast(f"Ativo {ticker_upper} comprado com sucesso! 🎉")
-                    st.rerun()
 
 with tab2:
     st.subheader("Ativos em Monitoramento")
@@ -525,62 +548,78 @@ with tab3:
         
         st.markdown("---")
         
-    # 2. Sugestões técnicas — APENAS compra e observar
+    # 2. Sugestões técnicas — pré-carregadas
     st.markdown("#### Sugestões do Algoritmo Técnico")
+    
     sugestoes = gerar_sugestoes_carteira(portfolio_id)
     
     if sugestoes:
         sugestoes_compra_obs = [s for s in sugestoes if s.get("acao") in ("compra", "observar")]
         if sugestoes_compra_obs:
-            for s in sugestoes_compra_obs:
+            for idx_s, s in enumerate(sugestoes_compra_obs):
                 with st.container(border=True):
                     novo_label = " 🆕 **NOVO**" if s.get("novo") else ""
-                    c1, c2 = st.columns([5, 3])
-                    with c1:
-                        st.markdown(f"### {s['ticker']}{novo_label}")
-                        st.caption(nome_ativo(s['ticker']))
-                        cor_acao = "#00C851" if s['acao'] == "compra" else "#FFBB33"
-                        preco_sug_inline = 0.0
-                        cot = buscar_preco_atual(s["ticker"])
-                        if isinstance(cot, dict) and cot.get("preco_atual", 0) > 0:
-                            preco_sug_inline = float(cot["preco_atual"])
-                            
-                        st.markdown(f"**Ação sugerida:** <span style='color:{cor_acao}'>{s['acao'].upper()}</span> (Score: {s['score']}/100) | **Preço Unit:** {formatar_moeda_md(preco_sug_inline)}", unsafe_allow_html=True)
-                        st.info(s['texto'])
-                    with c2:
-                        c_bi, c_bia, c_bic, c_bid = st.columns(4)
-                        with c_bi:
-                            if s['acao'] == 'compra' and preco_sug_inline > 0:
-                                caixa_alg = port.get("montante_disponivel", 0)
-                                if caixa_alg >= preco_sug_inline:
-                                    if st.button("🛒", key=f"alc_buy_{s['ticker']}", use_container_width=True, help="Comprar 1 unidade"):
-                                        v_compra = preco_sug_inline
-                                        ativo_ext = next((x for x in ativos if x["ticker"] == s['ticker']), None)
-                                        if ativo_ext:
-                                            q_ant = ativo_ext["quantidade"]
-                                            p_ant = ativo_ext["preco_medio"]
-                                            q_nova = q_ant + 1
-                                            p_novo = ((q_ant * p_ant) + v_compra) / q_nova
-                                            atualizar_ativo(ativo_ext["id"], quantidade=q_nova, preco_medio=p_novo)
-                                        else:
-                                            adicionar_ativo(port["id"], s['ticker'], preco_sug_inline, 1, date.today())
-                                        registrar_transacao(port["id"], "compra", v_compra, s['ticker'], 1, preco_sug_inline, "Compra Algoritmo", date.today())
-                                        atualizar_portfolio(port["id"], montante_disponivel=caixa_alg - v_compra)
-                                        st.toast(f"{s['ticker']} comprado! 🎉", icon="✅")
-                                        st.rerun()
-                        with c_bia:
-                            if st.button("👁️", key=f"alc_watch_{s['ticker']}", use_container_width=True, help="Adicionar à Watchlist"):
+                    st.markdown(f"### {s['ticker']}{novo_label}")
+                    st.caption(nome_ativo(s['ticker']))
+                    cor_acao = "#00C851" if s['acao'] == "compra" else "#FFBB33"
+                    preco_sug_inline = 0.0
+                    cot = buscar_preco_atual(s["ticker"])
+                    if isinstance(cot, dict) and cot.get("preco_atual", 0) > 0:
+                        preco_sug_inline = float(cot["preco_atual"])
+                        
+                    st.markdown(f"**Ação sugerida:** <span style='color:{cor_acao}'>{s['acao'].upper()}</span> (Score: {s['score']}/100) | **Preço Unit:** {formatar_moeda_md(preco_sug_inline)}", unsafe_allow_html=True)
+                    st.info(s['texto'])
+                    
+                    # Botões abaixo do texto
+                    if preco_sug_inline > 0:
+                        caixa_alg = port.get("montante_disponivel", 0)
+                        ca_qty, ca_total, ca1, ca2, ca3, ca4 = st.columns([1, 1.5, 0.8, 0.8, 0.8, 0.8])
+                        with ca_qty:
+                            qtd_alg = st.number_input("Qtd", min_value=1, value=1, key=f"alg_qtd_{idx_s}_{s['ticker']}", step=1)
+                        with ca_total:
+                            valor_total_alg = qtd_alg * preco_sug_inline
+                            st.markdown(f"**Total**")
+                            st.markdown(f"R\\$ {valor_total_alg:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                        with ca1:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("🛒", key=f"alc_buy_{idx_s}_{s['ticker']}", use_container_width=True, help="Comprar"):
+                                if valor_total_alg > caixa_alg:
+                                    st.toast("⚠️ Caixa insuficiente!", icon="⚠️")
+                                else:
+                                    ativo_ext = next((x for x in ativos if x["ticker"] == s['ticker']), None)
+                                    if ativo_ext:
+                                        q_ant = ativo_ext["quantidade"]
+                                        p_ant = ativo_ext["preco_medio"]
+                                        q_nova = q_ant + qtd_alg
+                                        p_novo = ((q_ant * p_ant) + valor_total_alg) / q_nova
+                                        atualizar_ativo(ativo_ext["id"], quantidade=q_nova, preco_medio=p_novo)
+                                    else:
+                                        adicionar_ativo(port["id"], s['ticker'], preco_sug_inline, qtd_alg, date.today())
+                                    registrar_transacao(port["id"], "compra", valor_total_alg, s['ticker'], qtd_alg, preco_sug_inline, "Compra Algoritmo", date.today())
+                                    atualizar_portfolio(port["id"], montante_disponivel=caixa_alg - valor_total_alg)
+                                    st.toast(f"{s['ticker']} comprado! 🎉", icon="✅")
+                                    st.rerun()
+                        with ca2:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("👁️", key=f"alc_watch_{idx_s}_{s['ticker']}", use_container_width=True, help="Watchlist"):
                                 adicionar_watchlist(portfolio_id, s['ticker'])
                                 st.toast(f"{s['ticker']} adicionado à watchlist! 👁️", icon="✅")
                                 st.rerun()
-                        with c_bic:
-                            if st.button("ℹ️", key=f"alc_i_{s['ticker']}", use_container_width=True, help="Info"):
+                        with ca3:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("ℹ️", key=f"alc_i_{idx_s}_{s['ticker']}", use_container_width=True, help="Info"):
                                 st.session_state.view_asset_ticker = s['ticker']
                                 st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
                                 st.switch_page("pages/_8_📄_Ativo.py")
-                        with c_bid:
-                            if st.button("💡", key=f"btn_ia_{s['ticker']}", use_container_width=True, help="Análise IA"):
+                        with ca4:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("💡", key=f"btn_ia_{idx_s}_{s['ticker']}", use_container_width=True, help="Análise IA"):
                                 st.session_state[f"run_ia_{s['ticker']}"] = True
+                    else:
+                        if st.button("👁️ Watchlist", key=f"alc_watch_np_{idx_s}_{s['ticker']}", use_container_width=True):
+                            adicionar_watchlist(portfolio_id, s['ticker'])
+                            st.toast(f"{s['ticker']} adicionado à watchlist!", icon="✅")
+                            st.rerun()
                             
                     if st.session_state.get(f"run_ia_{s['ticker']}"):
                         with st.spinner(f"Consultando IA para {s['ticker']}..."):
@@ -614,44 +653,94 @@ with tab4:
     if sugestoes_mov:
         sugestoes_venda = [s for s in sugestoes_mov if s.get("acao") == "venda" and s.get("ticker") in tickers_na_carteira]
         if sugestoes_venda:
-            for s in sugestoes_venda:
+            for idx_m, s in enumerate(sugestoes_venda):
                 with st.container(border=True):
-                    c1, c2 = st.columns([5, 2])
-                    with c1:
-                        st.markdown(f"### {s['ticker']}")
-                        st.caption(nome_ativo(s['ticker']))
-                        
-                        # Buscar info do ativo na carteira
-                        ativo_cart = next((a for a in ativos if a["ticker"] == s["ticker"]), None)
-                        qtd_cart = ativo_cart["quantidade"] if ativo_cart else 0
-                        pm_cart = ativo_cart["preco_medio"] if ativo_cart else 0
-                        
-                        cot = buscar_preco_atual(s["ticker"])
-                        preco_atual_mov = float(cot["preco_atual"]) if isinstance(cot, dict) and cot.get("preco_atual", 0) > 0 else pm_cart
-                        
-                        lucro_un = preco_atual_mov - pm_cart
-                        lucro_total = lucro_un * qtd_cart
-                        cor_lucro = "#00C851" if lucro_total >= 0 else "#FF4444"
-                        
-                        st.markdown(
-                            f"**Ação sugerida:** <span style='color:#FF4444'>VENDA</span> (Score: {s['score']}/100) | "
-                            f"Em carteira: {qtd_cart} papéis | PM: {formatar_moeda_md(pm_cart)} | "
-                            f"Atual: {formatar_moeda_md(preco_atual_mov)} | "
-                            f"L/P: <span style='color:{cor_lucro}'>{formatar_moeda_md(lucro_total)}</span>",
-                            unsafe_allow_html=True
-                        )
-                        st.info(s['texto'])
-                    with c2:
-                        c_bi, c_bia = st.columns(2)
-                        with c_bi:
-                            if st.button("ℹ️ Info", key=f"mov_i_{s['ticker']}", use_container_width=True):
+                    novo_label = " 🆕 **NOVO**" if s.get("novo") else ""
+                    st.markdown(f"### {s['ticker']}{novo_label}")
+                    st.caption(nome_ativo(s['ticker']))
+                    
+                    # Info do ativo na carteira
+                    ativo_cart = next((a for a in ativos if a["ticker"] == s["ticker"]), None)
+                    qtd_cart = ativo_cart["quantidade"] if ativo_cart else 0
+                    pm_cart = ativo_cart["preco_medio"] if ativo_cart else 0
+                    
+                    cot = buscar_preco_atual(s["ticker"])
+                    preco_atual_mov = float(cot["preco_atual"]) if isinstance(cot, dict) and cot.get("preco_atual", 0) > 0 else pm_cart
+                    
+                    lucro_un = preco_atual_mov - pm_cart
+                    lucro_total = lucro_un * qtd_cart
+                    cor_lucro = "#00C851" if lucro_total >= 0 else "#FF4444"
+                    
+                    st.markdown(
+                        f"**Ação sugerida:** <span style='color:#FF4444'>VENDA</span> (Score: {s['score']}/100) | "
+                        f"Em carteira: {qtd_cart} papéis | PM: {formatar_moeda_md(pm_cart)} | "
+                        f"Atual: {formatar_moeda_md(preco_atual_mov)} | "
+                        f"L/P: <span style='color:{cor_lucro}'>{formatar_moeda_md(lucro_total)}</span>",
+                        unsafe_allow_html=True
+                    )
+                    st.info(s['texto'])
+                    
+                    # Botões abaixo do texto
+                    if preco_atual_mov > 0:
+                        caixa_mov = port.get("montante_disponivel", 0)
+                        ca_qty, ca_total, ca1, ca1b, ca2, ca3, ca4 = st.columns([1, 1.5, 0.7, 0.7, 0.7, 0.7, 0.7])
+                        with ca_qty:
+                            qtd_mov = st.number_input("Qtd", min_value=1, value=1, key=f"mov_qtd_{idx_m}_{s['ticker']}", step=1)
+                        with ca_total:
+                            valor_total_mov = qtd_mov * preco_atual_mov
+                            st.markdown(f"**Total**")
+                            st.markdown(f"R\\$ {valor_total_mov:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                        with ca1:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("🛒", key=f"mov_buy_{idx_m}_{s['ticker']}", use_container_width=True, help="Comprar"):
+                                if valor_total_mov > caixa_mov:
+                                    st.toast("⚠️ Caixa insuficiente!", icon="⚠️")
+                                else:
+                                    if ativo_cart:
+                                        q_ant = ativo_cart["quantidade"]
+                                        p_ant = ativo_cart["preco_medio"]
+                                        q_nova = q_ant + qtd_mov
+                                        p_novo = ((q_ant * p_ant) + valor_total_mov) / q_nova
+                                        atualizar_ativo(ativo_cart["id"], quantidade=q_nova, preco_medio=p_novo)
+                                    else:
+                                        adicionar_ativo(port["id"], s['ticker'], preco_atual_mov, qtd_mov, date.today())
+                                    registrar_transacao(port["id"], "compra", valor_total_mov, s['ticker'], qtd_mov, preco_atual_mov, "Compra (Mov)", date.today())
+                                    atualizar_portfolio(port["id"], montante_disponivel=caixa_mov - valor_total_mov)
+                                    st.toast(f"{s['ticker']} comprado! 🎉", icon="✅")
+                                    st.rerun()
+                        with ca1b:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("💰", key=f"mov_sell_{idx_m}_{s['ticker']}", use_container_width=True, help="Vender"):
+                                if ativo_cart and qtd_mov <= ativo_cart["quantidade"]:
+                                    nova_qtd = ativo_cart["quantidade"] - qtd_mov
+                                    if nova_qtd == 0:
+                                        from database.crud import deletar_ativo
+                                        deletar_ativo(ativo_cart["id"])
+                                    else:
+                                        atualizar_ativo(ativo_cart["id"], quantidade=nova_qtd, preco_medio=ativo_cart["preco_medio"])
+                                    registrar_transacao(port["id"], "venda", valor_total_mov, s['ticker'], qtd_mov, preco_atual_mov, "Venda (Mov)", date.today())
+                                    atualizar_portfolio(port["id"], montante_disponivel=caixa_mov + valor_total_mov)
+                                    st.toast(f"{s['ticker']} vendido! 💰", icon="✅")
+                                    st.rerun()
+                                else:
+                                    st.toast(f"⚠️ Você só tem {qtd_cart} papéis!", icon="⚠️")
+                        with ca2:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("👁️", key=f"mov_watch_{idx_m}_{s['ticker']}", use_container_width=True, help="Watchlist"):
+                                adicionar_watchlist(portfolio_id, s['ticker'])
+                                st.toast(f"{s['ticker']} adicionado à watchlist! 👁️", icon="✅")
+                                st.rerun()
+                        with ca3:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("ℹ️", key=f"mov_i_{idx_m}_{s['ticker']}", use_container_width=True, help="Info"):
                                 st.session_state.view_asset_ticker = s['ticker']
                                 st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
                                 st.switch_page("pages/_8_📄_Ativo.py")
-                        with c_bia:
-                            if st.button("💡 Análise IA", key=f"btn_ia_mov_{s['ticker']}", use_container_width=True):
+                        with ca4:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("💡", key=f"btn_ia_mov_{idx_m}_{s['ticker']}", use_container_width=True, help="Análise IA"):
                                 st.session_state[f"run_ia_mov_{s['ticker']}"] = True
-                            
+                    
                     if st.session_state.get(f"run_ia_mov_{s['ticker']}"):
                         with st.spinner(f"Consultando IA para {s['ticker']}..."):
                             rec_ia = gerar_recomendacao_completa(s['ticker'], persona["id"], portfolio_id)

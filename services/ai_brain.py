@@ -411,6 +411,31 @@ RESUMO: [Explicação geral de 2-3 frases sobre a estratégia de alocação]
                     s["quantidade"] = int(novo_valor / preco_unit)
                     s["valor_total"] = s["quantidade"] * preco_unit
 
+        # --- Otimização: preencher caixa restante comprando mais papéis ---
+        # Calcula quanto sobrou após a alocação inicial
+        sugestoes_com_preco = [s for s in sugestoes if s.get("preco_estimado", 0) > 0 and s.get("quantidade", 0) > 0]
+        if sugestoes_com_preco:
+            total_gasto = sum(s.get("valor_total", 0) for s in sugestoes)
+            caixa_restante = montante - total_gasto
+            preco_mais_barato = min(s["preco_estimado"] for s in sugestoes_com_preco)
+            
+            # Distribuir papéis extras enquanto couber no caixa
+            max_iteracoes = 500  # Segurança contra loop infinito
+            iteracao = 0
+            while caixa_restante >= preco_mais_barato and iteracao < max_iteracoes:
+                comprou_algo = False
+                # Ordenar por preço (mais barato primeiro) para maximizar utilização
+                for s in sorted(sugestoes_com_preco, key=lambda x: x["preco_estimado"]):
+                    preco_unit = s["preco_estimado"]
+                    if preco_unit <= caixa_restante:
+                        s["quantidade"] += 1
+                        s["valor_total"] = s["quantidade"] * preco_unit
+                        caixa_restante -= preco_unit
+                        comprou_algo = True
+                if not comprou_algo:
+                    break
+                iteracao += 1
+
         return {
             "sugestoes": sugestoes,
             "resumo": resumo or "Sugestões baseadas no seu perfil e montante disponível.",

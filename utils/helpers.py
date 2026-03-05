@@ -367,19 +367,21 @@ def injetar_css_global():
     import streamlit as st
     st.markdown("""<style>
     /* Métricas */
-    [data-testid="stMetricLabel"] { font-size: 0.85rem !important; font-weight: 600 !important; }
-    [data-testid="stMetricValue"] { font-size: 1.82rem !important; font-weight: 700 !important; }
+    [data-testid="stMetricLabel"] { font-size: 0.82rem !important; font-weight: 600 !important; }
+    [data-testid="stMetricValue"] > div { font-size: 1.82rem !important; font-weight: 800 !important; }
+    [data-testid="stMetricValue"] { font-size: 1.82rem !important; font-weight: 800 !important; }
     [data-testid="stMetricDelta"] { font-size: 0.72rem !important; }
-    /* Headers */
-    h1, .main-header { font-size: 1.82rem !important; }
-    h2 { font-size: 1.5rem !important; }
-    h3 { font-size: 1.3rem !important; }
-    h4 { font-size: 1.17rem !important; }
+    /* Headers — tamanho original */
+    h1, .main-header { font-size: 1.4rem !important; }
+    h2 { font-size: 2rem !important; }
+    h3 { font-size: 1rem !important; }
+    h4 { font-size: 0.9rem !important; }
     /* Dropdowns não-editáveis */
     div[data-baseweb="select"] input { caret-color: transparent !important; cursor: pointer !important; pointer-events: none !important; }
     div[data-baseweb="select"] { cursor: pointer !important; }
-    /* Fonte base */
-    .stApp p, .stApp li, .stApp span { font-size: 1.14rem; }
-    .stApp .stCaption, .stApp caption { font-size: 0.94rem !important; }
+    /* Fonte base — tamanho original */
+    .stApp p, .stApp li, .stApp span { font-size: 0.88rem; }
+    .stApp .stCaption, .stApp caption { font-size: 0.72rem !important; }
     hr { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
 </style>""", unsafe_allow_html=True)
+
