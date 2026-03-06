@@ -977,7 +977,6 @@ def tela_principal():
             st.rerun()
 
     with st.spinner("🔄 Carregando destaques do mercado..."):
-        st.cache_data.clear()  # <-- Forçar limpeza brutal pre-hit do cache
         highlights = buscar_highlights_mercado(_cache_buster=1)
 
     if highlights:

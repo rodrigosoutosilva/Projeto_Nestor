@@ -213,17 +213,18 @@ def gerar_recomendacao_ia(
 ) -> dict:
     """
     Gera uma recomendação completa usando o Gemini.
-    Inclui montante disponível e setores preferidos no prompt.
+    Inclui montante disponível, setores preferidos e preços-alvo no prompt.
     """
     montante = portfolio_info.get('montante_disponivel', 0)
     setores = portfolio_info.get('setores_preferidos', '')
+    preco_atual = indicadores.get('preco_atual', 0)
     
     prompt = f"""Você é um consultor de investimentos especializado no mercado brasileiro (B3).
 
 ATIVO: {ticker}
 
 INDICADORES TÉCNICOS:
-- Preço Atual: R$ {indicadores.get('preco_atual', 'N/A')}
+- Preço Atual: R$ {preco_atual}
 - RSI (14): {indicadores.get('rsi', 'N/A')} (>70 = sobrecomprado, <30 = sobrevendido)
 - SMA 20: R$ {indicadores.get('sma_20', 'N/A')}
 - SMA 50: R$ {indicadores.get('sma_50', 'N/A')}
@@ -247,9 +248,17 @@ PERFIL DO INVESTIDOR:
 
 IMPORTANTE: O investidor tem exatamente {montante:.2f} de capital livre. NÃO recomende compras se o montante de dinheiro livre disponível na carteira for menor do que o preço atual de 1 única ação. Nesses casos de caixa vazio, recomende expressamente 'MANTER'. E SEMPRE escreva os valores com a moeda na frente da formatação correta do Brasil (Ex: R$ 5,00).
 
+PREÇOS-ALVO: Defina preços gatilho realistas para compra e venda deste ativo, considerando:
+- As bandas devem estar entre 5% e 15% do preço atual (não muito distantes)
+- O preço de compra deve ser ABAIXO do preço atual (oportunidade de entrada)
+- O preço de venda deve ser ACIMA do preço atual (realização de lucro)
+- Considere a tolerância a risco da persona e o prazo do portfólio
+
 Com base em TODOS esses dados, responda EXATAMENTE no formato:
 ACAO: [COMPRA ou VENDA ou MANTER]
 CONFIANCA: [número de 0 a 100 indicando sua confiança na recomendação]
+PRECO_ALVO_COMPRA: [preço em reais abaixo do atual para gatilho de compra, apenas o número]
+PRECO_ALVO_VENDA: [preço em reais acima do atual para gatilho de venda, apenas o número]
 EXPLICACAO: [Explicação detalhada em 3-5 frases justificando a decisão, citando indicadores específicos e como se alinham ao perfil do investidor. Use linguagem acessível e SEMPRE inclua "R$" em cada citação monetária.]
 """
 
@@ -260,6 +269,8 @@ EXPLICACAO: [Explicação detalhada em 3-5 frases justificando a decisão, citan
         acao = "manter"
         confianca = 50.0
         explicacao = texto
+        preco_alvo_compra = None
+        preco_alvo_venda = None
 
         for linha in texto.split("\n"):
             linha_strip = linha.strip()
@@ -277,13 +288,33 @@ EXPLICACAO: [Explicação detalhada em 3-5 frases justificando a decisão, citan
                     confianca = max(0, min(100, confianca))
                 except (ValueError, IndexError):
                     confianca = 50.0
+            elif linha_strip.upper().startswith("PRECO_ALVO_COMPRA:") or linha_strip.upper().startswith("PREÇO_ALVO_COMPRA:"):
+                try:
+                    val = linha_strip.split(":", 1)[1].strip().replace("R$", "").replace(",", ".").strip()
+                    preco_alvo_compra = float(val)
+                except (ValueError, IndexError):
+                    preco_alvo_compra = round(preco_atual * 0.92, 2) if preco_atual else None
+            elif linha_strip.upper().startswith("PRECO_ALVO_VENDA:") or linha_strip.upper().startswith("PREÇO_ALVO_VENDA:"):
+                try:
+                    val = linha_strip.split(":", 1)[1].strip().replace("R$", "").replace(",", ".").strip()
+                    preco_alvo_venda = float(val)
+                except (ValueError, IndexError):
+                    preco_alvo_venda = round(preco_atual * 1.08, 2) if preco_atual else None
             elif linha_strip.upper().startswith("EXPLICACAO:") or linha_strip.upper().startswith("EXPLICAÇÃO:"):
                 explicacao = linha_strip.split(":", 1)[1].strip()
+
+        # Fallback para preço-alvo se IA não retornou
+        if preco_alvo_compra is None and preco_atual:
+            preco_alvo_compra = round(preco_atual * 0.92, 2)
+        if preco_alvo_venda is None and preco_atual:
+            preco_alvo_venda = round(preco_atual * 1.08, 2)
 
         return {
             "acao": acao,
             "confianca": confianca,
-            "explicacao": explicacao
+            "explicacao": explicacao,
+            "preco_alvo_compra": preco_alvo_compra,
+            "preco_alvo_venda": preco_alvo_venda
         }
 
     except Exception as e:
@@ -291,7 +322,9 @@ EXPLICACAO: [Explicação detalhada em 3-5 frases justificando a decisão, citan
         return {
             "acao": "manter",
             "confianca": 0.0,
-            "explicacao": f"⚠️ {str(e)}"
+            "explicacao": f"⚠️ {str(e)}",
+            "preco_alvo_compra": None,
+            "preco_alvo_venda": None
         }
 
 

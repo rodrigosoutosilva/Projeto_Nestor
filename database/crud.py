@@ -15,6 +15,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from database.models import (
     User, Persona, Portfolio, Asset, PlannedAction, Transaction, WatchlistItem,
+    Observation, PendingOrder,
     StatusAcao, FrequenciaAcao, EstiloInvestimento, TipoAtivo, TipoAcao,
     TipoTransacao, OrigemTransacao, FrequenciaAporte
 )
@@ -255,7 +256,8 @@ def buscar_portfolio_por_id(portfolio_id: int) -> Optional[dict]:
                 "montante_disponivel": p.montante_disponivel or 0.0,
                 "aporte_periodico": p.aporte_periodico or 0.0,
                 "frequencia_aporte": p.frequencia_aporte or "",
-                "frequencia_manuseio": p.frequencia_manuseio.value if p.frequencia_manuseio else ""
+                "frequencia_manuseio": p.frequencia_manuseio.value if p.frequencia_manuseio else "",
+                "created_at": str(p.created_at) if p.created_at else None
             }
         return None
 
@@ -725,3 +727,218 @@ def listar_todos_ativos_usuario(user_id: int) -> list[dict]:
             "quantidade": a.quantidade,
             "data_posicao": str(a.data_posicao) if a.data_posicao else None
         } for a in ativos]
+
+
+# ===========================================================================
+# OBSERVATIONS (OBSERVAÇÕES)
+# ===========================================================================
+
+def adicionar_observacao(entity_type: str, entity_id: int, texto: str) -> dict:
+    """Adiciona uma observação a uma persona ou portfolio."""
+    with get_session() as session:
+        obs = Observation(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            texto=texto
+        )
+        session.add(obs)
+        session.flush()
+        return {
+            "id": obs.id,
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "texto": texto,
+            "created_at": str(obs.created_at)
+        }
+
+
+def listar_observacoes(entity_type: str, entity_id: int) -> list[dict]:
+    """Lista observações de uma entidade (persona ou portfolio)."""
+    with get_session() as session:
+        obs_list = session.query(Observation).filter(
+            Observation.entity_type == entity_type,
+            Observation.entity_id == entity_id
+        ).order_by(Observation.created_at.desc()).all()
+        return [{
+            "id": o.id,
+            "entity_type": o.entity_type,
+            "entity_id": o.entity_id,
+            "texto": o.texto,
+            "created_at": str(o.created_at) if o.created_at else None
+        } for o in obs_list]
+
+
+def deletar_observacao(obs_id: int) -> bool:
+    """Remove uma observação."""
+    with get_session() as session:
+        obs = session.query(Observation).filter(Observation.id == obs_id).first()
+        if not obs:
+            return False
+        session.delete(obs)
+        return True
+
+
+# ===========================================================================
+# PENDING ORDERS (ORDENS PENDENTES)
+# ===========================================================================
+
+def criar_ordem_pendente(
+    portfolio_id: int,
+    ticker: str,
+    tipo: str,
+    quantidade: int,
+    preco_alvo: float
+) -> dict:
+    """Cria uma ordem pendente de compra/venda condicional."""
+    with get_session() as session:
+        ordem = PendingOrder(
+            portfolio_id=portfolio_id,
+            ticker=ticker.upper().strip(),
+            tipo=tipo,
+            quantidade=quantidade,
+            preco_alvo=preco_alvo
+        )
+        session.add(ordem)
+        session.flush()
+        return {
+            "id": ordem.id,
+            "portfolio_id": portfolio_id,
+            "ticker": ordem.ticker,
+            "tipo": tipo,
+            "quantidade": quantidade,
+            "preco_alvo": preco_alvo,
+            "status": "pendente",
+            "created_at": str(ordem.created_at)
+        }
+
+
+def listar_ordens_pendentes(portfolio_id: int) -> list[dict]:
+    """Lista ordens pendentes de uma carteira."""
+    with get_session() as session:
+        ordens = session.query(PendingOrder).filter(
+            PendingOrder.portfolio_id == portfolio_id,
+            PendingOrder.status == "pendente"
+        ).order_by(PendingOrder.created_at.desc()).all()
+        return [{
+            "id": o.id,
+            "portfolio_id": o.portfolio_id,
+            "ticker": o.ticker,
+            "tipo": o.tipo,
+            "quantidade": o.quantidade,
+            "preco_alvo": o.preco_alvo,
+            "status": o.status,
+            "created_at": str(o.created_at) if o.created_at else None
+        } for o in ordens]
+
+
+def cancelar_ordem(ordem_id: int) -> bool:
+    """Cancela uma ordem pendente."""
+    with get_session() as session:
+        ordem = session.query(PendingOrder).filter(PendingOrder.id == ordem_id).first()
+        if not ordem:
+            return False
+        ordem.status = "cancelada"
+        return True
+
+
+def executar_ordem_pendente(ordem_id: int) -> Optional[dict]:
+    """
+    Executa uma ordem pendente: registra a transação e atualiza o ativo/caixa.
+    Retorna dict com detalhes ou None se falhou.
+    """
+    with get_session() as session:
+        ordem = session.query(PendingOrder).filter(PendingOrder.id == ordem_id).first()
+        if not ordem or ordem.status != "pendente":
+            return None
+
+        portfolio = session.query(Portfolio).filter(Portfolio.id == ordem.portfolio_id).first()
+        if not portfolio:
+            return None
+
+        valor_total = ordem.quantidade * ordem.preco_alvo
+
+        if ordem.tipo == "compra":
+            # Atualizar ativo (criar ou incrementar)
+            ativo = session.query(Asset).filter(
+                Asset.portfolio_id == ordem.portfolio_id,
+                Asset.ticker == ordem.ticker
+            ).first()
+            if ativo:
+                q_ant = ativo.quantidade
+                p_ant = ativo.preco_medio
+                q_nova = q_ant + ordem.quantidade
+                p_novo = ((q_ant * p_ant) + valor_total) / q_nova
+                ativo.quantidade = q_nova
+                ativo.preco_medio = p_novo
+                ativo.ultimo_update = datetime.utcnow()
+            else:
+                novo_ativo = Asset(
+                    portfolio_id=ordem.portfolio_id,
+                    ticker=ordem.ticker,
+                    preco_medio=ordem.preco_alvo,
+                    quantidade=ordem.quantidade,
+                    data_posicao=date.today()
+                )
+                session.add(novo_ativo)
+            # Debitar caixa (pode ficar negativo se ordem futura automática)
+            portfolio.montante_disponivel = (portfolio.montante_disponivel or 0) - valor_total
+
+        elif ordem.tipo == "venda":
+            ativo = session.query(Asset).filter(
+                Asset.portfolio_id == ordem.portfolio_id,
+                Asset.ticker == ordem.ticker
+            ).first()
+            if not ativo or ativo.quantidade < ordem.quantidade:
+                return None  # Não tem papéis suficientes
+            nova_qtd = ativo.quantidade - ordem.quantidade
+            if nova_qtd <= 0:
+                session.delete(ativo)
+            else:
+                ativo.quantidade = nova_qtd
+                ativo.ultimo_update = datetime.utcnow()
+            # Creditar caixa
+            portfolio.montante_disponivel = (portfolio.montante_disponivel or 0) + valor_total
+
+        # Registrar transação
+        transacao = Transaction(
+            portfolio_id=ordem.portfolio_id,
+            tipo=TipoTransacao(ordem.tipo),
+            ticker=ordem.ticker,
+            quantidade=ordem.quantidade,
+            preco_unitario=ordem.preco_alvo,
+            valor=valor_total,
+            descricao=f"Ordem condicional executada ({ordem.tipo} a R$ {ordem.preco_alvo:.2f})",
+            origem=OrigemTransacao.MANUAL,
+            data=date.today()
+        )
+        session.add(transacao)
+
+        # Atualizar ordem
+        ordem.status = "executada"
+        ordem.executed_at = datetime.utcnow()
+
+        return {
+            "id": ordem.id,
+            "ticker": ordem.ticker,
+            "tipo": ordem.tipo,
+            "quantidade": ordem.quantidade,
+            "preco_alvo": ordem.preco_alvo,
+            "valor_total": valor_total
+        }
+
+
+def listar_ordens_pendentes_todas() -> list[dict]:
+    """Lista TODAS as ordens pendentes de todos os portfolios (para verificação periódica)."""
+    with get_session() as session:
+        ordens = session.query(PendingOrder).filter(
+            PendingOrder.status == "pendente"
+        ).all()
+        return [{
+            "id": o.id,
+            "portfolio_id": o.portfolio_id,
+            "ticker": o.ticker,
+            "tipo": o.tipo,
+            "quantidade": o.quantidade,
+            "preco_alvo": o.preco_alvo,
+            "created_at": str(o.created_at) if o.created_at else None
+        } for o in ordens]

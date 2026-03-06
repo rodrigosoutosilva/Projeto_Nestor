@@ -259,6 +259,11 @@ class Portfolio(Base):
         back_populates="portfolio",
         cascade="all, delete-orphan"
     )
+    pending_orders = relationship(
+        "PendingOrder",
+        back_populates="portfolio",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Portfolio(id={self.id}, nome='{self.nome}')>"
@@ -401,3 +406,53 @@ class WatchlistItem(Base):
 
     def __repr__(self):
         return f"<WatchlistItem(ticker='{self.ticker}', manual={self.adicionado_manualmente})>"
+
+
+class Observation(Base):
+    """
+    Observação/nota de texto associada a uma Persona ou Portfolio.
+    Usa entity_type + entity_id para vincular de forma polimórfica.
+    """
+    __tablename__ = "observations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    entity_type = Column(String(20), nullable=False)  # "persona" ou "portfolio"
+    entity_id = Column(Integer, nullable=False)
+    texto = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Observation(tipo='{self.entity_type}', entity={self.entity_id})>"
+
+
+class StatusOrdem(str, enum.Enum):
+    """Status de uma ordem pendente."""
+    PENDENTE = "pendente"
+    EXECUTADA = "executada"
+    CANCELADA = "cancelada"
+
+
+class PendingOrder(Base):
+    """
+    Ordem pendente de compra/venda condicional.
+    Executa automaticamente quando o ativo atinge o preco_alvo.
+    - Compra: executa quando preço atual <= preco_alvo
+    - Venda: executa quando preço atual >= preco_alvo
+    """
+    __tablename__ = "pending_orders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    portfolio_id = Column(Integer, ForeignKey("portfolios.id"), nullable=False)
+    ticker = Column(String(10), nullable=False)
+    tipo = Column(String(10), nullable=False)  # "compra" ou "venda"
+    quantidade = Column(Integer, nullable=False)
+    preco_alvo = Column(Float, nullable=False)
+    status = Column(String(20), default="pendente")  # pendente, executada, cancelada
+    created_at = Column(DateTime, default=datetime.utcnow)
+    executed_at = Column(DateTime, nullable=True)
+
+    # Relacionamento
+    portfolio = relationship("Portfolio", back_populates="pending_orders")
+
+    def __repr__(self):
+        return f"<PendingOrder(ticker='{self.ticker}', tipo='{self.tipo}', alvo={self.preco_alvo})>"

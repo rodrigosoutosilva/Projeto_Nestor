@@ -9,15 +9,17 @@ equivalente à página Carteiras mas já filtrado para a persona.
 
 import streamlit as st
 import sys, os
+from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.crud import (
     buscar_persona_por_id, atualizar_persona, deletar_persona,
     listar_portfolios_persona, listar_ativos_portfolio,
-    resumo_transacoes_portfolio, criar_portfolio
+    resumo_transacoes_portfolio, criar_portfolio,
+    adicionar_observacao, listar_observacoes, deletar_observacao
 )
 from services.market_data import buscar_preco_atual
-from utils.helpers import formatar_moeda, formatar_moeda_md, injetar_css_global
+from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, injetar_css_global
 
 st.set_page_config(page_title="Persona Detalhe", page_icon="🧑", layout="wide")
 injetar_css_global()
@@ -65,6 +67,7 @@ caixa_total = 0
 patrimonio_total = 0
 total_aportado_global = 0
 total_ativos = 0
+data_mais_antiga = None
 
 for port in portfolios:
     caixa_total += port.get("montante_disponivel", 0)
@@ -72,6 +75,18 @@ for port in portfolios:
     total_ativos += len(ativos_port)
     resumo = resumo_transacoes_portfolio(port["id"])
     total_aportado_global += (resumo["total_aportes"] - resumo["total_retiradas"])
+    
+    # Descobrir data de criação mais antiga para rendimento anual
+    if port.get("created_at"):
+        try:
+            dt = datetime.fromisoformat(port["created_at"].replace("Z", "+00:00")) if "T" in str(port["created_at"]) else datetime.strptime(str(port["created_at"]), "%Y-%m-%d %H:%M:%S.%f")
+        except Exception:
+            try:
+                dt = datetime.strptime(str(port["created_at"]).split(".")[0], "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                dt = None
+        if dt and (data_mais_antiga is None or dt < data_mais_antiga):
+            data_mais_antiga = dt
     
     for a in ativos_port:
         dados_p = buscar_preco_atual(a["ticker"])
@@ -84,13 +99,53 @@ valor_total = caixa_total + patrimonio_total
 lucro_acum = valor_total - total_aportado_global if total_aportado_global > 0 else 0
 lucro_pct = (lucro_acum / total_aportado_global * 100) if total_aportado_global > 0 else 0
 
+# Calcular rendimento anual projetado
+rend_anual = 0.0
+if data_mais_antiga and total_aportado_global > 0:
+    dias_desde_criacao = (datetime.utcnow() - data_mais_antiga).days
+    if dias_desde_criacao > 0:
+        rend_anual = (lucro_pct / dias_desde_criacao) * 365
+
 m1, m2, m3, m4, m5, m6 = st.columns(6)
-m1.metric("💎 Valor Total", formatar_moeda(valor_total))
-m2.metric("🏦 Caixa", formatar_moeda(caixa_total))
-m3.metric("📊 Patrimônio", formatar_moeda(patrimonio_total))
-m4.metric("📈 Lucro", formatar_moeda(lucro_acum))
-m5.metric("📉 Rend.", f"{lucro_pct:+.1f}%")
-m6.metric("📦 Ativos", total_ativos)
+m1.metric("💎 Patrimônio", formatar_moeda(valor_total))
+m2.metric("💵 Valor Investido", formatar_moeda(total_aportado_global))
+cor_lucro_h = "#00C851" if lucro_acum >= 0 else "#FF4444"
+m3.markdown(
+    f"<small>📈 Lucro</small><br>"
+    f"<b>{formatar_moeda_md(lucro_acum)}</b> "
+    f"<span style='color:{cor_lucro_h};font-size:0.8em'>({lucro_pct:+.1f}%)</span>",
+    unsafe_allow_html=True
+)
+m4.metric("📅 Rend. Anual", f"{rend_anual:+.1f}% a.a.", help="Projeção baseada no rendimento atual extrapolado para 365 dias")
+m5.metric("🏦 Caixa", formatar_moeda(caixa_total))
+m6.metric("💼 Carteiras", len(portfolios))
+
+# --- OBSERVAÇÕES ---
+with st.expander("📝 Observações", expanded=False):
+    observacoes = listar_observacoes("persona", persona_id)
+    
+    if observacoes:
+        for obs in observacoes:
+            c_obs_txt, c_obs_del = st.columns([6, 1])
+            with c_obs_txt:
+                data_obs = formatar_data_br(obs["created_at"].split(" ")[0]) if obs.get("created_at") else ""
+                st.markdown(f"• {obs['texto']}  \n<small style='color:#888'>{data_obs}</small>", unsafe_allow_html=True)
+            with c_obs_del:
+                if st.button("🗑️", key=f"del_obs_{obs['id']}", help="Remover"):
+                    deletar_observacao(obs["id"])
+                    st.rerun()
+    else:
+        st.caption("Nenhuma observação registrada.")
+    
+    st.markdown("---")
+    c_nova_obs, c_btn_obs = st.columns([5, 1])
+    with c_nova_obs:
+        nova_obs = st.text_input("Nova observação", placeholder="Escreva uma nota...", key="nova_obs_persona", label_visibility="collapsed")
+    with c_btn_obs:
+        if st.button("➕", key="btn_add_obs_persona", use_container_width=True, help="Adicionar observação"):
+            if nova_obs and nova_obs.strip():
+                adicionar_observacao("persona", persona_id, nova_obs.strip())
+                st.rerun()
 
 # --- EDIÇÃO DA PERSONA ---
 if "persona_edit_open" not in st.session_state:
@@ -158,19 +213,31 @@ else:
                 la = vt - ta if ta > 0 else 0
                 lp = (la / ta * 100) if ta > 0 else 0
                 
-                st.metric("💎 Valor Total", formatar_moeda(vt))
+                # Rendimento anual da carteira
+                rend_anual_port = 0.0
+                if port.get("created_at") and ta > 0:
+                    try:
+                        dt_port = datetime.fromisoformat(port["created_at"].replace("Z", "+00:00")) if "T" in str(port["created_at"]) else datetime.strptime(str(port["created_at"]).split(".")[0], "%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        dt_port = None
+                    if dt_port:
+                        dias = (datetime.utcnow() - dt_port).days
+                        if dias > 0:
+                            rend_anual_port = (lp / dias) * 365
+                
+                st.metric("💎 Patrimônio", formatar_moeda(vt))
                 mc1, mc2 = st.columns(2)
-                mc1.markdown(f"🏦 **Caixa:** {formatar_moeda_md(caixa)}", unsafe_allow_html=True)
-                mc2.markdown(f"📊 **Patrimônio:** {formatar_moeda_md(patrimonio)}", unsafe_allow_html=True)
+                mc1.markdown(f"💵 **Investido:** {formatar_moeda_md(ta)}", unsafe_allow_html=True)
+                cor_lucro_port = "green" if la >= 0 else "red"
+                mc2.markdown(f"📈 **Lucro:** <span style='color:{cor_lucro_port}'>{formatar_moeda_md(la)}</span> <small style='color:{cor_lucro_port}'>({lp:+.1f}%)</small>", unsafe_allow_html=True)
                 
                 mc3, mc4 = st.columns(2)
-                cor_lucro = "green" if la >= 0 else "red"
-                mc3.markdown(f"📈 **Lucro:** <span style='color:{cor_lucro}'>{formatar_moeda_md(la)}</span>", unsafe_allow_html=True)
-                mc4.markdown(f"📉 **Rend.:** <span style='color:{cor_lucro}'>{lp:+.1f}%</span>", unsafe_allow_html=True)
+                mc3.markdown(f"📅 **Rend. Anual:** {rend_anual_port:+.1f}% a.a.")
+                mc4.markdown(f"📊 **{len(ativos_port)}** ativo(s)")
                 
                 if port.get('aporte_periodico', 0) > 0:
                     fl = {"semanal":"sem","quinzenal":"quinz","mensal":"mês"}.get(port.get('frequencia_aporte',''),'')
-                    st.caption(f"💸 Aporte: {formatar_moeda(port['aporte_periodico'])}/{fl} | 📈 {len(ativos_port)} ativo(s)".replace("$", r"\$"))
+                    st.caption(f"💸 Aporte: {formatar_moeda(port['aporte_periodico'])}/{fl}".replace("$", r"\$"))
                 
                 st.divider()
                 # Botoes de acao (Detalhes e Excluir)
