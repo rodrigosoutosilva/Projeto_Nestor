@@ -879,30 +879,46 @@ if ordens:
                 st.markdown(f"**Preço Alvo:** R\\$ {o['preco_alvo']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
             with c3:
                 st.markdown(f"**Qtd:** {o['quantidade']} | **Total:** R\\$ {(o['quantidade'] * o['preco_alvo']):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-            with c4:
                 # Preço atual para referência
                 p_orc = buscar_preco_atual(o["ticker"])
                 p_orc_val = p_orc.get("preco_atual", 0) if isinstance(p_orc, dict) else 0
                 if p_orc_val > 0:
                     diff_pct = ((o["preco_alvo"] - p_orc_val) / p_orc_val) * 100
                     st.caption(f"Atual: R$ {p_orc_val:,.2f} ({diff_pct:+.1f}%)".replace(",", "X").replace(".", ",").replace("X", "."))
+            with c4:
                 cb1, cb2 = st.columns(2)
                 with cb1:
-                    if st.button("❌", key=f"cancel_ord_{o['id']}", help="Cancelar ordem", use_container_width=True):
+                    if st.button("✏️", key=f"edit_ord_{o['id']}", help="Editar ordem", use_container_width=True):
+                        st.session_state[f"editing_order_{o['id']}"] = not st.session_state.get(f"editing_order_{o['id']}", False)
+                        st.rerun()
+                with cb2:
+                    if st.button("❌", key=f"del_ord_{o['id']}", help="Cancelar ordem", use_container_width=True):
                         cancelar_ordem(o["id"])
                         st.toast(f"Ordem de {o['tipo']} de {o['ticker']} cancelada.", icon="❌")
                         st.rerun()
-                with cb2:
-                    if st.button("⚡", key=f"force_ord_{o['id']}", help="Forçar execução agora", use_container_width=True):
-                        from database.crud import executar_ordem_pendente
-                        result = executar_ordem_pendente(o["id"])
-                        if result:
-                            st.toast(f"Ordem de {o['tipo']} de {o['ticker']} executada! 🎉", icon="✅")
-                        else:
-                            st.toast("⚠️ Falha ao executar ordem.", icon="⚠️")
-                        st.rerun()
+
+            # Painel de edição inline
+            if st.session_state.get(f"editing_order_{o['id']}", False):
+                with st.container(border=True):
+                    st.markdown("**✏️ Editar Ordem**")
+                    e1, e2, e3, e4 = st.columns(4)
+                    with e1:
+                        edit_tipo = st.selectbox("Tipo", ["compra", "venda"], index=0 if o["tipo"] == "compra" else 1, key=f"edit_tipo_{o['id']}")
+                    with e2:
+                        edit_qtd = st.number_input("Quantidade", min_value=1, value=o["quantidade"], key=f"edit_qtd_{o['id']}")
+                    with e3:
+                        edit_preco = st.number_input("Preço Alvo (R$)", min_value=0.01, value=float(o["preco_alvo"]), step=0.1, key=f"edit_prc_{o['id']}")
+                    with e4:
+                        st.markdown(f"**Total:** R\\$ {(edit_qtd * edit_preco):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                        if st.button("💾 Salvar", key=f"save_ord_{o['id']}", type="primary", use_container_width=True):
+                            from database.crud import atualizar_ordem_pendente
+                            atualizar_ordem_pendente(o["id"], tipo=edit_tipo, quantidade=edit_qtd, preco_alvo=edit_preco)
+                            st.session_state[f"editing_order_{o['id']}"] = False
+                            st.toast(f"Ordem de {o['ticker']} atualizada! ✅", icon="✅")
+                            st.rerun()
 else:
     st.info("Nenhuma ordem pendente.")
+
 
 st.markdown("---")
 

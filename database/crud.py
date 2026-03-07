@@ -841,6 +841,17 @@ def cancelar_ordem(ordem_id: int) -> bool:
         return True
 
 
+def atualizar_ordem_pendente(ordem_id: int, **kwargs) -> bool:
+    """Atualiza campos de uma ordem pendente (tipo, quantidade, preco_alvo)."""
+    with get_session() as session:
+        ordem = session.query(PendingOrder).filter(PendingOrder.id == ordem_id).first()
+        if not ordem or ordem.status != "pendente":
+            return False
+        for key, value in kwargs.items():
+            setattr(ordem, key, value)
+        return True
+
+
 def executar_ordem_pendente(ordem_id: int) -> Optional[dict]:
     """
     Executa uma ordem pendente: registra a transação e atualiza o ativo/caixa.
