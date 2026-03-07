@@ -8,7 +8,7 @@ Busca dados de ações populares da B3 via yfinance e retorna rankings:
 - Melhores dividend yields
 - Menor P/L (mais "baratas" em relação ao lucro)
 
-Usa cache de 5 minutos para não sobrecarregar a API.
+Usa cache do Streamlit para evitar chamadas excessivas.
 """
 
 import yfinance as yf
@@ -28,105 +28,111 @@ TICKERS_POPULARES = [
 ]
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, ttl=300)  # cache de 5 min
 def buscar_highlights_mercado(_cache_buster: int = 0) -> Optional[dict]:
     """
     Busca dados de mercado para tickers populares e retorna rankings.
-    Cache armazenado até que a função de limpeza seja chamada.
-    
-    Retorna dict com 4 listas rankeadas (top 5 cada):
-    - maiores_altas: maiores variações positivas do dia
-    - maiores_quedas: maiores variações negativas do dia
-    - melhores_dy: maiores dividend yields
-    - menor_pl: menor P/L (price-to-earnings)
+
+    Usa yf.download() para lote (mais confiável que .info),
+    e fast_info para dados fundamentalistas individuais.
     """
     try:
-        # Buscar dados de todos os tickers de uma vez
-        tickers_sa = " ".join(f"{t}.SA" for t in TICKERS_POPULARES)
-        dados = yf.Tickers(tickers_sa)
-        
+        tickers_sa = [f"{t}.SA" for t in TICKERS_POPULARES]
+
+        # --- Busca preços via yf.download() (método mais confiável) ---
+        print(f"[market_highlights] Buscando {len(tickers_sa)} tickers via yf.download...")
+        df = yf.download(
+            tickers_sa,
+            period="5d",
+            group_by="ticker",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
+
+        if df is None or df.empty:
+            print("[market_highlights] yf.download retornou vazio")
+            return None
+
         resultados = []
-        
+
         for ticker in TICKERS_POPULARES:
             try:
                 ticker_sa = f"{ticker}.SA"
-                info = dados.tickers[ticker_sa].info
-                
-                if not info:
-                    continue
-                
-                preco = info.get("regularMarketPrice") or info.get("currentPrice", 0)
-                if not preco or preco == 0:
-                    continue
-                
-                variacao = info.get("regularMarketChangePercent", 0) or 0
-                pl = info.get("trailingPE") or info.get("forwardPE")
-                nome = info.get("shortName", ticker)
-                
-                # Extrair Dividend Yield uniformemente
-                dy_raw = info.get("trailingAnnualDividendYield")
-                dy_fallback = info.get("dividendYield")
-                
-                dy_val = 0.0
-                if dy_raw is not None and float(dy_raw) > 0:
-                    dy_val = float(dy_raw)
-                elif dy_fallback is not None and float(dy_fallback) > 0:
-                    dy_val = float(dy_fallback)
-                    
-                dy = 0.0
-                if dy_val > 0:
-                    if dy_val < 1.0:
-                        dy = round(dy_val * 100, 2)
+
+                # Extrair preço de fechamento dos últimos 2 dias
+                try:
+                    if len(TICKERS_POPULARES) > 1 and ticker_sa in df.columns.get_level_values(0):
+                        close_series = df[ticker_sa]["Close"].dropna()
+                    elif "Close" in df.columns:
+                        close_series = df["Close"].dropna()
                     else:
-                        dy = round(dy_val, 2)
-                
-                # Identificar tipo de ativo
+                        continue
+                except (KeyError, TypeError):
+                    continue
+
+                if close_series is None or len(close_series) < 2:
+                    continue
+
+                preco = float(close_series.iloc[-1])
+                preco_ant = float(close_series.iloc[-2])
+
+                if preco <= 0:
+                    continue
+
+                variacao = ((preco - preco_ant) / preco_ant) * 100 if preco_ant > 0 else 0
+
+                # Dados fundamentalistas via fast_info (rápido)
+                dy = 0.0
+                pl = None
+                nome = ticker
+                try:
+                    fi = yf.Ticker(ticker_sa).fast_info
+                    # DY
+                    dy_raw = fi.get("trailingAnnualDividendYield", 0) or fi.get("last_annual_dividend_yield", 0) or 0
+                    if dy_raw and float(dy_raw) > 0:
+                        dy_val = float(dy_raw)
+                        dy = round(dy_val * 100, 2) if dy_val < 1.0 else round(dy_val, 2)
+                    # P/E (P/L)
+                    pe_raw = fi.get("trailingPE", None) or fi.get("trailing_pe", None)
+                    if pe_raw and float(pe_raw) > 0:
+                        pl = round(float(pe_raw), 2)
+                except Exception:
+                    pass  # Dados fundamentalistas são opcionais
+
+                # Tipo de ativo
                 tipo_ativo = "Ações"
-                if len(ticker) == 6 and ticker.endswith("11") and ticker not in ["TAEE11", "KLBN11", "ENGI11", "SANB11", "ALUP11"]:
+                if ticker in ["HGLG11", "XPLG11", "MXRF11", "KNRI11", "VISC11"]:
                     tipo_ativo = "FIIs"
-                elif ticker in ["HGLG11", "XPLG11", "MXRF11", "KNRI11", "VISC11"]:
+                elif len(ticker) == 6 and ticker.endswith("11") and ticker not in ["TAEE11", "KLBN11", "ENGI11", "SANB11", "ALUP11"]:
                     tipo_ativo = "FIIs"
 
                 resultados.append({
                     "ticker": ticker,
-                    "nome": nome[:25] if nome else ticker,
+                    "nome": nome[:25],
                     "tipo": tipo_ativo,
-                    "preco": preco,
+                    "preco": round(preco, 2),
                     "variacao": round(variacao, 2),
                     "dy": dy,
-                    "pl": round(pl, 2) if pl and pl > 0 else None
+                    "pl": pl
                 })
-            except Exception:
+            except Exception as e:
+                print(f"[market_highlights] Erro no ticker {ticker}: {e}")
                 continue
-        
+
+        print(f"[market_highlights] {len(resultados)}/{len(TICKERS_POPULARES)} tickers processados com sucesso")
+
         if not resultados:
             return None
-        
-        # Ranquear
-        maiores_altas = sorted(
-            resultados, key=lambda x: x["variacao"], reverse=True
-        )[:5]
-        
-        maiores_quedas = sorted(
-            resultados, key=lambda x: x["variacao"]
-        )[:5]
-        
-        # Apenas os que têm DY > 0
-        com_dy = [r for r in resultados if r["dy"] and r["dy"] > 0]
-        melhores_dy = sorted(com_dy, key=lambda x: x["dy"], reverse=True)[:5]
-        
-        # Apenas os que têm P/L positivo
-        com_pl = [r for r in resultados if r["pl"] and r["pl"] > 0]
-        menor_pl = sorted(com_pl, key=lambda x: x["pl"])[:5]
-        
+
         return {
             "todos_ativos": resultados,
-            "maiores_altas": maiores_altas,
-            "maiores_quedas": maiores_quedas,
-            "melhores_dy": melhores_dy,
-            "menor_pl": menor_pl,
+            "maiores_altas": sorted(resultados, key=lambda x: x["variacao"], reverse=True)[:5],
+            "maiores_quedas": sorted(resultados, key=lambda x: x["variacao"])[:5],
+            "melhores_dy": sorted([r for r in resultados if r["dy"] > 0], key=lambda x: x["dy"], reverse=True)[:5],
+            "menor_pl": sorted([r for r in resultados if r["pl"] and r["pl"] > 0], key=lambda x: x["pl"])[:5],
             "total_analisados": len(resultados)
         }
     except Exception as e:
-        print(f"[market_highlights] Erro ao buscar highlights: {e}")
+        print(f"[market_highlights] Erro geral: {e}")
         return None
