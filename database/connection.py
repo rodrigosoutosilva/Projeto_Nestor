@@ -48,6 +48,24 @@ if DATABASE_URL.startswith("postgres://"):
     print("[connection] Convertido postgres:// → postgresql://")
 
 # ---------------------------------------------------------------------------
+# FIX: Supabase e outros provedores cloud exigem SSL.
+# Adicionamos sslmode=require automaticamente se não estiver presente.
+# ---------------------------------------------------------------------------
+if DATABASE_URL.startswith("postgresql://") and "sslmode" not in DATABASE_URL:
+    separator = "&" if "?" in DATABASE_URL else "?"
+    DATABASE_URL = f"{DATABASE_URL}{separator}sslmode=require"
+    print("[connection] Adicionado sslmode=require à URL")
+
+# Log de diagnóstico (sem expor credenciais)
+if DATABASE_URL.startswith("postgresql://"):
+    try:
+        from urllib.parse import urlparse
+        _parsed = urlparse(DATABASE_URL)
+        print(f"[connection] Host: {_parsed.hostname}, Port: {_parsed.port}, DB: {_parsed.path}")
+    except Exception:
+        print("[connection] URL PostgreSQL detectada (não foi possível parsear)")
+
+# ---------------------------------------------------------------------------
 # Engine: ponto central de comunicação do SQLAlchemy com o banco.
 # Configuração varia entre SQLite e PostgreSQL.
 # ---------------------------------------------------------------------------
@@ -67,11 +85,15 @@ else:
         max_overflow=10,       # Conexões extras em pico de uso
         pool_recycle=300,      # Recicla conexões a cada 5 min (evita timeout)
         pool_timeout=10,       # Timeout ao obter conexão do pool
+        connect_args={
+            "connect_timeout": 10,  # Timeout de conexão em segundos
+        },
         echo=False
     )
 
 _db_tipo = "SQLite (local)" if _is_sqlite else "PostgreSQL (remoto)"
 print(f"[connection] Banco de dados: {_db_tipo}")
+
 
 # ---------------------------------------------------------------------------
 # SessionLocal: fábrica de sessões. Cada chamada cria uma "conversa" com o DB.
