@@ -44,36 +44,63 @@ def buscar_preco_atual(ticker: str) -> Optional[dict]:
     
     Retorna None se o ticker for inválido ou houver erro.
     """
+    ticker_clean = ticker.upper().strip().replace(".SA", "")
     try:
         ticker_sa = _formatar_ticker_br(ticker)
         ativo = yf.Ticker(ticker_sa)
-        info = ativo.info
 
-        # yfinance pode retornar dict vazio para tickers inválidos
-        if not info or "regularMarketPrice" not in info:
-            # Tenta via histórico como fallback
-            hist = ativo.history(period="2d")
-            if hist.empty:
-                return None
-            preco = float(hist["Close"].iloc[-1])
-            return {
-                "ticker": ticker.upper().replace(".SA", ""),
-                "preco_atual": preco,
-                "variacao_dia": 0.0,
-                "volume": 0,
-                "nome": ticker.upper().replace(".SA", "")
-            }
+        # Tentativa 1: fast_info (mais rápido e confiável em versões recentes)
+        try:
+            fi = ativo.fast_info
+            preco = fi.get("lastPrice", 0) or fi.get("last_price", 0)
+            if not preco:
+                preco = fi.get("regularMarketPrice", 0)
+            if preco and preco > 0:
+                return {
+                    "ticker": ticker_clean,
+                    "preco_atual": float(preco),
+                    "variacao_dia": 0.0,
+                    "volume": int(fi.get("lastVolume", 0) or fi.get("last_volume", 0) or 0),
+                    "nome": ticker_clean
+                }
+        except Exception as e:
+            print(f"[market_data] fast_info falhou para {ticker}: {e}")
 
-        return {
-            "ticker": ticker.upper().replace(".SA", ""),
-            "preco_atual": info.get("regularMarketPrice", 0),
-            "variacao_dia": info.get("regularMarketChangePercent", 0),
-            "volume": info.get("regularMarketVolume", 0),
-            "nome": info.get("shortName", ticker)
-        }
-    except Exception as e:
-        print(f"[market_data] Erro ao buscar {ticker}: {e}")
+        # Tentativa 2: info completo
+        try:
+            info = ativo.info
+            if info and "regularMarketPrice" in info and info["regularMarketPrice"]:
+                return {
+                    "ticker": ticker_clean,
+                    "preco_atual": info.get("regularMarketPrice", 0),
+                    "variacao_dia": info.get("regularMarketChangePercent", 0),
+                    "volume": info.get("regularMarketVolume", 0),
+                    "nome": info.get("shortName", ticker_clean)
+                }
+        except Exception as e:
+            print(f"[market_data] info falhou para {ticker}: {e}")
+
+        # Tentativa 3: histórico como último recurso
+        try:
+            hist = ativo.history(period="5d")
+            if not hist.empty:
+                preco = float(hist["Close"].iloc[-1])
+                return {
+                    "ticker": ticker_clean,
+                    "preco_atual": preco,
+                    "variacao_dia": 0.0,
+                    "volume": int(hist["Volume"].iloc[-1]) if "Volume" in hist else 0,
+                    "nome": ticker_clean
+                }
+        except Exception as e:
+            print(f"[market_data] history falhou para {ticker}: {e}")
+
+        print(f"[market_data] Nenhum método funcionou para {ticker}")
         return None
+    except Exception as e:
+        print(f"[market_data] Erro geral ao buscar {ticker}: {e}")
+        return None
+
 
 
 def buscar_historico(
