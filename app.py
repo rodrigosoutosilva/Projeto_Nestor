@@ -486,12 +486,30 @@ st.markdown("""
 @st.cache_resource
 def setup():
     """Inicializa banco e configura API. Roda apenas 1x."""
-    init_db()
+    try:
+        init_db()
+    except Exception as e:
+        import traceback
+        error_msg = f"{type(e).__name__}: {e}"
+        full_tb = traceback.format_exc()
+        print(f"[setup] ERRO COMPLETO DE CONEXÃO:\n{full_tb}")
+        # Mostra o erro real na UI do Streamlit (não redactado)
+        st.error(f"❌ **Erro ao conectar ao banco de dados:**\n\n`{error_msg}`")
+        st.code(full_tb, language="text")
+        st.info(
+            "💡 **Possíveis causas:**\n"
+            "- DATABASE_URL incorreta nos Secrets\n"
+            "- Banco de dados pausado (Supabase free tier)\n"
+            "- Senha ou host incorretos\n"
+            "- Firewall bloqueando a conexão"
+        )
+        st.stop()
     gemini_ok = configurar_gemini()
     return gemini_ok
 
 
 gemini_configurado = setup()
+
 
 # ---------------------------------------------------------------------------
 # Gerenciamento de Sessão do Usuário
