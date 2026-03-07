@@ -2,59 +2,63 @@
 connection.py - Gerenciamento de Conexão com o Banco de Dados
 ============================================================
 
-Conceito de Engenharia de Software: Padrão Singleton para conexão.
-Usamos SQLAlchemy como ORM (Object-Relational Mapping) para abstrair
-o SQL puro, tornando o código mais Pythonico e seguro contra SQL Injection.
-
 Suporta dois modos:
 - PostgreSQL (produção): via DATABASE_URL do Supabase/outro serviço
-- SQLite (desenvolvimento local): fallback automático quando DATABASE_URL
-  não está configurada
+- SQLite (desenvolvimento local): fallback automático
 """
 
 import os
 import time
-from urllib.parse import urlparse, unquote, parse_qs
+from urllib.parse import urlparse, unquote, parse_qs, quote_plus
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
 
-# ---------------------------------------------------------------------------
-# DATABASE_URL: tenta ler de variáveis de ambiente, .env, ou Streamlit secrets.
-# Se não encontrar, usa SQLite local como fallback para desenvolvimento.
-# ---------------------------------------------------------------------------
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+# Marcador de versão para confirmar deploy
+_VERSION = "v4-urllib-fix"
+print(f"[connection] === Versão: {_VERSION} ===")
 
-# Fallback: Streamlit Cloud secrets (para deploy)
+# ---------------------------------------------------------------------------
+# DATABASE_URL: tenta Streamlit secrets PRIMEIRO, depois env var.
+# Priorizar secrets evita conflito com env vars antigas no Streamlit Cloud.
+# ---------------------------------------------------------------------------
+DATABASE_URL = ""
+_url_source = ""
+
+# Prioridade 1: Streamlit Cloud secrets
+try:
+    import streamlit as st
+    DATABASE_URL = st.secrets.get("DATABASE_URL", "")
+    if DATABASE_URL:
+        _url_source = "Streamlit Secrets"
+except Exception:
+    pass
+
+# Prioridade 2: variável de ambiente
 if not DATABASE_URL:
-    try:
-        import streamlit as st
-        DATABASE_URL = st.secrets.get("DATABASE_URL", "")
-    except Exception:
-        pass
+    DATABASE_URL = os.getenv("DATABASE_URL", "")
+    if DATABASE_URL:
+        _url_source = "Variável de Ambiente"
 
 # Fallback final: SQLite local para desenvolvimento
 if not DATABASE_URL:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DB_PATH = os.path.join(BASE_DIR, "invest_platform.db")
     DATABASE_URL = f"sqlite:///{DB_PATH}"
+    _url_source = "SQLite (fallback local)"
+
+print(f"[connection] Fonte da URL: {_url_source}")
 
 # ---------------------------------------------------------------------------
-# FIX: Muitos provedores (Supabase, Heroku, Render) fornecem DATABASE_URL
-# com o scheme "postgres://", mas SQLAlchemy 2.0+ exige "postgresql://".
+# FIX: postgres:// → postgresql:// (SQLAlchemy 2.0+)
 # ---------------------------------------------------------------------------
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     print("[connection] Convertido postgres:// → postgresql://")
 
 # ---------------------------------------------------------------------------
-# Engine: ponto central de comunicação do SQLAlchemy com o banco.
-#
-# Para PostgreSQL, usamos urllib.parse para parsear a URL corretamente.
-# Isso resolve o problema de senhas com '@' (urllib usa o ÚLTIMO '@' como
-# separador, enquanto SQLAlchemy usa o primeiro, causando erros de hostname).
-# Depois reconstruímos via sqlalchemy.engine.URL.create() que escapa tudo.
+# Engine
 # ---------------------------------------------------------------------------
 _is_sqlite = DATABASE_URL.startswith("sqlite")
 
@@ -64,9 +68,13 @@ if _is_sqlite:
         connect_args={"check_same_thread": False},
         echo=False
     )
-    print("[connection] Banco de dados: SQLite (local)")
+    print("[connection] Banco: SQLite (local)")
 else:
-    # Parse seguro via urllib (lida com @ na senha corretamente)
+    # -----------------------------------------------------------------------
+    # Parse seguro com urllib.parse (usa o ÚLTIMO '@' como separador,
+    # lidando corretamente com senhas que contenham '@').
+    # Depois constrói via URL.create() que escapa tudo automaticamente.
+    # -----------------------------------------------------------------------
     _parsed = urlparse(DATABASE_URL)
 
     _host = _parsed.hostname or "localhost"
@@ -85,10 +93,19 @@ else:
     if "sslmode" not in _query:
         _query["sslmode"] = "require"
 
-    print(f"[connection] Banco de dados: PostgreSQL (remoto)")
-    print(f"[connection] Host: {_host}, Port: {_port}, DB: {_db}, User: {_user}")
+    # ---- DIAGNÓSTICO (sem expor senha) ----
+    print(f"[connection] Banco: PostgreSQL (remoto)")
+    print(f"[connection] Host: '{_host}'")
+    print(f"[connection] Port: {_port}")
+    print(f"[connection] User: '{_user}'")
+    print(f"[connection] DB:   '{_db}'")
+    print(f"[connection] SSL:  {_query.get('sslmode', 'não definido')}")
+    print(f"[connection] Senha: {'***' + _pass[-4:] if len(_pass) > 4 else '****'}")
+    # Mostra os primeiros 50 chars da URL mascarando a senha
+    _safe_url = DATABASE_URL[:50] + "..." if len(DATABASE_URL) > 50 else DATABASE_URL
+    print(f"[connection] URL (parcial): {_safe_url}")
 
-    # Criar URL segura via SQLAlchemy (escapa caracteres especiais)
+    # Criar URL via SQLAlchemy URL.create() — escapa caracteres especiais
     _url_object = URL.create(
         drivername="postgresql+psycopg2",
         username=_user,
@@ -101,61 +118,45 @@ else:
 
     engine = create_engine(
         _url_object,
-        pool_pre_ping=True,    # Detecta conexões mortas antes de usar
-        pool_size=5,            # Conexões mantidas no pool
-        max_overflow=10,        # Conexões extras em pico de uso
-        pool_recycle=300,       # Recicla conexões a cada 5 min (evita timeout)
-        pool_timeout=10,        # Timeout ao obter conexão do pool
-        connect_args={
-            "connect_timeout": 10,
-        },
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+        pool_recycle=300,
+        pool_timeout=10,
+        connect_args={"connect_timeout": 10},
         echo=False,
     )
 
 # ---------------------------------------------------------------------------
-# SessionLocal: fábrica de sessões. Cada chamada cria uma "conversa" com o DB.
-# autoflush=False evita writes automáticos, dando mais controle ao dev.
+# SessionLocal
 # ---------------------------------------------------------------------------
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def init_db():
-    """
-    Cria todas as tabelas definidas nos modelos (se não existirem).
-    Chamado uma vez no startup do app.
-
-    Conceito: DDL (Data Definition Language) - comandos que definem
-    a estrutura do banco (CREATE TABLE, ALTER TABLE, etc.)
-
-    Inclui retry para lidar com falhas transitórias de conexão
-    (ex: banco pausado, cold start do Supabase, rede instável).
-    """
+    """Cria tabelas e executa seed. Inclui retry para falhas transitórias."""
     from database.models import Base
 
     max_retries = 3
     for attempt in range(1, max_retries + 1):
         try:
-            # Testa a conexão primeiro
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
                 conn.commit()
 
-            # Conexão OK — cria as tabelas
             Base.metadata.create_all(bind=engine)
             print(f"[connection] Banco inicializado com sucesso (tentativa {attempt})")
             break
         except Exception as e:
             print(f"[connection] Tentativa {attempt}/{max_retries} falhou: {e}")
             if attempt < max_retries:
-                wait = attempt * 2  # backoff: 2s, 4s
-                print(f"[connection] Aguardando {wait}s antes de tentar novamente...")
+                wait = attempt * 2
+                print(f"[connection] Aguardando {wait}s...")
                 time.sleep(wait)
             else:
-                print(f"[connection] ERRO: Não foi possível conectar ao banco após {max_retries} tentativas.")
-                print(f"[connection] Verifique se DATABASE_URL está correto e o banco está acessível.")
+                print(f"[connection] ERRO FINAL: {type(e).__name__}: {e}")
                 raise
 
-    # Seed: cria o usuário teste se não existir
     try:
         from database.seed_data import seed_usuario_teste
         seed_usuario_teste()
@@ -165,16 +166,7 @@ def init_db():
 
 @contextmanager
 def get_session():
-    """
-    Context Manager para sessões do banco.
-
-    Conceito de Eng. Software: Padrão Context Manager garante que
-    a sessão será fechada mesmo se ocorrer um erro (try/finally implícito).
-
-    Uso:
-        with get_session() as session:
-            session.query(User).all()
-    """
+    """Context Manager para sessões do banco."""
     session: Session = SessionLocal()
     try:
         yield session
