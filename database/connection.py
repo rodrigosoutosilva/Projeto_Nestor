@@ -14,7 +14,9 @@ Suporta dois modos:
 
 import os
 import time
+from urllib.parse import urlparse, unquote, parse_qs
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
 
@@ -41,33 +43,18 @@ if not DATABASE_URL:
 # ---------------------------------------------------------------------------
 # FIX: Muitos provedores (Supabase, Heroku, Render) fornecem DATABASE_URL
 # com o scheme "postgres://", mas SQLAlchemy 2.0+ exige "postgresql://".
-# Convertemos automaticamente para evitar OperationalError.
 # ---------------------------------------------------------------------------
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     print("[connection] Convertido postgres:// → postgresql://")
 
 # ---------------------------------------------------------------------------
-# FIX: Supabase e outros provedores cloud exigem SSL.
-# Adicionamos sslmode=require automaticamente se não estiver presente.
-# ---------------------------------------------------------------------------
-if DATABASE_URL.startswith("postgresql://") and "sslmode" not in DATABASE_URL:
-    separator = "&" if "?" in DATABASE_URL else "?"
-    DATABASE_URL = f"{DATABASE_URL}{separator}sslmode=require"
-    print("[connection] Adicionado sslmode=require à URL")
-
-# Log de diagnóstico (sem expor credenciais)
-if DATABASE_URL.startswith("postgresql://"):
-    try:
-        from urllib.parse import urlparse
-        _parsed = urlparse(DATABASE_URL)
-        print(f"[connection] Host: {_parsed.hostname}, Port: {_parsed.port}, DB: {_parsed.path}")
-    except Exception:
-        print("[connection] URL PostgreSQL detectada (não foi possível parsear)")
-
-# ---------------------------------------------------------------------------
 # Engine: ponto central de comunicação do SQLAlchemy com o banco.
-# Configuração varia entre SQLite e PostgreSQL.
+#
+# Para PostgreSQL, usamos urllib.parse para parsear a URL corretamente.
+# Isso resolve o problema de senhas com '@' (urllib usa o ÚLTIMO '@' como
+# separador, enquanto SQLAlchemy usa o primeiro, causando erros de hostname).
+# Depois reconstruímos via sqlalchemy.engine.URL.create() que escapa tudo.
 # ---------------------------------------------------------------------------
 _is_sqlite = DATABASE_URL.startswith("sqlite")
 
@@ -77,23 +64,53 @@ if _is_sqlite:
         connect_args={"check_same_thread": False},
         echo=False
     )
+    print("[connection] Banco de dados: SQLite (local)")
 else:
-    engine = create_engine(
-        DATABASE_URL,
-        pool_pre_ping=True,   # Detecta conexões mortas antes de usar
-        pool_size=5,           # Conexões mantidas no pool
-        max_overflow=10,       # Conexões extras em pico de uso
-        pool_recycle=300,      # Recicla conexões a cada 5 min (evita timeout)
-        pool_timeout=10,       # Timeout ao obter conexão do pool
-        connect_args={
-            "connect_timeout": 10,  # Timeout de conexão em segundos
-        },
-        echo=False
+    # Parse seguro via urllib (lida com @ na senha corretamente)
+    _parsed = urlparse(DATABASE_URL)
+
+    _host = _parsed.hostname or "localhost"
+    _port = _parsed.port or 5432
+    _user = unquote(_parsed.username) if _parsed.username else "postgres"
+    _pass = unquote(_parsed.password) if _parsed.password else ""
+    _db = (_parsed.path or "/postgres").lstrip("/")
+
+    # Query params (ex: sslmode)
+    _query = {}
+    if _parsed.query:
+        for k, v in parse_qs(_parsed.query).items():
+            _query[k] = v[0] if len(v) == 1 else v
+
+    # Garantir SSL para provedores cloud
+    if "sslmode" not in _query:
+        _query["sslmode"] = "require"
+
+    print(f"[connection] Banco de dados: PostgreSQL (remoto)")
+    print(f"[connection] Host: {_host}, Port: {_port}, DB: {_db}, User: {_user}")
+
+    # Criar URL segura via SQLAlchemy (escapa caracteres especiais)
+    _url_object = URL.create(
+        drivername="postgresql+psycopg2",
+        username=_user,
+        password=_pass,
+        host=_host,
+        port=_port,
+        database=_db,
+        query=_query,
     )
 
-_db_tipo = "SQLite (local)" if _is_sqlite else "PostgreSQL (remoto)"
-print(f"[connection] Banco de dados: {_db_tipo}")
-
+    engine = create_engine(
+        _url_object,
+        pool_pre_ping=True,    # Detecta conexões mortas antes de usar
+        pool_size=5,            # Conexões mantidas no pool
+        max_overflow=10,        # Conexões extras em pico de uso
+        pool_recycle=300,       # Recicla conexões a cada 5 min (evita timeout)
+        pool_timeout=10,        # Timeout ao obter conexão do pool
+        connect_args={
+            "connect_timeout": 10,
+        },
+        echo=False,
+    )
 
 # ---------------------------------------------------------------------------
 # SessionLocal: fábrica de sessões. Cada chamada cria uma "conversa" com o DB.
@@ -167,4 +184,3 @@ def get_session():
         raise
     finally:
         session.close()
-
