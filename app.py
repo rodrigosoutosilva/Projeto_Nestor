@@ -547,7 +547,6 @@ def sidebar_info():
             - 💼 **Carteiras** - Ativos
             - 🧠 **Recomendações** - IA
             - 📜 **Extrato** - Movimentações
-            - 📥 **Onboarding** - Setup
             """)
 
             # Mini-resumo de patrimônio
@@ -735,8 +734,8 @@ def tela_homepage():
         st.markdown("""
         <div class="diff-card">
             <span class="diff-icon">⚡</span>
-            <h4>Onboarding Inteligente</h4>
-            <p>Setup guiado que cria personas e carteiras em minutos com ajuda da IA.</p>
+            <h4>Setup Inteligente</h4>
+            <p>Crie personas e carteiras em minutos com ajuda da IA.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -876,18 +875,12 @@ def tela_principal():
         st.markdown("### 🚀 Primeiros Passos")
         st.info(
             "Você ainda não configurou nenhuma **Persona** de investimento. "
-            "Vá para a página **📥 Onboarding** no menu lateral para começar, "
-            "ou crie uma Persona manualmente na página **🧑 Personas**."
+            "Crie uma Persona na página **🧑 Personas** no menu lateral para começar."
         )
         st.markdown("---")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("📥 Ir para Onboarding Inteligente", use_container_width=True):
-                st.switch_page("pages/5_📥_Onboarding.py")
-        with col2:
-            if st.button("🧑 Criar Persona Manualmente", use_container_width=True):
-                st.switch_page("pages/2_🧑_Personas.py")
+        if st.button("🧑 Criar Persona", use_container_width=True):
+            st.switch_page("pages/2_🧑_Personas.py")
     else:
         # Métricas rápidas
         total_personas = len(personas)

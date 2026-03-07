@@ -129,7 +129,7 @@ personas = listar_personas_usuario(user["id"])
 if not personas:
     st.info(
         "Nenhuma persona cadastrada ainda. "
-        "Crie uma acima ou use o 📥 Onboarding para começar."
+        "Crie uma acima para começar."
     )
 else:
     cols = st.columns(2)

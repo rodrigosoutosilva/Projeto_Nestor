@@ -82,21 +82,45 @@ def buscar_highlights_mercado(_cache_buster: int = 0) -> Optional[dict]:
 
                 variacao = ((preco - preco_ant) / preco_ant) * 100 if preco_ant > 0 else 0
 
-                # Dados fundamentalistas via fast_info (rápido)
+                # Dados fundamentalistas
                 dy = 0.0
                 pl = None
                 nome = ticker
                 try:
-                    fi = yf.Ticker(ticker_sa).fast_info
-                    # DY
-                    dy_raw = fi.get("trailingAnnualDividendYield", 0) or fi.get("last_annual_dividend_yield", 0) or 0
-                    if dy_raw and float(dy_raw) > 0:
-                        dy_val = float(dy_raw)
-                        dy = round(dy_val * 100, 2) if dy_val < 1.0 else round(dy_val, 2)
-                    # P/E (P/L)
-                    pe_raw = fi.get("trailingPE", None) or fi.get("trailing_pe", None)
-                    if pe_raw and float(pe_raw) > 0:
-                        pl = round(float(pe_raw), 2)
+                    tk = yf.Ticker(ticker_sa)
+                    # Tentar via .info (mais completo e confiável)
+                    try:
+                        info = tk.info
+                        if info:
+                            # DY
+                            dy_raw = info.get("dividendYield") or info.get("trailingAnnualDividendYield") or 0
+                            if dy_raw and float(dy_raw) > 0:
+                                dy_val = float(dy_raw)
+                                dy = round(dy_val * 100, 2) if dy_val < 1.0 else round(dy_val, 2)
+                            # P/E (P/L)
+                            pe_raw = info.get("trailingPE") or info.get("forwardPE") or None
+                            if pe_raw and float(pe_raw) > 0:
+                                pl = round(float(pe_raw), 2)
+                    except Exception:
+                        pass
+
+                    # Fallback: fast_info (usa acesso por atributo, não dict)
+                    if dy == 0.0 or pl is None:
+                        try:
+                            fi = tk.fast_info
+                            if dy == 0.0:
+                                dy_raw = getattr(fi, "last_annual_dividend_yield", 0) or 0
+                                if not dy_raw:
+                                    dy_raw = getattr(fi, "trailing_annual_dividend_yield", 0) or 0
+                                if dy_raw and float(dy_raw) > 0:
+                                    dy_val = float(dy_raw)
+                                    dy = round(dy_val * 100, 2) if dy_val < 1.0 else round(dy_val, 2)
+                            if pl is None:
+                                pe_raw = getattr(fi, "trailing_pe", None) or getattr(fi, "forward_pe", None)
+                                if pe_raw and float(pe_raw) > 0:
+                                    pl = round(float(pe_raw), 2)
+                        except Exception:
+                            pass
                 except Exception:
                     pass  # Dados fundamentalistas são opcionais
 

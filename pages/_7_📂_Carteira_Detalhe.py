@@ -9,8 +9,9 @@ from database.crud import (
     buscar_persona_por_id, resumo_transacoes_portfolio,
     adicionar_observacao, listar_observacoes, deletar_observacao,
     criar_ordem_pendente, listar_ordens_pendentes, cancelar_ordem,
-    listar_transacoes_portfolio
+    listar_transacoes_portfolio, executar_ordem_pendente
 )
+from services.order_checker import deve_executar_ordem
 from services.scoring import gerar_sugestoes_carteira
 from services.recommendation import gerar_recomendacao_completa
 from services.market_data import buscar_preco_atual, buscar_dados_fundamentalistas, buscar_historico, calcular_indicadores_tecnicos
@@ -215,11 +216,12 @@ if st.session_state.get("show_compra_dir"):
                 valor_total_nova_compra = novo_qtd * novo_preco
                 caixa = port.get("montante_disponivel", 0)
                 
-                # Verificar se preço foi alterado (ordem condicional)
-                preco_igual = abs(novo_preco - _preco_default_compra) < 0.01
+                # Verificar se deve executar imediatamente ou criar ordem pendente
+                _preco_mercado = _preco_default_compra if _preco_default_compra > 0 else 0
+                executa_agora = deve_executar_ordem("compra", novo_preco, _preco_mercado) if _preco_mercado > 0 else False
                 
-                if preco_igual:
-                    # Execução imediata (preço não alterado)
+                if executa_agora:
+                    # Execução imediata
                     if valor_total_nova_compra > caixa:
                         st.error(f"⚠️ Caixa insuficiente!")
                     else:
@@ -238,7 +240,7 @@ if st.session_state.get("show_compra_dir"):
                         st.toast(f"Ativo {ticker_upper} comprado! 🎉")
                         st.rerun()
                 else:
-                    # Ordem condicional (preço alterado)
+                    # Ordem condicional (preço abaixo do mercado)
                     criar_ordem_pendente(port["id"], ticker_upper, "compra", novo_qtd, novo_preco)
                     st.session_state["show_compra_dir"] = False
                     st.warning(f"⏳ Ordem de compra de {ticker_upper} a R$ {novo_preco:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
@@ -345,11 +347,11 @@ with tab1:
                         if st.button("Executar", key=f"btn_exec_{a['id']}", type="primary", use_container_width=True):
                             valor_op = op_qtd * op_preco
                             caixa_atual = port.get("montante_disponivel", 0)
-                            preco_igual = abs(op_preco - preco_atual) < 0.01
+                            tipo_ord = "compra" if op_tipo == "Compra" else "venda"
+                            executa_agora = deve_executar_ordem(tipo_ord, op_preco, preco_atual)
                             
-                            if not preco_igual:
+                            if not executa_agora:
                                 # Ordem condicional
-                                tipo_ord = "compra" if op_tipo == "Compra" else "venda"
                                 if tipo_ord == "venda" and op_qtd > a["quantidade"]:
                                     st.error("⚠️ Não possui essa quantidade para vender.")
                                 else:
@@ -442,9 +444,9 @@ with tab2:
                             st.markdown(f"**Total:** R\\$ {vt_w:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
                             if st.button("Executar", key=f"w_exec_{w['id']}", type="primary", use_container_width=True):
                                 caixa_w = port.get("montante_disponivel", 0)
-                                preco_igual = abs(prc_w - preco_val) < 0.01
                                 tipo_ord = "compra" if op_tipo_w == "Compra" else "venda"
-                                if not preco_igual:
+                                executa_agora = deve_executar_ordem(tipo_ord, prc_w, preco_val)
+                                if not executa_agora:
                                     criar_ordem_pendente(port["id"], ticker_w, tipo_ord, qtd_w, prc_w)
                                     st.warning(f"⏳ Ordem de {tipo_ord} de {ticker_w} a R$ {prc_w:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
                                 elif tipo_ord == "compra":
@@ -549,11 +551,11 @@ with tab3:
                             valor_total_display = qtd_editada * preco_editado
                             st.markdown(f"**Total:** R\\$ {valor_total_display:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
                             if st.button("Executar", key=f"exec_sug_{i}_{ticker_sug}", type="primary", use_container_width=True):
-                                preco_igual = abs(preco_editado - preco_sug) < 0.01
                                 caixa_at = port.get("montante_disponivel", 0)
                                 tipo_ord = "compra" if op_tipo_sug == "Compra" else "venda"
+                                executa_agora = deve_executar_ordem(tipo_ord, preco_editado, preco_sug) if preco_sug > 0 else False
                                 
-                                if not preco_igual:
+                                if not executa_agora:
                                     criar_ordem_pendente(port["id"], ticker_sug, tipo_ord, qtd_editada, preco_editado)
                                     st.warning(f"⏳ Ordem de {tipo_ord} de {ticker_sug} a R$ {preco_editado:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
                                     st.toast(f"📋 Ordem condicional de {ticker_sug} criada!", icon="📋")
@@ -626,9 +628,9 @@ with tab3:
                             p_sug = sug_exec["preco"]
                             v_total = sug_exec["valor_total"]
                             preco_mercado = sug.get("preco_estimado", p_sug)
-                            preco_igual = abs(p_sug - preco_mercado) < 0.01
+                            executa_agora = deve_executar_ordem("compra", p_sug, preco_mercado) if preco_mercado > 0 else False
                             
-                            if not preco_igual:
+                            if not executa_agora:
                                 criar_ordem_pendente(port["id"], t_sug, "compra", q_sug, p_sug)
                                 compras_ok += 1
                                 continue
@@ -708,9 +710,9 @@ with tab3:
                                 st.markdown(f"**Total:** R\\$ {vt_alg:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
                                 if st.button("Executar", key=f"alg_exec_{idx_s}_{s['ticker']}", type="primary", use_container_width=True):
                                     caixa_alg = port.get("montante_disponivel", 0)
-                                    preco_igual = abs(prc_alg - preco_sug_inline) < 0.01
                                     tipo_ord = "compra" if op_tipo_alg == "Compra" else "venda"
-                                    if not preco_igual:
+                                    executa_agora = deve_executar_ordem(tipo_ord, prc_alg, preco_sug_inline)
+                                    if not executa_agora:
                                         criar_ordem_pendente(port["id"], s['ticker'], tipo_ord, qtd_alg, prc_alg)
                                         st.warning(f"⏳ Ordem de {tipo_ord} de {s['ticker']} a R$ {prc_alg:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
                                     elif tipo_ord == "compra":
@@ -801,9 +803,9 @@ with tab4:
                                 st.markdown(f"**Total:** R\\$ {vt_mov:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
                                 if st.button("Executar", key=f"mov_exec_{idx_m}_{s['ticker']}", type="primary", use_container_width=True):
                                     caixa_mov = port.get("montante_disponivel", 0)
-                                    preco_igual = abs(prc_mov - preco_atual_mov) < 0.01
                                     tipo_ord = "venda" if op_tipo_mov == "Venda" else "compra"
-                                    if not preco_igual:
+                                    executa_agora = deve_executar_ordem(tipo_ord, prc_mov, preco_atual_mov)
+                                    if not executa_agora:
                                         if tipo_ord == "venda" and ativo_cart and qtd_mov > ativo_cart["quantidade"]:
                                             st.error("⚠️ Não possui essa quantidade.")
                                         else:
@@ -913,8 +915,18 @@ if ordens:
                         if st.button("💾 Salvar", key=f"save_ord_{o['id']}", type="primary", use_container_width=True):
                             from database.crud import atualizar_ordem_pendente
                             atualizar_ordem_pendente(o["id"], tipo=edit_tipo, quantidade=edit_qtd, preco_alvo=edit_preco)
+                            # Verificar se a ordem editada deve ser executada imediatamente
+                            _p_check = buscar_preco_atual(o["ticker"])
+                            _p_check_val = _p_check.get("preco_atual", 0) if isinstance(_p_check, dict) else 0
+                            if _p_check_val > 0 and deve_executar_ordem(edit_tipo, edit_preco, _p_check_val):
+                                resultado_exec = executar_ordem_pendente(o["id"])
+                                if resultado_exec:
+                                    st.toast(f"✅ Ordem de {o['ticker']} executada imediatamente a R$ {edit_preco:.2f}!", icon="🔔")
+                                else:
+                                    st.toast(f"Ordem de {o['ticker']} atualizada! ✅", icon="✅")
+                            else:
+                                st.toast(f"Ordem de {o['ticker']} atualizada! ✅", icon="✅")
                             st.session_state[f"editing_order_{o['id']}"] = False
-                            st.toast(f"Ordem de {o['ticker']} atualizada! ✅", icon="✅")
                             st.rerun()
 else:
     st.info("Nenhuma ordem pendente.")

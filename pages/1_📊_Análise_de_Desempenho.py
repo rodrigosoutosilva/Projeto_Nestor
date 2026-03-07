@@ -51,7 +51,7 @@ st.markdown("---")
 personas = listar_personas_usuario(user["id"])
 
 if not personas:
-    st.info("Você ainda não tem personas configuradas. Vá para 📥 Onboarding ou 🧑 Personas.")
+    st.info("Você ainda não tem personas configuradas. Vá para 🧑 Personas para criar.")
     st.stop()
 
 # Filtros de Persona e Carteira
