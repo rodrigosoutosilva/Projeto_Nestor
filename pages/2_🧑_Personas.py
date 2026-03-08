@@ -33,12 +33,6 @@ st.markdown("*Configure perfis de investimento com diferentes estratégias*")
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# Estado
-# ---------------------------------------------------------------------------
-if "persona_criada_id" not in st.session_state:
-    st.session_state.persona_criada_id = None
-
-# ---------------------------------------------------------------------------
 # Criar Nova Persona
 # ---------------------------------------------------------------------------
 with st.expander("➕ Criar Nova Persona", expanded=False):
@@ -99,23 +93,9 @@ with st.expander("➕ Criar Nova Persona", expanded=False):
                     tolerancia_risco=tolerancia,
                     estilo=estilo
                 )
-                st.session_state.persona_criada_id = result["id"]
+                st.session_state.view_persona_id = result["id"]
                 st.toast(f"Persona **{nome}** criada com sucesso! 🎉")
-                st.rerun()
-
-# Mostrar botão de navegação se acabou de criar
-if st.session_state.persona_criada_id:
-    st.success("✅ Persona criada! Quer criar uma carteira para ela?")
-    col_nav1, col_nav2 = st.columns(2)
-    with col_nav1:
-        if st.button("💼 Criar Carteira para esta Persona →", use_container_width=True):
-            st.session_state.view_persona_id = st.session_state.persona_criada_id
-            st.session_state.persona_criada_id = None
-            st.switch_page("pages/_9_🧑_Persona_Detalhe.py")
-    with col_nav2:
-        if st.button("Continuar aqui", use_container_width=True):
-            st.session_state.persona_criada_id = None
-            st.rerun()
+                st.switch_page("pages/_9_🧑_Persona_Detalhe.py")
 
 st.markdown("---")
 
