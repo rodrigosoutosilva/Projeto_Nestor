@@ -221,63 +221,115 @@ def calcular_indicadores_tecnicos(df: pd.DataFrame) -> dict:
 
 def buscar_dados_fundamentalistas(ticker: str) -> dict:
     """
-    Busca dados fundamentalistas de um ativo via yfinance.
+    Busca dados fundamentalistas completos de um ativo via yfinance.
     
-    Retorna dict com:
-    - pl: Preço/Lucro (P/E ratio) — quanto o mercado paga por cada R$1 de lucro
-    - pvp: Preço/Valor Patrimonial (P/B ratio) — relação entre preço e patrimônio líquido
-    - dy: Dividend Yield — rendimento percentual anual de dividendos
-    - setor: Setor do ativo
-    - market_cap: Valor de mercado
+    Retorna dict com indicadores de valuation, rentabilidade, endividamento,
+    margens, crescimento, dividendos e dados de mercado.
     """
+    campos_vazios = {
+        "pl": None, "pvp": None, "dy": None, "setor": None, "market_cap": None,
+        "roe": None, "roa": None, "divida_pl": None, "liquidez_corrente": None,
+        "payout": None, "margem_liquida": None, "margem_operacional": None,
+        "margem_bruta": None, "crescimento_receita": None, "crescimento_lucro": None,
+        "ebitda": None, "ev_ebitda": None, "fluxo_caixa_livre": None, "beta": None,
+        "consenso_analistas": None, "preco_alvo_medio": None, "preco_alvo_min": None,
+        "preco_alvo_max": None, "peg_ratio": None, "var_52_semanas": None,
+        "dy_medio_5_anos": None, "dividend_rate": None, "industria": None,
+        "preco_sobre_vendas": None, "num_analistas": None,
+    }
     try:
         ticker_sa = _formatar_ticker_br(ticker)
         ativo = yf.Ticker(ticker_sa)
         info = ativo.info
         
         if not info:
-            return {"pl": None, "pvp": None, "dy": None, "setor": None, "market_cap": None}
+            return campos_vazios
         
-        # P/L (trailingPE ou forwardPE)
-        pl = info.get("trailingPE") or info.get("forwardPE")
+        def _safe_float(key, fallback_key=None):
+            val = info.get(key)
+            if val is None and fallback_key:
+                val = info.get(fallback_key)
+            if val is not None:
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    pass
+            return None
+
+        def _safe_pct(key, fallback_key=None):
+            """Retorna valor como percentual (multiplica por 100 se < 1)."""
+            val = _safe_float(key, fallback_key)
+            if val is not None:
+                return round(val * 100, 2) if abs(val) < 1.0 else round(val, 2)
+            return None
         
-        # P/VP (priceToBook)
-        pvp = info.get("priceToBook")
+        # --- Valuation ---
+        pl = _safe_float("trailingPE", "forwardPE")
+        pvp = _safe_float("priceToBook")
         
         # Dividend Yield
-        dy_raw = info.get("trailingAnnualDividendYield")
-        dy_fallback = info.get("dividendYield")
-        
-        dy_val = 0.0
-        if dy_raw is not None and float(dy_raw) > 0:
-            dy_val = float(dy_raw)
-        elif dy_fallback is not None and float(dy_fallback) > 0:
-            dy_val = float(dy_fallback)
-            
-        if dy_val > 0:
-            if dy_val < 1.0:
-                dy = round(dy_val * 100, 2)
-            else:
-                dy = round(dy_val, 2)
+        dy_val = _safe_float("dividendYield", "trailingAnnualDividendYield")
+        if dy_val is not None and dy_val > 0:
+            dy = round(dy_val * 100, 2) if dy_val < 1.0 else round(dy_val, 2)
         else:
             dy = None
         
-        # Setor
+        # Setor e Indústria
         setor = info.get("sector", info.get("industry", None))
-        
-        # Market Cap
-        market_cap = info.get("marketCap")
+        industria = info.get("industry", None)
         
         return {
+            # Valuation
             "pl": round(pl, 2) if pl else None,
             "pvp": round(pvp, 2) if pvp else None,
             "dy": round(dy, 2) if dy else None,
+            "ev_ebitda": round(_safe_float("enterpriseToEbitda"), 2) if _safe_float("enterpriseToEbitda") else None,
+            "peg_ratio": round(_safe_float("trailingPegRatio"), 2) if _safe_float("trailingPegRatio") else None,
+            "preco_sobre_vendas": round(_safe_float("priceToSalesTrailing12Months"), 2) if _safe_float("priceToSalesTrailing12Months") else None,
+            
+            # Rentabilidade
+            "roe": _safe_pct("returnOnEquity"),
+            "roa": _safe_pct("returnOnAssets"),
+            
+            # Endividamento e Liquidez
+            "divida_pl": round(_safe_float("debtToEquity"), 2) if _safe_float("debtToEquity") else None,
+            "liquidez_corrente": round(_safe_float("currentRatio"), 2) if _safe_float("currentRatio") else None,
+            
+            # Margens
+            "margem_liquida": _safe_pct("profitMargins"),
+            "margem_operacional": _safe_pct("operatingMargins"),
+            "margem_bruta": _safe_pct("grossMargins"),
+            
+            # Crescimento
+            "crescimento_receita": _safe_pct("revenueGrowth"),
+            "crescimento_lucro": _safe_pct("earningsGrowth"),
+            
+            # Dividendos
+            "payout": _safe_pct("payoutRatio"),
+            "dividend_rate": round(_safe_float("dividendRate"), 2) if _safe_float("dividendRate") else None,
+            "dy_medio_5_anos": round(_safe_float("fiveYearAvgDividendYield"), 2) if _safe_float("fiveYearAvgDividendYield") else None,
+            
+            # Mercado
+            "market_cap": info.get("marketCap"),
+            "ebitda": info.get("ebitda"),
+            "fluxo_caixa_livre": info.get("freeCashflow"),
+            "beta": round(_safe_float("beta"), 3) if _safe_float("beta") else None,
+            "var_52_semanas": _safe_pct("52WeekChange"),
+            
+            # Analistas
+            "consenso_analistas": info.get("recommendationKey"),
+            "preco_alvo_medio": round(_safe_float("targetMeanPrice"), 2) if _safe_float("targetMeanPrice") else None,
+            "preco_alvo_min": round(_safe_float("targetLowPrice"), 2) if _safe_float("targetLowPrice") else None,
+            "preco_alvo_max": round(_safe_float("targetHighPrice"), 2) if _safe_float("targetHighPrice") else None,
+            "num_analistas": info.get("numberOfAnalystOpinions"),
+            
+            # Setor
             "setor": setor,
-            "market_cap": market_cap
+            "industria": industria,
         }
     except Exception as e:
         print(f"[market_data] Erro ao buscar fundamentalistas de {ticker}: {e}")
-        return {"pl": None, "pvp": None, "dy": None, "setor": None, "market_cap": None}
+        return campos_vazios
 
 
 # Mapeamento de setores para tickers representativos da B3
@@ -305,15 +357,15 @@ _SETOR_PEERS = {
 
 def buscar_referencia_setor(ticker: str, setor: str = None) -> dict:
     """
-    Busca valores de referência (mín, máx, média, mediana) de P/VP, P/L e DY
-    para os peers do mesmo setor na B3.
+    Busca valores de referência (mín, máx, média, mediana) para TODOS os
+    indicadores numéricos dos peers do mesmo setor.
     
     Retorna dict com:
     - setor: nome do setor usado
     - peers_analisados: quantidade de peers com dados
-    - pvp: {min, max, media, mediana}
-    - pl: {min, max, media, mediana}
-    - dy: {min, max, media, mediana}
+    - pl: {min, max, media, moda}
+    - roe: {min, max, media, moda}
+    ... (para todos os demais indicadores)
     """
     import statistics
     
@@ -338,19 +390,21 @@ def buscar_referencia_setor(ticker: str, setor: str = None) -> dict:
     if not peers:
         return {"setor": setor, "peers_analisados": 0}
     
-    # Buscar dados de cada peer (excluir o próprio ticker para não enviesar)
-    pvp_list, pl_list, dy_list = [], [], []
+    # Dicionário para armazenar as listas de valores de cada indicador
+    import collections
+    indicadores_listas = collections.defaultdict(list)
     
     for peer in peers:
         try:
             fund = buscar_dados_fundamentalistas(peer)
-            if fund:
-                if fund.get("pvp") and fund["pvp"] > 0:
-                    pvp_list.append(fund["pvp"])
-                if fund.get("pl") and fund["pl"] > 0:
-                    pl_list.append(fund["pl"])
-                if fund.get("dy") and fund["dy"] > 0:
-                    dy_list.append(fund["dy"])
+            if not fund: continue
+            
+            for key, val in fund.items():
+                if val is not None and isinstance(val, (int, float)):
+                    # Lógica de filtragem: evitar distorções graves (ex: PL ou PVP negativos dependendo do critério)
+                    if key in ("pl", "pvp") and val <= 0:
+                        continue
+                    indicadores_listas[key].append(val)
         except Exception:
             continue
     
@@ -361,6 +415,7 @@ def buscar_referencia_setor(ticker: str, setor: str = None) -> dict:
             moda_val = round(statistics.mode(vals), 2)
         except statistics.StatisticsError:
             moda_val = round(statistics.median(vals), 2)  # fallback se todos únicos
+            
         return {
             "min": round(min(vals), 2),
             "max": round(max(vals), 2),
@@ -368,13 +423,18 @@ def buscar_referencia_setor(ticker: str, setor: str = None) -> dict:
             "moda": moda_val,
         }
     
-    return {
+    # Retorno final
+    max_peers_analisados = max([len(v) for v in indicadores_listas.values()] + [0])
+    
+    resultado = {
         "setor": setor,
-        "peers_analisados": max(len(pvp_list), len(pl_list), len(dy_list)),
-        "pvp": _stats(pvp_list),
-        "pl": _stats(pl_list),
-        "dy": _stats(dy_list),
+        "peers_analisados": max_peers_analisados,
     }
+    
+    for key, vals in indicadores_listas.items():
+        resultado[key] = _stats(vals)
+        
+    return resultado
 
 
 def buscar_precos_multiplos(tickers: list[str]) -> dict:
