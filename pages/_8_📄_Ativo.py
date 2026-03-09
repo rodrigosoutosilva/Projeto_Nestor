@@ -180,9 +180,21 @@ for categoria, indicadores in indicadores_config.items():
         if ref and chave in ref:
             dados_ref = ref.get(chave, {})
             if dados_ref and dados_ref.get("min") is not None:
-                r_min = fmt_fn(dados_ref.get("min"))
+                min_val_str = fmt_fn(dados_ref.get("min"))
+                min_at = dados_ref.get("min_ativo")
+                if min_at:
+                    r_min = f"{min_val_str} <br><small>({min_at})</small>"
+                else:
+                    r_min = min_val_str
+
                 r_med = fmt_fn(dados_ref.get("media"))
-                r_max = fmt_fn(dados_ref.get("max"))
+
+                max_val_str = fmt_fn(dados_ref.get("max"))
+                max_at = dados_ref.get("max_ativo")
+                if max_at:
+                    r_max = f"{max_val_str} <br><small>({max_at})</small>"
+                else:
+                    r_max = max_val_str
                 
         html_rows += '<tr>'
         if i == 0:
@@ -191,9 +203,9 @@ for categoria, indicadores in indicadores_config.items():
         html_rows += (
             f'<td><span class="ind-name" title="{tooltip}">{nome_ind}</span></td>'
             f'<td class="val-col">{valor_fmt}</td>'
-            f'<td class="ref-col">{r_min}</td>'
+            f'<td class="ref-col" style="line-height:1.1;">{r_min}</td>'
             f'<td class="ref-col">{r_med}</td>'
-            f'<td class="ref-col">{r_max}</td>'
+            f'<td class="ref-col" style="line-height:1.1;">{r_max}</td>'
             f'</tr>\n'
         )
 

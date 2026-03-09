@@ -90,18 +90,19 @@ valor_total = caixa + patrimonio
 total_aportado = resumo_fin["total_aportes"] - resumo_fin["total_retiradas"]
 lucro_acum = valor_total - total_aportado if total_aportado > 0 else 0
 lucro_pct = (lucro_acum / total_aportado * 100) if total_aportado > 0 else 0
-
 # Rendimento anual projetado
 rend_anual = 0.0
 if port.get("created_at") and total_aportado > 0:
     try:
-        dt_port = datetime.fromisoformat(port["created_at"].replace("Z", "+00:00")) if "T" in str(port["created_at"]) else datetime.strptime(str(port["created_at"]).split(".")[0], "%Y-%m-%d %H:%M:%S")
+        from dateutil import parser
+        dt_port = parser.parse(str(port["created_at"])).replace(tzinfo=None)
     except Exception:
         dt_port = None
     if dt_port:
         dias = (datetime.utcnow() - dt_port).days
-        if dias > 0:
-            rend_anual = (lucro_pct / dias) * 365
+        if dias <= 0:
+            dias = 1
+        rend_anual = (lucro_pct / dias) * 365
 
 mh1, mh2, mh3, mh4, mh5, mh6 = st.columns(6)
 mh1.metric("💎 Patrimônio", formatar_moeda(valor_total), help="Caixa + valor atual dos ativos")

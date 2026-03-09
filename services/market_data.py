@@ -393,6 +393,7 @@ def buscar_referencia_setor(ticker: str, setor: str = None) -> dict:
     # Dicionário para armazenar as listas de valores de cada indicador
     import collections
     indicadores_listas = collections.defaultdict(list)
+    indicadores_peers = collections.defaultdict(list)
     
     for peer in peers:
         try:
@@ -405,22 +406,31 @@ def buscar_referencia_setor(ticker: str, setor: str = None) -> dict:
                     if key in ("pl", "pvp") and val <= 0:
                         continue
                     indicadores_listas[key].append(val)
+                    indicadores_peers[key].append((val, peer))
         except Exception:
             continue
     
-    def _stats(vals):
+    def _stats(vals, vals_with_peers):
         if not vals:
-            return {"min": None, "max": None, "media": None, "moda": None}
+            return {"min": None, "max": None, "media": None, "moda": None, "min_ativo": None, "max_ativo": None}
         try:
             moda_val = round(statistics.mode(vals), 2)
         except statistics.StatisticsError:
             moda_val = round(statistics.median(vals), 2)  # fallback se todos únicos
             
+        min_val = min(vals)
+        max_val = max(vals)
+        
+        min_ativo = next((p for v, p in vals_with_peers if v == min_val), None)
+        max_ativo = next((p for v, p in vals_with_peers if v == max_val), None)
+            
         return {
-            "min": round(min(vals), 2),
-            "max": round(max(vals), 2),
+            "min": round(min_val, 2),
+            "max": round(max_val, 2),
             "media": round(statistics.mean(vals), 2),
             "moda": moda_val,
+            "min_ativo": min_ativo,
+            "max_ativo": max_ativo
         }
     
     # Retorno final
@@ -432,7 +442,8 @@ def buscar_referencia_setor(ticker: str, setor: str = None) -> dict:
     }
     
     for key, vals in indicadores_listas.items():
-        resultado[key] = _stats(vals)
+        vals_with_peers = indicadores_peers.get(key, [])
+        resultado[key] = _stats(vals, vals_with_peers)
         
     return resultado
 

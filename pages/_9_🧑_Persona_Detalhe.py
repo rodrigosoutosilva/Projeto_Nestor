@@ -102,9 +102,11 @@ lucro_pct = (lucro_acum / total_aportado_global * 100) if total_aportado_global 
 # Calcular rendimento anual projetado
 rend_anual = 0.0
 if data_mais_antiga and total_aportado_global > 0:
+    data_mais_antiga = data_mais_antiga.replace(tzinfo=None)
     dias_desde_criacao = (datetime.utcnow() - data_mais_antiga).days
-    if dias_desde_criacao > 0:
-        rend_anual = (lucro_pct / dias_desde_criacao) * 365
+    if dias_desde_criacao <= 0:
+        dias_desde_criacao = 1
+    rend_anual = (lucro_pct / dias_desde_criacao) * 365
 
 m1, m2, m3, m4, m5, m6 = st.columns(6)
 m1.metric("💎 Patrimônio", formatar_moeda(valor_total))
