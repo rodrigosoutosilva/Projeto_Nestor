@@ -186,15 +186,19 @@ if st.session_state.get("show_aporte"):
                 tipo_db = "aporte" if "Aporte" in tipo_movimento else "retirada"
                 caixa_c = port.get("montante_disponivel", 0)
                 if tipo_db == "retirada" and valor_movimento > caixa_c:
-                    st.error("⚠️ Saldo insuficiente!")
-                else:
-                    registrar_transacao(portfolio_id=port["id"], tipo=tipo_db, valor=valor_movimento,
-                                       descricao=f"{tipo_db.capitalize()} de caixa", data_transacao=data_movimento)
-                    novo_caixa = caixa_c + (valor_movimento if tipo_db == "aporte" else -valor_movimento)
-                    atualizar_portfolio(port["id"], montante_disponivel=novo_caixa)
-                    st.session_state["show_aporte"] = False
-                    st.toast(f"{tipo_db.capitalize()} registrado! ✅")
-                    st.rerun()
+                    st.warning("⚠️ Saldo insuficiente! Esta retirada causará saldo negativo, sujeito a cobrança diária de juros. Clique em Confirmar novamente para prosseguir.")
+                    if not st.session_state.get(f"conf_retirada_port", False):
+                        st.session_state[f"conf_retirada_port"] = True
+                        st.stop()
+                    st.session_state[f"conf_retirada_port"] = False
+                    
+                registrar_transacao(portfolio_id=port["id"], tipo=tipo_db, valor=valor_movimento,
+                                   descricao=f"{tipo_db.capitalize()} de caixa", data_transacao=data_movimento)
+                novo_caixa = caixa_c + (valor_movimento if tipo_db == "aporte" else -valor_movimento)
+                atualizar_portfolio(port["id"], montante_disponivel=novo_caixa)
+                st.session_state["show_aporte"] = False
+                st.toast(f"{tipo_db.capitalize()} registrado! ✅")
+                st.rerun()
 
 # Painel: Comprar Ativo Direto
 if st.session_state.get("show_compra_dir"):
@@ -370,17 +374,21 @@ with tab1:
                                     st.toast(f"📋 Ordem condicional criada!", icon="📋")
                             elif op_tipo == "Compra":
                                 if valor_op > caixa_atual:
-                                    st.error("⚠️ Saldo em caixa insuficiente para compra.")
-                                else:
-                                    q_ant = a["quantidade"]
-                                    p_ant = a["preco_medio"]
-                                    q_nova = q_ant + op_qtd
-                                    p_novo = ((q_ant * p_ant) + valor_op) / q_nova
-                                    atualizar_ativo(a["id"], quantidade=q_nova, preco_medio=p_novo)
-                                    registrar_transacao(port["id"], "compra", valor_op, a["ticker"], op_qtd, op_preco, f"Compra {a['ticker']}", date.today())
-                                    atualizar_portfolio(port["id"], montante_disponivel=caixa_atual - valor_op)
-                                    st.toast(f"Compra de {a['ticker']} registrada! 💸")
-                                    st.rerun()
+                                    st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Executar novamente para confirmar.")
+                                    if not st.session_state.get(f"conf_op_cart_{a['id']}", False):
+                                        st.session_state[f"conf_op_cart_{a['id']}"] = True
+                                        st.stop()
+                                    st.session_state[f"conf_op_cart_{a['id']}"] = False
+                                    
+                                q_ant = a["quantidade"]
+                                p_ant = a["preco_medio"]
+                                q_nova = q_ant + op_qtd
+                                p_novo = ((q_ant * p_ant) + valor_op) / q_nova
+                                atualizar_ativo(a["id"], quantidade=q_nova, preco_medio=p_novo)
+                                registrar_transacao(port["id"], "compra", valor_op, a["ticker"], op_qtd, op_preco, f"Compra {a['ticker']}", date.today())
+                                atualizar_portfolio(port["id"], montante_disponivel=caixa_atual - valor_op)
+                                st.toast(f"Compra de {a['ticker']} registrada! 💸")
+                                st.rerun()
                             else: # Venda imediata
                                 if op_qtd > a["quantidade"]:
                                     st.error("⚠️ Você não possui essa quantidade toda para vender.")
@@ -461,17 +469,22 @@ with tab2:
                                     st.warning(f"⏳ Ordem de {tipo_ord} de {ticker_w} a R$ {prc_w:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
                                 elif tipo_ord == "compra":
                                     if vt_w > caixa_w:
-                                        st.error("⚠️ Caixa insuficiente!")
+                                        st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Executar novamente para confirmar.")
+                                        if not st.session_state.get(f"conf_op_watch_{w['id']}", False):
+                                            st.session_state[f"conf_op_watch_{w['id']}"] = True
+                                            st.stop()
+                                        st.session_state[f"conf_op_watch_{w['id']}"] = False
+                                        
+                                    ativo_ext = next((x for x in ativos if x["ticker"] == ticker_w), None)
+                                    if ativo_ext:
+                                        q_ant = ativo_ext["quantidade"]; p_ant = ativo_ext["preco_medio"]
+                                        atualizar_ativo(ativo_ext["id"], quantidade=q_ant + qtd_w, preco_medio=((q_ant * p_ant) + vt_w) / (q_ant + qtd_w))
                                     else:
-                                        ativo_ext = next((x for x in ativos if x["ticker"] == ticker_w), None)
-                                        if ativo_ext:
-                                            q_ant = ativo_ext["quantidade"]; p_ant = ativo_ext["preco_medio"]
-                                            atualizar_ativo(ativo_ext["id"], quantidade=q_ant + qtd_w, preco_medio=((q_ant * p_ant) + vt_w) / (q_ant + qtd_w))
-                                        else:
-                                            adicionar_ativo(port["id"], ticker_w, prc_w, qtd_w, date.today())
-                                        registrar_transacao(port["id"], "compra", vt_w, ticker_w, qtd_w, prc_w, "Compra (Watch)", date.today())
-                                        atualizar_portfolio(port["id"], montante_disponivel=caixa_w - vt_w)
-                                        st.toast(f"{ticker_w} comprado! 🎉", icon="✅"); st.rerun()
+                                        adicionar_ativo(port["id"], ticker_w, prc_w, qtd_w, date.today())
+                                    registrar_transacao(port["id"], "compra", vt_w, ticker_w, qtd_w, prc_w, "Compra (Watch)", date.today())
+                                    atualizar_portfolio(port["id"], montante_disponivel=caixa_w - vt_w)
+                                    st.toast(f"{ticker_w} comprado! 🎉", icon="✅")
+                                    st.rerun()
                                 else:
                                     ativo_ext = next((x for x in ativos if x["ticker"] == ticker_w), None)
                                     if not ativo_ext or qtd_w > ativo_ext["quantidade"]:
@@ -731,17 +744,22 @@ with tab3:
                                         st.warning(f"⏳ Ordem de {tipo_ord} de {s['ticker']} a R$ {prc_alg:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
                                     elif tipo_ord == "compra":
                                         if vt_alg > caixa_alg:
-                                            st.error("⚠️ Caixa insuficiente!")
+                                            st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Executar novamente para confirmar.")
+                                            if not st.session_state.get(f"conf_op_alg_{idx_s}_{s['ticker']}", False):
+                                                st.session_state[f"conf_op_alg_{idx_s}_{s['ticker']}"] = True
+                                                st.stop()
+                                            st.session_state[f"conf_op_alg_{idx_s}_{s['ticker']}"] = False
+                                            
+                                        ativo_ext = next((x for x in ativos if x["ticker"] == s['ticker']), None)
+                                        if ativo_ext:
+                                            q_ant = ativo_ext["quantidade"]; p_ant = ativo_ext["preco_medio"]
+                                            atualizar_ativo(ativo_ext["id"], quantidade=q_ant + qtd_alg, preco_medio=((q_ant * p_ant) + vt_alg) / (q_ant + qtd_alg))
                                         else:
-                                            ativo_ext = next((x for x in ativos if x["ticker"] == s['ticker']), None)
-                                            if ativo_ext:
-                                                q_ant = ativo_ext["quantidade"]; p_ant = ativo_ext["preco_medio"]
-                                                atualizar_ativo(ativo_ext["id"], quantidade=q_ant + qtd_alg, preco_medio=((q_ant * p_ant) + vt_alg) / (q_ant + qtd_alg))
-                                            else:
-                                                adicionar_ativo(port["id"], s['ticker'], prc_alg, qtd_alg, date.today())
-                                            registrar_transacao(port["id"], "compra", vt_alg, s['ticker'], qtd_alg, prc_alg, "Compra Algoritmo", date.today())
-                                            atualizar_portfolio(port["id"], montante_disponivel=caixa_alg - vt_alg)
-                                            st.toast(f"{s['ticker']} comprado! 🎉", icon="✅"); st.rerun()
+                                            adicionar_ativo(port["id"], s['ticker'], prc_alg, qtd_alg, date.today())
+                                        registrar_transacao(port["id"], "compra", vt_alg, s['ticker'], qtd_alg, prc_alg, "Compra Algoritmo", date.today())
+                                        atualizar_portfolio(port["id"], montante_disponivel=caixa_alg - vt_alg)
+                                        st.toast(f"{s['ticker']} comprado! 🎉", icon="✅")
+                                        st.rerun()
                                     else:
                                         ativo_ext = next((x for x in ativos if x["ticker"] == s['ticker']), None)
                                         if not ativo_ext or qtd_alg > ativo_ext["quantidade"]:
@@ -837,16 +855,21 @@ with tab4:
                                             st.toast(f"{s['ticker']} vendido! 💰", icon="✅"); st.rerun()
                                     else:
                                         if vt_mov > caixa_mov:
-                                            st.error("⚠️ Caixa insuficiente!")
+                                            st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Executar novamente para confirmar.")
+                                            if not st.session_state.get(f"conf_op_mov_{idx_m}_{s['ticker']}", False):
+                                                st.session_state[f"conf_op_mov_{idx_m}_{s['ticker']}"] = True
+                                                st.stop()
+                                            st.session_state[f"conf_op_mov_{idx_m}_{s['ticker']}"] = False
+                                            
+                                        if ativo_cart:
+                                            q_ant = ativo_cart["quantidade"]; p_ant = ativo_cart["preco_medio"]
+                                            atualizar_ativo(ativo_cart["id"], quantidade=q_ant + qtd_mov, preco_medio=((q_ant * p_ant) + vt_mov) / (q_ant + qtd_mov))
                                         else:
-                                            if ativo_cart:
-                                                q_ant = ativo_cart["quantidade"]; p_ant = ativo_cart["preco_medio"]
-                                                atualizar_ativo(ativo_cart["id"], quantidade=q_ant + qtd_mov, preco_medio=((q_ant * p_ant) + vt_mov) / (q_ant + qtd_mov))
-                                            else:
-                                                adicionar_ativo(port["id"], s['ticker'], prc_mov, qtd_mov, date.today())
-                                            registrar_transacao(port["id"], "compra", vt_mov, s['ticker'], qtd_mov, prc_mov, "Compra (Mov)", date.today())
-                                            atualizar_portfolio(port["id"], montante_disponivel=caixa_mov - vt_mov)
-                                            st.toast(f"{s['ticker']} comprado! 🎉", icon="✅"); st.rerun()
+                                            adicionar_ativo(port["id"], s['ticker'], prc_mov, qtd_mov, date.today())
+                                        registrar_transacao(port["id"], "compra", vt_mov, s['ticker'], qtd_mov, prc_mov, "Compra (Mov)", date.today())
+                                        atualizar_portfolio(port["id"], montante_disponivel=caixa_mov - vt_mov)
+                                        st.toast(f"{s['ticker']} comprado! 🎉", icon="✅")
+                                        st.rerun()
         else:
             st.info("✅ Nenhuma sugestão de venda para os ativos da sua carteira no momento.")
     else:

@@ -179,24 +179,30 @@ with tab_compra:
             caixa_disp = port_info.get("montante_disponivel", 0) if port_info else 0
             
             if compra_total > caixa_disp:
-                st.error(f"Caixa insuficiente! Disponível: {formatar_moeda(caixa_disp)}".replace("$", r"\$"))
-            else:
-                from database.crud import adicionar_ativo, atualizar_ativo, listar_ativos_portfolio
-                ativos_cart = listar_ativos_portfolio(port_compra)
-                ativo_existente = next((x for x in ativos_cart if x["ticker"] == ticker_upper), None)
+                st.warning(f"⚠️ Caixa insuficiente (Disponível: {formatar_moeda(caixa_disp)}). Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Registrar Compra novamente para confirmar.".replace("$", r"\$"))
+                if not st.session_state.get(f"conf_compra_gestao", False):
+                    st.session_state[f"conf_compra_gestao"] = True
+                    st.stop()
+                st.session_state[f"conf_compra_gestao"] = False
                 
-                if ativo_existente:
-                    q_ant = ativo_existente["quantidade"]
-                    p_ant = ativo_existente["preco_medio"]
-                    q_nova = q_ant + compra_qtd
-                    p_novo = ((q_ant * p_ant) + compra_total) / q_nova
-                    atualizar_ativo(ativo_existente["id"], quantidade=q_nova, preco_medio=p_novo)
-                else:
-                    adicionar_ativo(port_compra, ticker_upper, compra_preco, compra_qtd, compra_data)
-                    
-                registrar_transacao(port_compra, "compra", compra_total, ticker_upper, compra_qtd, compra_preco, "Compra via Gestão", compra_data)
-                st.toast(f"Compra de {compra_qtd}x {ticker_upper} registrada! 🎉")
-                st.rerun()
+            from database.crud import adicionar_ativo, atualizar_ativo, listar_ativos_portfolio
+            ativos_cart = listar_ativos_portfolio(port_compra)
+            ativo_existente = next((x for x in ativos_cart if x["ticker"] == ticker_upper), None)
+            
+            if ativo_existente:
+                q_ant = ativo_existente["quantidade"]
+                p_ant = ativo_existente["preco_medio"]
+                q_nova = q_ant + compra_qtd
+                p_novo = ((q_ant * p_ant) + compra_total) / q_nova
+                atualizar_ativo(ativo_existente["id"], quantidade=q_nova, preco_medio=p_novo)
+            else:
+                adicionar_ativo(port_compra, ticker_upper, compra_preco, compra_qtd, compra_data)
+                
+            registrar_transacao(port_compra, "compra", compra_total, ticker_upper, compra_qtd, compra_preco, "Compra via Gestão", compra_data)
+            from database.crud import atualizar_portfolio
+            atualizar_portfolio(port_compra, montante_disponivel=caixa_disp - compra_total)
+            st.toast(f"Compra de {compra_qtd}x {ticker_upper} registrada! 🎉")
+            st.rerun()
 
 with tab_venda:
     port_venda = st.selectbox("Carteira de origem:", list(opcoes_port_form.keys()),
@@ -275,15 +281,21 @@ with tab_retirada:
             port_info = buscar_portfolio_por_id(port_ret)
             caixa_disp = port_info.get("montante_disponivel", 0) if port_info else 0
             if ret_valor > caixa_disp:
-                st.error(f"Caixa insuficiente! Disponível: {formatar_moeda(caixa_disp)}".replace("$", r"\$"))
-            else:
-                registrar_transacao(
-                    portfolio_id=port_ret, tipo="retirada",
-                    valor=ret_valor, descricao=ret_desc or "Retirada",
-                    data_transacao=ret_data
-                )
-                st.toast(f"Retirada de {formatar_moeda(ret_valor)} registrada! 📤".replace("$", r"\$"))
-                st.rerun()
+                st.warning(f"⚠️ Caixa insuficiente (Disponível: {formatar_moeda(caixa_disp)}). Esta retirada causará saldo negativo, sujeito a cobrança diária de juros. Clique em Registrar Retirada novamente para confirmar.".replace("$", r"\$"))
+                if not st.session_state.get(f"conf_retirada_gestao", False):
+                    st.session_state[f"conf_retirada_gestao"] = True
+                    st.stop()
+                st.session_state[f"conf_retirada_gestao"] = False
+                
+            registrar_transacao(
+                portfolio_id=port_ret, tipo="retirada",
+                valor=ret_valor, descricao=ret_desc or "Retirada",
+                data_transacao=ret_data
+            )
+            from database.crud import atualizar_portfolio
+            atualizar_portfolio(port_ret, montante_disponivel=caixa_disp - ret_valor)
+            st.toast(f"Retirada de {formatar_moeda(ret_valor)} registrada! 📤".replace("$", r"\$"))
+            st.rerun()
 
 with tab_dividendo:
     with st.form("form_dividendo"):
