@@ -115,12 +115,9 @@ mh3.markdown(
     unsafe_allow_html=True
 )
 cor_rend = "#00C851" if rend_anual >= 0 else "#FF4444"
-bg_rend = "rgba(0, 200, 81, 0.1)" if rend_anual >= 0 else "rgba(255, 68, 68, 0.1)"
 mh4.markdown(
-    f"<div style='border: 1px solid {cor_rend}; background-color: {bg_rend}; padding: 8px; border-radius: 8px; text-align: center;'>"
-    f"<small style='font-weight:bold; color:{cor_rend};'>📅 Rend. Anual</small><br>"
-    f"<span style='font-size: 1.4rem; font-weight: 800; color: {cor_rend};'>{rend_anual:+.1f}% a.a.</span>"
-    f"</div>",
+    f"<small>📅 Rend. Anual</small><br>"
+    f"<b style='color:{cor_rend}'>{rend_anual:+.1f}% a.a.</b>",
     unsafe_allow_html=True
 )
 # Calcular valor comprometido (ordens pendentes de COMPRA apenas)
