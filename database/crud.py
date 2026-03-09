@@ -949,7 +949,52 @@ def listar_ordens_pendentes_todas() -> list[dict]:
             "portfolio_id": o.portfolio_id,
             "ticker": o.ticker,
             "tipo": o.tipo,
-            "quantidade": o.quantidade,
             "preco_alvo": o.preco_alvo,
             "created_at": str(o.created_at) if o.created_at else None
         } for o in ordens]
+
+
+def cobrar_juros_cheque_especial():
+    """
+    Verifica se há carteiras com saldo negativo (montante_disponivel < 0)
+    e cobra 15% a.a. proporcional ao dia (Selic) via transação.
+    Executado no máximo uma vez por dia por carteira.
+    """
+    taxa_diaria = 0.15 / 365.0
+    with get_session() as session:
+        # Pega carteiras negativadas
+        portfolios_negativos = session.query(Portfolio).filter(
+            Portfolio.montante_disponivel < 0
+        ).all()
+        
+        hoje = date.today()
+        
+        for p in portfolios_negativos:
+            # Verifica se já cobrou juros hoje ("Juros Saldo Devedor")
+            ja_cobrou = session.query(Transaction).filter(
+                Transaction.portfolio_id == p.id,
+                Transaction.data == hoje,
+                Transaction.descricao.like("Juros Saldo Devedor%")
+            ).first()
+            
+            if not ja_cobrou:
+                saldo_devedor = abs(p.montante_disponivel)
+                juros_hoje = saldo_devedor * taxa_diaria
+                
+                # Debita o valor do montante (que fica mais negativo)
+                p.montante_disponivel -= juros_hoje
+                
+                # Registra transacao
+                t_juros = Transaction(
+                    portfolio_id=p.id,
+                    tipo=TipoTransacao.RETIRADA,
+                    valor=juros_hoje,
+                    descricao="Juros Saldo Devedor (Selic Diária)",
+                    origem=OrigemTransacao.SISTEMA,
+                    data=hoje
+                )
+                session.add(t_juros)
+        
+        # Salva o flush
+        session.commit()
+

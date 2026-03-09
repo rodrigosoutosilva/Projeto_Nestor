@@ -133,6 +133,7 @@ class OrigemTransacao(str, enum.Enum):
     RECOMENDACAO_IA = "ia"     # Seguiu sugestão da IA
     ONBOARDING = "onboarding"  # Criada no onboarding automático
     SEED = "seed"              # Dados de teste/seed
+    SISTEMA = "sistema"        # Criada automaticamente pelo sistema
 
 
 # ===========================================================================

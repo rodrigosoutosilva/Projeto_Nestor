@@ -261,40 +261,86 @@ with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=
                     st.session_state.view_portfolio_id = port_id
                     st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
 
-            with st.expander("🛒 Registrar Compra", expanded=False):
+            with st.expander("💸 Negociar", expanded=True):
                 caixa_disp = port_detalhe.get('montante_disponivel', 0) if port_detalhe else 0
                 st.markdown(f"**Saldo em caixa:** {formatar_moeda_md(caixa_disp)}", unsafe_allow_html=True)
                 
                 preco_atual_val = cotacao.get('preco_atual', 0) if isinstance(cotacao, dict) else 0
-                if preco_atual_val > 0:
-                    qtd_compra = st.number_input("Quantidade para comprar", min_value=1, value=1, step=1)
-                    total_compra = qtd_compra * preco_atual_val
+                
+                cs1, cs2, cs3, cs4 = st.columns(4)
+                with cs1:
+                    op_tipo_sug = st.selectbox("Operação", ["Compra", "Venda"], key=f"op_tipo_{ticker}_{port_id}")
+                with cs2:
+                    qtd_editada = st.number_input("Qtd", min_value=1, value=1, key=f"qtd_{ticker}_{port_id}", step=1)
+                with cs3:
+                    preco_editado = st.number_input("Preço (R$)", min_value=0.01, value=float(preco_atual_val) if preco_atual_val > 0 else 10.0, key=f"prc_{ticker}_{port_id}", step=0.1, help="Se alterar o preço, cria ordem condicional.")
+                    if preco_atual_val > 0 and abs(preco_editado - preco_atual_val) >= 0.01:
+                        st.caption(f"Preço atual: R$ {preco_atual_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                with cs4:
+                    valor_total_display = qtd_editada * preco_editado
+                    st.markdown(f"**Total:** R\\$ {valor_total_display:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
                     
-                    st.markdown(f"**Preço unitário:** {formatar_moeda_md(preco_atual_val)}<br>**Total:** **{formatar_moeda_md(total_compra)}**", unsafe_allow_html=True)
-                    
-                    if total_compra > caixa_disp:
-                        st.error("Saldo insuficiente para esta compra.")
-                    else:
-                        if st.button("Confirmar Compra", type="primary", use_container_width=True):
-                            from database.crud import adicionar_ativo, atualizar_ativo, registrar_transacao, listar_ativos_portfolio
-                            from datetime import date
-                            ativos_cart = listar_ativos_portfolio(port_id)
-                            ativo_existente = next((x for x in ativos_cart if x["ticker"] == ticker), None)
-                            
-                            if ativo_existente:
-                                q_ant = ativo_existente["quantidade"]
-                                p_ant = ativo_existente["preco_medio"]
-                                q_nova = q_ant + qtd_compra
-                                p_novo = ((q_ant * p_ant) + total_compra) / q_nova
-                                atualizar_ativo(ativo_existente["id"], quantidade=q_nova, preco_medio=p_novo)
+                    if st.button("Executar", key=f"exec_{ticker}_{port_id}", type="primary", use_container_width=True):
+                        tipo_ord = "compra" if op_tipo_sug == "Compra" else "venda"
+                        from services.order_checker import deve_executar_ordem
+                        executa_agora = deve_executar_ordem(tipo_ord, preco_editado, preco_atual_val) if preco_atual_val > 0 else False
+                        
+                        if not executa_agora:
+                            from database.crud import criar_ordem_pendente
+                            criar_ordem_pendente(port_id, ticker, tipo_ord, qtd_editada, preco_editado)
+                            if tipo_ord == "compra" and valor_total_display > caixa_disp:
+                                st.warning(f"⚠️ Ordem condicional de {tipo_ord} de {ticker} a R$ {preco_editado:.2f} crida! Caixa atual é inferior ao necessário, sujeito a juros se executada futuramente.", icon="⚠️")
                             else:
-                                adicionar_ativo(port_id, ticker, preco_atual_val, qtd_compra, date.today())
+                                st.warning(f"⏳ Ordem de {tipo_ord} de {ticker} a R$ {preco_editado:.2f} **ainda não foi executada**. Será executada quando o ativo atingir esse valor.")
+                                st.toast(f"📋 Ordem condicional de {ticker} criada!", icon="📋")
+                        elif tipo_ord == "compra":
+                            from database.crud import adicionar_ativo, atualizar_ativo, registrar_transacao, listar_ativos_portfolio, atualizar_portfolio
+                            from datetime import date
                             
-                            registrar_transacao(port_id, "compra", total_compra, ticker, qtd_compra, preco_atual_val, "Compra Manual", date.today())
-                            st.toast(f"{qtd_compra}x {ticker} comprados com sucesso! 🎉", icon="✅")
-                            st.rerun()
-                else:
-                    st.warning("Não foi possível obter o preço atual do ativo para calcular a compra.")
+                            v_compra = qtd_editada * preco_editado
+                            
+                            # Logica Nova: permite saldo negativo com warning
+                            if v_compra > caixa_disp and not st.session_state.get(f"confirm_negative_{ticker}_{port_id}", False):
+                                st.session_state[f"confirm_negative_{ticker}_{port_id}"] = True
+                                st.warning("⚠️ Caixa insuficiente! A compra resultará em **saldo negativo**, sujeito à cobrança diária de juros Selic. Clique novamente em Executar para confirmar.")
+                            else:
+                                st.session_state[f"confirm_negative_{ticker}_{port_id}"] = False
+                                ativos_cart = listar_ativos_portfolio(port_id)
+                                ativo_ext = next((x for x in ativos_cart if x["ticker"] == ticker), None)
+                                
+                                if ativo_ext:
+                                    q_ant = ativo_ext["quantidade"]
+                                    p_ant = ativo_ext["preco_medio"]
+                                    q_nova = q_ant + qtd_editada
+                                    p_novo = ((q_ant * p_ant) + v_compra) / q_nova
+                                    atualizar_ativo(ativo_ext["id"], quantidade=q_nova, preco_medio=p_novo)
+                                else:
+                                    adicionar_ativo(port_id, ticker, preco_editado, qtd_editada, date.today())
+                                
+                                registrar_transacao(port_id, "compra", v_compra, ticker, qtd_editada, preco_editado, "Compra Manual", date.today())
+                                atualizar_portfolio(port_id, montante_disponivel=caixa_disp - v_compra)
+                                st.toast(f"{ticker} comprado! 🎉", icon="✅")
+                                st.rerun()
+                        else:
+                            from database.crud import atualizar_ativo, deletar_ativo, registrar_transacao, listar_ativos_portfolio, atualizar_portfolio
+                            from datetime import date
+                            
+                            ativos_cart = listar_ativos_portfolio(port_id)
+                            ativo_ext = next((x for x in ativos_cart if x["ticker"] == ticker), None)
+                            
+                            if not ativo_ext or qtd_editada > ativo_ext["quantidade"]:
+                                st.error("⚠️ Não possui essa quantidade para vender.")
+                            else:
+                                v_venda = qtd_editada * preco_editado
+                                nova_qtd = ativo_ext["quantidade"] - qtd_editada
+                                if nova_qtd <= 0:
+                                    deletar_ativo(ativo_ext["id"])
+                                else:
+                                    atualizar_ativo(ativo_ext["id"], quantidade=nova_qtd, preco_medio=ativo_ext["preco_medio"])
+                                registrar_transacao(port_id, "venda", v_venda, ticker, qtd_editada, preco_editado, "Venda Manual", date.today())
+                                atualizar_portfolio(port_id, montante_disponivel=caixa_disp + v_venda)
+                                st.toast(f"{ticker} vendido! 💰", icon="✅")
+                                st.rerun()
             
             # Insights rapidos
             st.markdown("---")

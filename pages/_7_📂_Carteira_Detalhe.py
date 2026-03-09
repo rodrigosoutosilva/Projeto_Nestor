@@ -228,9 +228,11 @@ if st.session_state.get("show_compra_dir"):
                 
                 if executa_agora:
                     # Execução imediata
-                    if valor_total_nova_compra > caixa:
-                        st.error(f"⚠️ Caixa insuficiente!")
+                    if valor_total_nova_compra > caixa and not st.session_state.get(f"confirm_negative_{ticker_upper}_{port['id']}", False):
+                        st.session_state[f"confirm_negative_{ticker_upper}_{port['id']}"] = True
+                        st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Registrar Compra novamente para confirmar.")
                     else:
+                        st.session_state[f"confirm_negative_{ticker_upper}_{port['id']}"] = False
                         ativo_ext = next((x for x in ativos if x["ticker"] == ticker_upper), None)
                         if ativo_ext:
                             q_ant = ativo_ext["quantidade"]
@@ -569,9 +571,11 @@ with tab3:
                                     st.toast(f"📋 Ordem condicional de {ticker_sug} criada!", icon="📋")
                                 elif tipo_ord == "compra":
                                     v_compra = qtd_editada * preco_editado
-                                    if v_compra > caixa_at:
-                                        st.error("⚠️ Caixa insuficiente!")
+                                    if v_compra > caixa_at and not st.session_state.get(f"confirm_negative_{ticker_sug}_{port['id']}", False):
+                                        st.session_state[f"confirm_negative_{ticker_sug}_{port['id']}"] = True
+                                        st.warning("⚠️ Caixa insuficiente! A compra resultará em saldo negativo. Clique novamente em Executar para confirmar e arcar com os juros (Selic).")
                                     else:
+                                        st.session_state[f"confirm_negative_{ticker_sug}_{port['id']}"] = False
                                         ativo_ext = next((x for x in ativos if x["ticker"] == ticker_sug), None)
                                         if ativo_ext:
                                             q_ant = ativo_ext["quantidade"]
@@ -581,7 +585,7 @@ with tab3:
                                             atualizar_ativo(ativo_ext["id"], quantidade=q_nova, preco_medio=p_novo)
                                         else:
                                             adicionar_ativo(port["id"], ticker_sug, preco_editado, qtd_editada, date.today())
-                                        registrar_transacao(port["id"], "compra", v_compra, ticker_sug, qtd_editada, preco_editado, "Compra IA", date.today())
+                                        registrar_transacao(port["id"], "compra", v_compra, ticker_sug, qtd_editada, preco_editado, "Compra Sugerida IA", date.today())
                                         atualizar_portfolio(port["id"], montante_disponivel=caixa_at - v_compra)
                                         st.toast(f"{ticker_sug} comprado! 🎉", icon="✅")
                                         st.rerun()
@@ -617,17 +621,20 @@ with tab3:
         
         if sugestoes_para_compra:
             caixa_disponivel = port.get("montante_disponivel", 0)
-            if total_compra_tudo > caixa_disponivel:
-                st.error(f"⚠️ O total (R\\$ {total_compra_tudo:,.2f}) excede o caixa disponível (R\\$ {caixa_disponivel:,.2f}).".replace(",", "X").replace(".", ",").replace("X", "."))
-            else:
-                col_btn1, col_btn2 = st.columns([3, 1])
-                with col_btn1:
-                    st.markdown(
-                        f"**🛒 Comprar todos os {len(sugestoes_para_compra)} ativos** — "
-                        f"Total: R\\$ {total_compra_tudo:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                    )
-                with col_btn2:
-                    if st.button("🛒 Comprar Tudo", key="btn_comprar_tudo_ia", type="primary", use_container_width=True):
+            
+            col_btn1, col_btn2 = st.columns([3, 1])
+            with col_btn1:
+                st.markdown(
+                    f"**🛒 Comprar todos os {len(sugestoes_para_compra)} ativos** — "
+                    f"Total: R\\$ {total_compra_tudo:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                )
+            with col_btn2:
+                if st.button("🛒 Comprar Tudo", key="btn_comprar_tudo_ia", type="primary", use_container_width=True):
+                    if total_compra_tudo > caixa_disponivel and not st.session_state.get("confirm_negative_comprar_tudo", False):
+                        st.session_state["confirm_negative_comprar_tudo"] = True
+                        st.warning(f"⚠️ O total (R\\$ {total_compra_tudo:,.2f}) excede o caixa disponível (R\\$ {caixa_disponivel:,.2f}). A compra resultará em saldo negativo. Clique novamente em 'Comprar Tudo' para confirmar e arcar com os juros (Selic).")
+                    else:
+                        st.session_state["confirm_negative_comprar_tudo"] = False
                         caixa_restante = caixa_disponivel
                         compras_ok = 0
                         for sug_exec in sugestoes_para_compra:
@@ -643,8 +650,7 @@ with tab3:
                                 compras_ok += 1
                                 continue
                             
-                            if v_total > caixa_restante:
-                                continue
+                            # No longer checking v_total > caixa_restante here, as negative balance is allowed with confirmation
                             
                             ativo_existente = next((x for x in ativos if x["ticker"] == t_sug), None)
                             if ativo_existente:
@@ -659,10 +665,10 @@ with tab3:
                             compras_ok += 1
                         
                         atualizar_portfolio(port["id"], montante_disponivel=caixa_restante)
-                        st.toast(f"{compras_ok} ativo(s) processado(s)! 🎉", icon="✅")
-                        st.session_state["ia_resumo_geral"] = None
-                        st.session_state["ia_sugestoes_raw"] = []
-                        st.rerun()
+                        if compras_ok > 0:
+                            st.toast(f"{compras_ok} compra(s) registrada(s) com sucesso. (Ordens executadas imediatamente ou marcadas como pendentes).", icon="✅")
+                            st.session_state["ia_resumo_geral"] = None # Limpa para não reexibir
+                            st.rerun()
         
         st.markdown("---")
         

@@ -277,7 +277,7 @@ EXPLICACAO: [Explicação detalhada em 3-5 frases justificando a decisão, citan
             if linha_strip.upper().startswith("ACAO:") or linha_strip.upper().startswith("AÇÃO:"):
                 valor = linha_strip.split(":", 1)[1].strip().upper()
                 if "COMPRA" in valor:
-                    acao = "compra"
+                    acao = "compra" if montante > 0 else "manter"
                 elif "VENDA" in valor:
                     acao = "venda"
                 else:
@@ -339,6 +339,14 @@ def gerar_sugestoes_compra(
     A IA retorna % de alocação e o algoritmo calcula quantos papéis inteiros cabem.
     """
     montante = portfolio_info.get('montante_disponivel', 0)
+    
+    if montante <= 0:
+        return {
+            "sugestoes": [],
+            "resumo": "⚠️ O caixa da sua carteira está zero ou negativo. A inteligência artificial não fará sugestões de novas compras até que um aporte seja realizado.",
+            "sucesso": False
+        }
+        
     setores = portfolio_info.get('setores_preferidos', '')
     
     ativos_str = ", ".join([

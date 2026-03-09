@@ -510,6 +510,12 @@ def setup():
 
 gemini_configurado = setup()
 
+try:
+    from database.crud import cobrar_juros_cheque_especial
+    cobrar_juros_cheque_especial()
+except Exception as e:
+    print(f"Erro ao cobrar juros do cheque especial: {e}")
+
 
 # ---------------------------------------------------------------------------
 # Gerenciamento de Sessão do Usuário
