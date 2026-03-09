@@ -177,7 +177,7 @@ for categoria, indicadores in indicadores_config.items():
         
         # Obter ref se existir
         r_min = r_med = r_max = "—"
-        if ref and chave in ref:
+        if categoria != "🎯 Analistas" and ref and chave in ref:
             dados_ref = ref.get(chave, {})
             if dados_ref and dados_ref.get("min") is not None:
                 min_val_str = fmt_fn(dados_ref.get("min"))

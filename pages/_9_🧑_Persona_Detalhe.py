@@ -118,7 +118,15 @@ m3.markdown(
     f"<span style='color:{cor_lucro_h};font-size:0.8em'>({lucro_pct:+.1f}%)</span>",
     unsafe_allow_html=True
 )
-m4.metric("📅 Rend. Anual", f"{rend_anual:+.1f}% a.a.", help="Projeção baseada no rendimento atual extrapolado para 365 dias")
+cor_rend = "#00C851" if rend_anual >= 0 else "#FF4444"
+bg_rend = "rgba(0, 200, 81, 0.1)" if rend_anual >= 0 else "rgba(255, 68, 68, 0.1)"
+m4.markdown(
+    f"<div style='border: 1px solid {cor_rend}; background-color: {bg_rend}; padding: 8px; border-radius: 8px; text-align: center; border-left: 2px solid {cor_rend};'>"
+    f"<small style='font-weight:bold; color:{cor_rend};'>📅 Rend. Anual</small><br>"
+    f"<span style='font-size: 1.4rem; font-weight: 800; color: {cor_rend};'>{rend_anual:+.1f}% a.a.</span>"
+    f"</div>",
+    unsafe_allow_html=True
+)
 m5.metric("🏦 Caixa", formatar_moeda(caixa_total))
 m6.metric("💼 Carteiras", len(portfolios))
 
@@ -234,7 +242,8 @@ else:
                 mc2.markdown(f"📈 **Lucro:** <span style='color:{cor_lucro_port}'>{formatar_moeda_md(la)}</span> <small style='color:{cor_lucro_port}'>({lp:+.1f}%)</small>", unsafe_allow_html=True)
                 
                 mc3, mc4 = st.columns(2)
-                mc3.markdown(f"📅 **Rend. Anual:** {rend_anual_port:+.1f}% a.a.")
+                cor_rend_p = "#00C851" if rend_anual_port >= 0 else "#FF4444"
+                mc3.markdown(f"📅 **Rend. Anual:** <span style='font-weight: 800; font-size: 1.1em; color:{cor_rend_p}'>{rend_anual_port:+.1f}% a.a.</span>", unsafe_allow_html=True)
                 mc4.markdown(f"📊 **{len(ativos_port)}** ativo(s)")
                 
                 if port.get('aporte_periodico', 0) > 0:
