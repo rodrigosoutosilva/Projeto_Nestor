@@ -93,7 +93,56 @@ def formatar_moeda_md(valor) -> str:
     Usa HTML entity &#36; no lugar de $ para evitar que Streamlit interprete como LaTeX.
     REQUER unsafe_allow_html=True no st.markdown().
     """
-    return formatar_moeda(valor).replace("$", "&#36;")
+    valor_float = 0.0
+    if isinstance(valor, (int, float)):
+        valor_float = float(valor)
+    elif valor is not None:
+        try:
+            val_str = str(valor).replace("R$", "").replace("R\\$", "").replace("R&#36;", "").strip()
+            if "," in val_str and "." in val_str:
+                val_str = val_str.replace(".", "").replace(",", ".")
+            elif "," in val_str:
+                val_str = val_str.replace(",", ".")
+            valor_float = float(val_str)
+        except ValueError:
+            pass
+
+    texto_formatado = formatar_moeda(valor).replace("$", "&#36;")
+    
+    if valor_float < 0:
+        return f"<span style='color:#FF4444'>{texto_formatado}</span>"
+    return texto_formatado
+
+
+def render_metric(label: str, value: float, format_str: str = "moeda", delta_pct: float = None):
+    """
+    Renderiza uma métrica customizada via st.markdown que permite
+    colorir o valor principal de vermelho caso seja negativo.
+    Imita o visual nativo do st.metric.
+    """
+    import streamlit as st
+    
+    if format_str == "moeda":
+        val_str = formatar_moeda(value).replace("$", "&#36;")
+    else:
+        val_str = str(value)
+        
+    cor_valor = "#FF4444" if value < 0 else "inherit"
+    
+    delta_html = ""
+    if delta_pct is not None:
+        cor_delta = "#FF4444" if delta_pct < 0 else "#00C851"
+        sinal_delta = "+" if delta_pct >= 0 else ""
+        delta_html = f"<div style='font-size: 0.82rem; color: {cor_delta}; font-weight: 500;'>{sinal_delta}{delta_pct:.2f}%</div>"
+
+    html = f"""
+    <div style="display: flex; flex-direction: column; margin-bottom: 1rem;">
+        <div style="font-size: 0.88rem; font-weight: 600; color: rgba(49, 51, 63, 0.6); margin-bottom: 0.25rem;">{label}</div>
+        <div style="font-size: 1.82rem; font-weight: 800; color: {cor_valor}; line-height: 1.2;">{val_str}</div>
+        {delta_html}
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def rendimento_anual_projetado(lucro: float, total_aportado: float, dias: int) -> float:

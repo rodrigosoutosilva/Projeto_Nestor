@@ -19,7 +19,7 @@ from database.crud import (
     listar_transacoes_portfolio, resumo_transacoes_portfolio,
     registrar_transacao, buscar_portfolio_por_id
 )
-from utils.helpers import formatar_moeda, formatar_data_br, formatar_moeda_md, injetar_css_global
+from utils.helpers import formatar_moeda, formatar_data_br, formatar_moeda_md, injetar_css_global, render_metric
 from datetime import date
 
 st.set_page_config(page_title="📜 Gestão Financeira", page_icon="📜", layout="wide")
@@ -132,11 +132,11 @@ for pt in carteiras_filtradas:
     caixa_total += pt.get("montante_disponivel", 0)
 
 col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("💵 Caixa Total", formatar_moeda(caixa_total))
-col2.metric("📥 Aportes", formatar_moeda(resumo_total["total_aportes"]))
-col3.metric("📤 Retiradas", formatar_moeda(resumo_total["total_retiradas"]))
-col4.metric("🛒 Compras", formatar_moeda(resumo_total["total_compras"]))
-col5.metric("💰 Dividendos", formatar_moeda(resumo_total["total_dividendos"]))
+with col1: render_metric("💵 Caixa Total", caixa_total)
+with col2: render_metric("📥 Aportes", resumo_total["total_aportes"])
+with col3: render_metric("📤 Retiradas", resumo_total["total_retiradas"])
+with col4: render_metric("🛒 Compras", resumo_total["total_compras"])
+with col5: render_metric("💰 Dividendos", resumo_total["total_dividendos"])
 
 st.markdown("---")
 

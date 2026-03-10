@@ -25,7 +25,7 @@ from database.crud import (
 from services.market_data import buscar_preco_atual, buscar_historico
 from utils.helpers import (
     formatar_moeda, formatar_percentual, calcular_lucro_prejuizo,
-    emoji_status, formatar_data_br, injetar_css_global
+    emoji_status, formatar_data_br, injetar_css_global, render_metric
 )
 import io
 
@@ -174,22 +174,13 @@ variacao_total = ((patrimonio_total_global - total_aportado) / total_aportado * 
 # ---------------------------------------------------------------------------
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.metric(
-        "💰 Patrimônio Total",
-        formatar_moeda(patrimonio_total_global),
-        f"{variacao_total:+.2f}%"
-    )
+    render_metric("💰 Patrimônio Total", patrimonio_total_global, delta_pct=variacao_total)
 with col2:
-    st.metric("💵 Total Investido", formatar_moeda(total_aportado))
+    render_metric("💵 Total Investido", total_aportado)
 with col3:
-    st.metric(
-        "📈 Lucro/Prejuízo",
-        formatar_moeda(lucro_total),
-        f"{variacao_total:+.2f}%",
-        delta_color="normal"
-    )
+    render_metric("📈 Lucro/Prejuízo", lucro_total, delta_pct=variacao_total)
 with col4:
-    st.metric("📊 Total de Ativos", len(todos_ativos))
+    render_metric("📊 Total de Ativos", len(todos_ativos), format_str="numero")
 
 st.markdown("---")
 

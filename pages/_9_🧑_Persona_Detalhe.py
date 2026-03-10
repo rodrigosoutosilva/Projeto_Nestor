@@ -19,7 +19,7 @@ from database.crud import (
     adicionar_observacao, listar_observacoes, deletar_observacao
 )
 from services.market_data import buscar_preco_atual
-from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, injetar_css_global
+from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, injetar_css_global, render_metric
 
 st.set_page_config(page_title="Persona Detalhe", page_icon="🧑", layout="wide")
 injetar_css_global()
@@ -109,8 +109,8 @@ if data_mais_antiga and total_aportado_global > 0:
     rend_anual = (lucro_pct / dias_desde_criacao) * 365
 
 m1, m2, m3, m4, m5, m6 = st.columns(6)
-m1.metric("💎 Patrimônio", formatar_moeda(valor_total))
-m2.metric("💵 Valor Investido", formatar_moeda(total_aportado_global))
+with m1: render_metric("💎 Patrimônio", valor_total)
+with m2: render_metric("💵 Valor Investido", total_aportado_global)
 cor_lucro_h = "#00C851" if lucro_acum >= 0 else "#FF4444"
 m3.markdown(
     f"<small>📈 Lucro</small><br>"
@@ -124,8 +124,8 @@ m4.markdown(
     f"<b style='color:{cor_rend}'>{rend_anual:+.1f}% a.a.</b>",
     unsafe_allow_html=True
 )
-m5.metric("🏦 Caixa", formatar_moeda(caixa_total))
-m6.metric("💼 Carteiras", len(portfolios))
+with m5: render_metric("🏦 Caixa", caixa_total)
+with m6: render_metric("💼 Carteiras", len(portfolios), "numero")
 
 # --- OBSERVAÇÕES ---
 with st.expander("📝 Observações", expanded=False):
