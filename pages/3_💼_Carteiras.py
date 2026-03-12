@@ -137,9 +137,9 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
                 disabled=_criando
             )
 
-        # --- Aportes periódicos ---
-        st.markdown("**💸 Aportes Periódicos** *(opcional — configure aportes recorrentes)*")
-        col_ap1, col_ap2 = st.columns(2)
+        # --- Aportes periódicos e taxa ---
+        st.markdown("**💸 Aportes Periódicos e Taxa Mensal** *(opcional)*")
+        col_ap1, col_ap2, col_ap3 = st.columns([1, 1, 1])
         with col_ap1:
             aporte_valor = st.number_input(
                 "Valor do aporte periódico (R$)",
@@ -159,6 +159,13 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
                 "Frequência do aporte",
                 options=freq_aporte_opcoes,
                 format_func=lambda x: freq_aporte_labels[x],
+                disabled=_criando
+            )
+        with col_ap3:
+            taxa_sn = st.number_input(
+                "Taxa Saldo Negativo (% a.m.)",
+                min_value=0.0, value=10.0, step=1.0,
+                help="Taxa fixa mensal sobre saldo negativo.",
                 disabled=_criando
             )
 
@@ -257,7 +264,8 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
                             montante_disponivel=0.0,
                             aporte_periodico=aporte_valor,
                             frequencia_aporte=freq_aporte,
-                            frequencia_manuseio=freq_manuseio
+                            frequencia_manuseio=freq_manuseio,
+                            taxa_saldo_negativo=taxa_sn
                         )
                         # Registrar aporte inicial se montante > 0
                         if montante > 0:

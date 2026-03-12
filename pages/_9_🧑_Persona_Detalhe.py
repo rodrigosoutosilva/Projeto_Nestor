@@ -113,15 +113,12 @@ with m1: render_metric("💎 Patrimônio", valor_total)
 with m2: render_metric("💵 Valor Investido", total_aportado_global)
 cor_lucro_h = "#00C851" if lucro_acum >= 0 else "#FF4444"
 m3.markdown(
-    f"<small>📈 Lucro</small><br>"
-    f"<b>{formatar_moeda_md(lucro_acum)}</b> "
-    f"<span style='color:{cor_lucro_h};font-size:0.8em'>({lucro_pct:+.1f}%)</span>",
+    f"<small>📈 Lucro</small><br><b><span style='color:{cor_lucro_h}; font-size:1.82rem; font-weight:800;'>{formatar_moeda_md(lucro_acum)}</span> <span style='font-size:0.9rem; color:{cor_lucro_h}'>({lucro_pct:+.1f}%)</span></b>",
     unsafe_allow_html=True
 )
 cor_rend = "#00C851" if rend_anual >= 0 else "#FF4444"
 m4.markdown(
-    f"<small>📅 Rend. Anual</small><br>"
-    f"<b style='color:{cor_rend}'>{rend_anual:+.1f}% a.a.</b>",
+    f"<small>📅 Rend. Anual</small><br><b><span style='color:{cor_rend}; font-size:1.82rem; font-weight:800;'>{rend_anual:+.1f}% a.a.</span></b>",
     unsafe_allow_html=True
 )
 with m5: render_metric("🏦 Caixa", caixa_total)
@@ -332,11 +329,13 @@ with st.expander("➕ Criar Nova Carteira para esta Persona"):
             else:
                 setores_selecionados.extend(sel_f_list)
                 
-        col_ap1, col_ap2 = st.columns(2)
+        col_ap1, col_ap2, col_ap3 = st.columns(3)
         with col_ap1:
             aporte = st.number_input("Aporte periódico (R$)", min_value=0.0, value=100.0, step=50.0)
         with col_ap2:
             freq_aporte = st.selectbox("Frequência aporte", ["mensal", "quinzenal", "semanal"])
+        with col_ap3:
+            taxa_sn = st.number_input("Taxa Saldo Negativo (% a.m.)", min_value=0.0, value=10.0, step=1.0)
         
         if st.button("✅ Criar Carteira", key="btn_criar_carteira_px", type="primary", use_container_width=True):
             if not port_nome or not port_nome.strip():
@@ -348,7 +347,8 @@ with st.expander("➕ Criar Nova Carteira para esta Persona"):
                     objetivo_prazo=prazo, meta_dividendos=meta_dy,
                     tipo_ativo=tipo_ativo, setores_preferidos=setores_str,
                     montante_disponivel=0,
-                    aporte_periodico=aporte, frequencia_aporte=freq_aporte
+                    aporte_periodico=aporte, frequencia_aporte=freq_aporte,
+                    taxa_saldo_negativo=taxa_sn
                 )
                 if montante > 0:
                     from database.crud import registrar_transacao

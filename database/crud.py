@@ -174,7 +174,8 @@ def criar_portfolio(
     montante_disponivel: float = 0.0,
     aporte_periodico: float = 0.0,
     frequencia_aporte: str = "",
-    frequencia_manuseio: str = ""
+    frequencia_manuseio: str = "",
+    taxa_saldo_negativo: float = 10.0
 ) -> dict:
     """
     Cria uma nova carteira vinculada a uma persona.
@@ -199,7 +200,8 @@ def criar_portfolio(
             montante_disponivel=montante_disponivel,
             aporte_periodico=aporte_periodico,
             frequencia_aporte=frequencia_aporte,
-            frequencia_manuseio=FrequenciaAcao(frequencia_manuseio) if frequencia_manuseio else None
+            frequencia_manuseio=FrequenciaAcao(frequencia_manuseio) if frequencia_manuseio else None,
+            taxa_saldo_negativo=taxa_saldo_negativo
         )
         session.add(portfolio)
         session.flush()
@@ -214,7 +216,8 @@ def criar_portfolio(
             "montante_disponivel": montante_disponivel,
             "aporte_periodico": aporte_periodico,
             "frequencia_aporte": frequencia_aporte,
-            "frequencia_manuseio": frequencia_manuseio
+            "frequencia_manuseio": frequencia_manuseio,
+            "taxa_saldo_negativo": taxa_saldo_negativo
         }
 
 
@@ -236,6 +239,7 @@ def listar_portfolios_persona(persona_id: int) -> list[dict]:
             "aporte_periodico": p.aporte_periodico or 0.0,
             "frequencia_aporte": p.frequencia_aporte or "",
             "frequencia_manuseio": p.frequencia_manuseio.value if p.frequencia_manuseio else "",
+            "taxa_saldo_negativo": getattr(p, "taxa_saldo_negativo", 10.0) if getattr(p, "taxa_saldo_negativo", 10.0) is not None else 10.0,
             "created_at": str(p.created_at) if p.created_at else None
         } for p in portfolios]
 
@@ -257,6 +261,7 @@ def buscar_portfolio_por_id(portfolio_id: int) -> Optional[dict]:
                 "aporte_periodico": p.aporte_periodico or 0.0,
                 "frequencia_aporte": p.frequencia_aporte or "",
                 "frequencia_manuseio": p.frequencia_manuseio.value if p.frequencia_manuseio else "",
+                "taxa_saldo_negativo": getattr(p, "taxa_saldo_negativo", 10.0) if getattr(p, "taxa_saldo_negativo", 10.0) is not None else 10.0,
                 "created_at": str(p.created_at) if p.created_at else None
             }
         return None
@@ -957,10 +962,9 @@ def listar_ordens_pendentes_todas() -> list[dict]:
 def cobrar_juros_cheque_especial():
     """
     Verifica se há carteiras com saldo negativo (montante_disponivel < 0)
-    e cobra 15% a.a. proporcional ao dia (Selic) via transação.
+    e cobra taxa fixa mensal proporcional ao dia via transação.
     Executado no máximo uma vez por dia por carteira.
     """
-    taxa_diaria = 0.15 / 365.0
     with get_session() as session:
         # Pega carteiras negativadas
         portfolios_negativos = session.query(Portfolio).filter(
@@ -970,15 +974,19 @@ def cobrar_juros_cheque_especial():
         hoje = date.today()
         
         for p in portfolios_negativos:
-            # Verifica se já cobrou juros hoje ("Juros Saldo Devedor")
+            # Verifica se já cobrou juros hoje ("Taxa Mensal Fixa Saldo Negativo%")
             ja_cobrou = session.query(Transaction).filter(
                 Transaction.portfolio_id == p.id,
                 Transaction.data == hoje,
-                Transaction.descricao.like("Juros Saldo Devedor%")
+                Transaction.descricao.like("Taxa Mensal Fixa Saldo Negativo%")
             ).first()
             
             if not ja_cobrou:
                 saldo_devedor = abs(p.montante_disponivel)
+                taxa_mensal = getattr(p, "taxa_saldo_negativo", 10.0)
+                if taxa_mensal is None:
+                    taxa_mensal = 10.0
+                taxa_diaria = (taxa_mensal / 100.0) / 30.0
                 juros_hoje = saldo_devedor * taxa_diaria
                 
                 # Debita o valor do montante (que fica mais negativo)
@@ -989,7 +997,7 @@ def cobrar_juros_cheque_especial():
                     portfolio_id=p.id,
                     tipo=TipoTransacao.RETIRADA,
                     valor=juros_hoje,
-                    descricao="Juros Saldo Devedor (Selic Diária)",
+                    descricao=f"Taxa Mensal Fixa Saldo Negativo ({taxa_mensal}% a.m.)",
                     origem=OrigemTransacao.SISTEMA,
                     data=hoje
                 )
@@ -997,4 +1005,5 @@ def cobrar_juros_cheque_especial():
         
         # Salva o flush
         session.commit()
+
 

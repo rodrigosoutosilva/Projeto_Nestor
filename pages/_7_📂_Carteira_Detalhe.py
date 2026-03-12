@@ -157,15 +157,17 @@ if st.session_state.get("show_edit_port"):
     with st.container(border=True):
         with st.form("form_edit_port"):
             e_nome = st.text_input("Nome", value=port["nome"])
-            c_fix, c_ap = st.columns([1, 2])
+            c_fix, c_ap, c_taxa = st.columns([1, 1, 1])
             with c_fix:
                 st.metric("Caixa Atual Registrado", formatar_moeda(port.get("montante_disponivel", 0)))
                 st.caption("Para inserir mais caixa, registre um **Aporte**.")
             with c_ap:
                 e_aporte = st.number_input("Aporte Periódico (R$)", value=float(port.get("aporte_periodico", 0)), step=50.0)
                 e_freq = st.selectbox("Frequência Aporte", ["", "semanal", "quinzenal", "mensal"], index=["", "semanal", "quinzenal", "mensal"].index(port.get("frequencia_aporte", "")))
+            with c_taxa:
+                e_taxa = st.number_input("Taxa Saldo Negativo (% a.m.)", value=float(port.get("taxa_saldo_negativo", 10.0)), step=1.0)
             if st.form_submit_button("Salvar Edição"):
-                atualizar_portfolio(port["id"], nome=e_nome, aporte_periodico=e_aporte, frequencia_aporte=e_freq)
+                atualizar_portfolio(port["id"], nome=e_nome, aporte_periodico=e_aporte, frequencia_aporte=e_freq, taxa_saldo_negativo=e_taxa)
                 st.session_state["show_edit_port"] = False
                 st.toast("Carteira atualizada! ✅")
                 st.rerun()
@@ -291,7 +293,7 @@ st.markdown("---")
 # --- TABS: ATIVOS | MONITORANDO | ORDENS PENDENTES | SUGESTÕES ATIVOS | SUGESTÕES MOVIMENTAÇÕES ---
 qtd_ordens = len(ordens_pendentes_all) if 'ordens_pendentes_all' in locals() else 0
 tab_ordens_title = f"📋 Ordens Pendentes ({qtd_ordens})" if qtd_ordens > 0 else "📋 Ordens Pendentes"
-tab1, tab2, tab_ordens, tab3, tab4 = st.tabs(["📊 Meus Ativos", "👁️ Monitorando", tab_ordens_title, "💡 Sugestões de Ativos", "🔄 Sugestões de Movimentações"])
+tab1, tab_extrato, tab2, tab_ordens, tab3, tab4 = st.tabs(["📊 Meus Ativos", "📜 Histórico / Extrato", "👁️ Monitorando", tab_ordens_title, "💡 Sugestões de Ativos", "🔄 Sugestões de Movimentações"])
 
 with tab1:
     st.markdown("### Ativos Atuais")
@@ -404,6 +406,39 @@ with tab1:
                                     st.rerun()
     else:            
         st.info("Sua carteira ainda não possui ativos.")
+
+with tab_extrato:
+    st.subheader("Histórico de Movimentações")
+    st.markdown("Todas as transações financeiras desta carteira.")
+    
+    transacoes = listar_transacoes_portfolio(portfolio_id)
+    
+    if not transacoes:
+        st.info("Nenhuma movimentação registrada.")
+    else:
+        for t in transacoes:
+            with st.container(border=True):
+                emj = "💰"
+                cor_v = "#00C851" if t["tipo"] in ("aporte", "venda", "dividendo") else "#FF4444"
+                sinal_v = "+" if t["tipo"] in ("aporte", "venda", "dividendo") else "-"
+                
+                if t["tipo"] == "aporte": emj = "📥"
+                elif t["tipo"] == "retirada": emj = "💸"
+                elif t["tipo"] == "compra": emj = "🛒"
+                elif t["tipo"] == "venda": emj = "🤝"
+                elif t["tipo"] == "dividendo": emj = "🤑"
+                
+                dt_str = formatar_data_br(t["data"].split(" ")[0]) if str(t.get("data")) else ""
+                ativo_str = f" — **{t['ticker']}**" if t.get("ticker") else ""
+                
+                c1, c2, c3 = st.columns([1, 6, 3])
+                with c1:
+                    st.markdown(f"<h3 style='margin:0; text-align:center;'>{emj}</h3>", unsafe_allow_html=True)
+                with c2:
+                    st.markdown(f"**{str(t['tipo']).capitalize()}**{ativo_str}")
+                    st.caption(f"{t.get('descricao', '')} | {dt_str}")
+                with c3:
+                    st.markdown(f"<h4 style='color:{cor_v}; text-align:right; margin:0;'>{sinal_v} {formatar_moeda(t['valor'])}</h4>", unsafe_allow_html=True)
 
 with tab2:
     st.subheader("Ativos em Monitoramento")

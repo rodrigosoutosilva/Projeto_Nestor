@@ -236,6 +236,7 @@ class Portfolio(Base):
         SAEnum(FrequenciaAcao),
         nullable=True  # None = herda da persona
     )
+    taxa_saldo_negativo = Column(Float, default=10.0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relacionamentos
