@@ -145,106 +145,10 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 st.markdown("### ➕ Registrar Movimentação")
 
-tab_compra, tab_venda, tab_aporte, tab_retirada, tab_dividendo = st.tabs(["🛒 Compra", "📉 Venda", "📥 Aporte", "📤 Retirada", "💰 Dividendo"])
+tab_aporte, tab_retirada, tab_dividendo = st.tabs(["📥 Aporte", "📤 Retirada", "💰 Dividendo"])
 
 # Opções de carteira para os formulários
 opcoes_port_form = {pt["id"]: f"{pt['nome']} ({pt['persona_nome']})" for pt in todos_portfolios}
-
-with tab_compra:
-    port_compra = st.selectbox("Carteira destino:", list(opcoes_port_form.keys()),
-                                format_func=lambda x: opcoes_port_form[x], key="port_compra")
-    compra_ticker = st.text_input("Ticker do ativo (Compra):", placeholder="PETR4", help="Digite e pressione Enter para buscar a cotação", key="compra_ticker")
-    
-    preco_sug_c = 10.0
-    if compra_ticker:
-        from services.market_data import buscar_preco_atual
-        cot = buscar_preco_atual(compra_ticker)
-        if isinstance(cot, dict) and cot.get("preco_atual", 0) > 0:
-            preco_sug_c = float(cot["preco_atual"])
-            
-    c1, c2, c3 = st.columns(3)
-    with c1: compra_qtd = st.number_input("Quantidade:", min_value=1, value=100, step=1, key="compra_qtd")
-    with c2: compra_preco = st.number_input("Preço:", min_value=0.01, value=preco_sug_c, format="%.2f", key="compra_preco")
-    with c3: compra_data = st.date_input("Data:", value=date.today(), key="compra_data")
-    
-    compra_total = compra_qtd * compra_preco
-    st.markdown(f"**Total Estimado:** {formatar_moeda_md(compra_total)}", unsafe_allow_html=True)
-    
-    if st.button("🛒 Registrar Compra", type="primary", use_container_width=True):
-        if not compra_ticker:
-            st.error("Informe o ticker do ativo!")
-        else:
-            ticker_upper = compra_ticker.upper().strip()
-            port_info = buscar_portfolio_por_id(port_compra)
-            caixa_disp = port_info.get("montante_disponivel", 0) if port_info else 0
-            
-            if compra_total > caixa_disp:
-                st.warning(f"⚠️ Caixa insuficiente (Disponível: {formatar_moeda(caixa_disp)}). Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Registrar Compra novamente para confirmar.".replace("$", r"\$"))
-                if not st.session_state.get(f"conf_compra_gestao", False):
-                    st.session_state[f"conf_compra_gestao"] = True
-                    st.stop()
-                st.session_state[f"conf_compra_gestao"] = False
-                
-            from database.crud import adicionar_ativo, atualizar_ativo, listar_ativos_portfolio
-            ativos_cart = listar_ativos_portfolio(port_compra)
-            ativo_existente = next((x for x in ativos_cart if x["ticker"] == ticker_upper), None)
-            
-            if ativo_existente:
-                q_ant = ativo_existente["quantidade"]
-                p_ant = ativo_existente["preco_medio"]
-                q_nova = q_ant + compra_qtd
-                p_novo = ((q_ant * p_ant) + compra_total) / q_nova
-                atualizar_ativo(ativo_existente["id"], quantidade=q_nova, preco_medio=p_novo)
-            else:
-                adicionar_ativo(port_compra, ticker_upper, compra_preco, compra_qtd, compra_data)
-                
-            registrar_transacao(port_compra, "compra", compra_total, ticker_upper, compra_qtd, compra_preco, "Compra via Gestão", compra_data)
-            from database.crud import atualizar_portfolio
-            atualizar_portfolio(port_compra, montante_disponivel=caixa_disp - compra_total)
-            st.toast(f"Compra de {compra_qtd}x {ticker_upper} registrada! 🎉")
-            st.rerun()
-
-with tab_venda:
-    port_venda = st.selectbox("Carteira de origem:", list(opcoes_port_form.keys()),
-                                format_func=lambda x: opcoes_port_form[x], key="port_venda")
-    venda_ticker = st.text_input("Ticker do ativo (Venda):", placeholder="ITUB4", help="Digite e pressione Enter para buscar a cotação", key="venda_ticker")
-    
-    preco_sug_v = 10.0
-    if venda_ticker:
-        from services.market_data import buscar_preco_atual
-        cot = buscar_preco_atual(venda_ticker)
-        if isinstance(cot, dict) and cot.get("preco_atual", 0) > 0:
-            preco_sug_v = float(cot["preco_atual"])
-            
-    c1, c2, c3 = st.columns(3)
-    with c1: venda_qtd = st.number_input("Quantidade:", min_value=1, value=100, step=1, key="venda_qtd")
-    with c2: venda_preco = st.number_input("Preço:", min_value=0.01, value=preco_sug_v, format="%.2f", key="venda_preco")
-    with c3: venda_data = st.date_input("Data:", value=date.today(), key="venda_data")
-    
-    venda_total = venda_qtd * venda_preco
-    st.markdown(f"**Total Recebido Estimado:** {formatar_moeda_md(venda_total)}", unsafe_allow_html=True)
-    
-    if st.button("📉 Registrar Venda", type="primary", use_container_width=True):
-        if not venda_ticker:
-            st.error("Informe o ticker do ativo!")
-        else:
-            ticker_upper = venda_ticker.upper().strip()
-            from database.crud import deletar_ativo, atualizar_ativo, listar_ativos_portfolio
-            ativos_cart = listar_ativos_portfolio(port_venda)
-            ativo_existente = next((x for x in ativos_cart if x["ticker"] == ticker_upper), None)
-            
-            if not ativo_existente or venda_qtd > ativo_existente["quantidade"]:
-                st.error("Você não possui quantidade suficiente deste ativo na carteira selecionada.")
-            else:
-                nova_qtd = ativo_existente["quantidade"] - venda_qtd
-                if nova_qtd == 0: 
-                    deletar_ativo(ativo_existente["id"])
-                else: 
-                    atualizar_ativo(ativo_existente["id"], quantidade=nova_qtd, preco_medio=ativo_existente["preco_medio"])
-                    
-                registrar_transacao(port_venda, "venda", venda_total, ticker_upper, venda_qtd, venda_preco, "Venda via Gestão", venda_data)
-                st.toast(f"Venda de {venda_qtd}x {ticker_upper} registrada! 📉")
-                st.rerun()
 
 with tab_aporte:
     with st.form("form_aporte"):

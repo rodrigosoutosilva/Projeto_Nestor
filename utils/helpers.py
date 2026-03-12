@@ -114,7 +114,7 @@ def formatar_moeda_md(valor) -> str:
     return texto_formatado
 
 
-def render_metric(label: str, value: float, format_str: str = "moeda", delta_pct: float = None):
+def render_metric(label: str, value: float, format_str: str = "moeda", delta_pct: float = None, font_size: str = "1.82rem"):
     """
     Renderiza uma métrica customizada via st.markdown que permite
     colorir o valor principal de vermelho caso seja negativo.
@@ -138,7 +138,7 @@ def render_metric(label: str, value: float, format_str: str = "moeda", delta_pct
     html = f"""
     <div style="display: flex; flex-direction: column; margin-bottom: 1rem;">
         <div style="font-size: 0.82rem; font-weight: 600; color: rgba(49, 51, 63, 0.6); margin-bottom: 0.25rem;">{label}</div>
-        <div style="font-size: 1.82rem; font-weight: 800; color: {cor_valor}; line-height: 1.2;">{val_str}</div>
+        <div style="font-size: {font_size}; font-weight: 800; color: {cor_valor}; line-height: 1.2;">{val_str}</div>
         {delta_html}
     </div>
     """

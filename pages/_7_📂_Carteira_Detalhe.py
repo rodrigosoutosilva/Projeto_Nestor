@@ -293,7 +293,14 @@ st.markdown("---")
 # --- TABS: ATIVOS | MONITORANDO | ORDENS PENDENTES | SUGESTÕES ATIVOS | SUGESTÕES MOVIMENTAÇÕES ---
 qtd_ordens = len(ordens_pendentes_all) if 'ordens_pendentes_all' in locals() else 0
 tab_ordens_title = f"📋 Ordens Pendentes ({qtd_ordens})" if qtd_ordens > 0 else "📋 Ordens Pendentes"
-tab1, tab_extrato, tab2, tab_ordens, tab3, tab4 = st.tabs(["📊 Meus Ativos", "📜 Histórico / Extrato", "👁️ Monitorando", tab_ordens_title, "💡 Sugestões de Ativos", "🔄 Sugestões de Movimentações"])
+tab1, tab2, tab3, tab4, tab_ordens, tab_extrato = st.tabs([
+    "📊 Meus Ativos", 
+    "👁️ Monitorando", 
+    "💡 Sugestões de Ativos", 
+    "🔄 Sugestões de Movimentações", 
+    tab_ordens_title, 
+    "📜 Histórico / Extrato"
+])
 
 with tab1:
     st.markdown("### Ativos Atuais")

@@ -109,20 +109,20 @@ if data_mais_antiga and total_aportado_global > 0:
     rend_anual = (lucro_pct / dias_desde_criacao) * 365
 
 m1, m2, m3, m4, m5, m6 = st.columns(6)
-with m1: render_metric("💎 Patrimônio", valor_total)
-with m2: render_metric("💵 Valor Investido", total_aportado_global)
+with m1: render_metric("💎 Patrimônio", valor_total, font_size="1.55rem")
+with m2: render_metric("💵 Valor Investido", total_aportado_global, font_size="1.55rem")
 cor_lucro_h = "#00C851" if lucro_acum >= 0 else "#FF4444"
 m3.markdown(
-    f"<small>📈 Lucro</small><br><b><span style='color:{cor_lucro_h}; font-size:1.82rem; font-weight:800;'>{formatar_moeda_md(lucro_acum)}</span> <span style='font-size:0.9rem; color:{cor_lucro_h}'>({lucro_pct:+.1f}%)</span></b>",
+    f"<small>📈 Lucro</small><br><b><span style='color:{cor_lucro_h}; font-size:1.55rem; font-weight:800;'>{formatar_moeda_md(lucro_acum)}</span> <span style='font-size:0.9rem; color:{cor_lucro_h}'>({lucro_pct:+.1f}%)</span></b>",
     unsafe_allow_html=True
 )
 cor_rend = "#00C851" if rend_anual >= 0 else "#FF4444"
 m4.markdown(
-    f"<small>📅 Rend. Anual</small><br><b><span style='color:{cor_rend}; font-size:1.82rem; font-weight:800;'>{rend_anual:+.1f}% a.a.</span></b>",
+    f"<small>📅 Rend. Anual</small><br><b><span style='color:{cor_rend}; font-size:1.55rem; font-weight:800;'>{rend_anual:+.1f}% a.a.</span></b>",
     unsafe_allow_html=True
 )
-with m5: render_metric("🏦 Caixa", caixa_total)
-with m6: render_metric("💼 Carteiras", len(portfolios), "numero")
+with m5: render_metric("🏦 Caixa", caixa_total, font_size="1.55rem")
+with m6: render_metric("💼 Carteiras", len(portfolios), "numero", font_size="1.55rem")
 
 # --- OBSERVAÇÕES ---
 with st.expander("📝 Observações", expanded=False):
