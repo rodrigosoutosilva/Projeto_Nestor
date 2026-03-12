@@ -145,7 +145,17 @@ def init_db():
                 conn.commit()
 
             Base.metadata.create_all(bind=engine)
-            print(f"[connection] Banco inicializado com sucesso (tentativa {attempt})")
+            
+            # Auto-migrate: adiciona colunas novas em banco existente (evita recriar o DB)
+            try:
+                with engine.connect() as conn:
+                    # Tenta adicionar taxa_saldo_negativo
+                    conn.execute(text("ALTER TABLE portfolios ADD COLUMN taxa_saldo_negativo FLOAT DEFAULT 10.0"))
+                    conn.commit()
+            except Exception:
+                pass  # Coluna já existe ou erro ignorável
+                
+            print(f"[connection] Banco inicializado/migrado com sucesso (tentativa {attempt})")
             break
         except Exception as e:
             print(f"[connection] Tentativa {attempt}/{max_retries} falhou: {e}")
