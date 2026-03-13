@@ -109,20 +109,52 @@ if data_mais_antiga and total_aportado_global > 0:
     rend_anual = (lucro_pct / dias_desde_criacao) * 365
 
 m1, m2, m3, m4, m5, m6 = st.columns(6)
-with m1: render_metric("💎 Patrimônio", valor_total, font_size="1.15rem")
-with m2: render_metric("💵 Valor Investido", total_aportado_global, font_size="1.15rem")
+m1.markdown(
+    f"<div style='margin-bottom:1rem;'>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>💎 Patrimônio</div>"
+    f"<div style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda(valor_total)}</div>"
+    f"</div>",
+    unsafe_allow_html=True
+)
+m2.markdown(
+    f"<div style='margin-bottom:1rem;'>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>💵 Valor Investido</div>"
+    f"<div style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda(total_aportado_global)}</div>"
+    f"</div>",
+    unsafe_allow_html=True
+)
 cor_lucro_h = "#00C851" if lucro_acum >= 0 else "#FF4444"
 m3.markdown(
-    f"<small>📈 Lucro</small><br><b><span style='color:{cor_lucro_h}; font-size:1.15rem; font-weight:800;'>{formatar_moeda_md(lucro_acum)}</span> <span style='font-size:0.9rem; color:{cor_lucro_h}'>({lucro_pct:+.1f}%)</span></b>",
+    f"<div style='margin-bottom:1rem;'>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>📈 Lucro</div>"
+    f"<div style='font-size: 1.15rem; font-weight: bold; color: {cor_lucro_h};'>"
+    f"{formatar_moeda(lucro_acum)} <span style='font-size: 0.85rem;'>({lucro_pct:+.1f}%)</span>"
+    f"</div></div>",
     unsafe_allow_html=True
 )
 cor_rend = "#00C851" if rend_anual >= 0 else "#FF4444"
 m4.markdown(
-    f"<small>📅 Rend. Anual</small><br><b><span style='color:{cor_rend}; font-size:1.15rem; font-weight:800;'>{rend_anual:+.1f}% a.a.</span></b>",
+    f"<div style='margin-bottom:1rem;'>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>📅 Rend. Anual</div>"
+    f"<div style='font-size: 1.15rem; font-weight: bold; color: {cor_rend};'>{rend_anual:+.1f}% a.a.</div>"
+    f"</div>",
     unsafe_allow_html=True
 )
-with m5: render_metric("🏦 Caixa", caixa_total, font_size="1.15rem")
-with m6: render_metric("💼 Carteiras", len(portfolios), "numero", font_size="1.15rem")
+cor_caixa_p = "#FF4444" if caixa_total < 0 else "inherit"
+m5.markdown(
+    f"<div style='margin-bottom:1rem;'>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>🏦 Caixa</div>"
+    f"<div style='font-size: 1.15rem; font-weight: bold; color: {cor_caixa_p};'>{formatar_moeda(caixa_total)}</div>"
+    f"</div>",
+    unsafe_allow_html=True
+)
+m6.markdown(
+    f"<div style='margin-bottom:1rem;'>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>💼 Carteiras</div>"
+    f"<div style='font-size: 1.15rem; font-weight: bold;'>{len(portfolios)}</div>"
+    f"</div>",
+    unsafe_allow_html=True
+)
 
 # --- OBSERVAÇÕES ---
 with st.expander("📝 Observações", expanded=False):
