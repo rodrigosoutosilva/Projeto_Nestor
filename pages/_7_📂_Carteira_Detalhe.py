@@ -69,10 +69,13 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 st.caption(f"Persona: **{persona['nome'] if persona else 'N/A'}** | Prazo: {port['objetivo_prazo'].capitalize()} | Meta DY: {port['meta_dividendos']}%")
 
-# CSS para métricas maiores nesta página
+# CSS para métricas
 st.markdown("""<style>
-[data-testid="stMetricValue"] > div { font-size: 1.5rem !important; font-weight: 700 !important; }
-[data-testid="stMetricValue"] { font-size: 1.5rem !important; font-weight: 700 !important; }
+/* Forçar estilo minimalista dos metadados */
+[data-testid="stMetricLabel"] { font-size: 0.85rem !important; font-weight: 600 !important; color: #888; }
+[data-testid="stMetricValue"] > div { font-size: 1.15rem !important; font-weight: 700 !important; }
+[data-testid="stMetricValue"] { font-size: 1.15rem !important; font-weight: 700 !important; }
+[data-testid="stMetricDelta"] { font-size: 0.75rem !important; }
 </style>""", unsafe_allow_html=True)
 
 # Métricas financeiras compactas

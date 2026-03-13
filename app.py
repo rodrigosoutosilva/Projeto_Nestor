@@ -446,11 +446,11 @@ st.markdown("""
         font-weight: 600 !important;
     }
     [data-testid="stMetricValue"] > div {
-        font-size: 1.82rem !important;
+        font-size: 1.15rem !important;
         font-weight: 800 !important;
     }
     [data-testid="stMetricValue"] {
-        font-size: 1.82rem !important;
+        font-size: 1.15rem !important;
         font-weight: 800 !important;
     }
     [data-testid="stMetricDelta"] {
