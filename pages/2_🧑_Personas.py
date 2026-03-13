@@ -160,10 +160,10 @@ else:
 
                 st.metric("💎 Valor Total", formatar_moeda(valor_total))
                 mc1, mc2, mc3 = st.columns(3)
-                mc1.markdown(f"💼 **{len(portfolios)}** carteira(s)")
-                mc2.markdown(f"📈 **{total_ativos}** ativo(s)")
+                mc1.markdown(f"💼 <span style='font-size: 1.15rem; font-weight: bold;'>{len(portfolios)}</span> carteira(s)", unsafe_allow_html=True)
+                mc2.markdown(f"📈 <span style='font-size: 1.15rem; font-weight: bold;'>{total_ativos}</span> ativo(s)", unsafe_allow_html=True)
                 cor_lucro = "green" if lucro >= 0 else "red"
-                mc3.markdown(f"📊 <span style='color:{cor_lucro}'>{formatar_moeda_md(lucro)}</span>", unsafe_allow_html=True)
+                mc3.markdown(f"📊 <span style='color:{cor_lucro}; font-size: 1.15rem; font-weight: bold;'>{formatar_moeda_md(lucro)}</span>", unsafe_allow_html=True)
 
                 st.divider()
                 
