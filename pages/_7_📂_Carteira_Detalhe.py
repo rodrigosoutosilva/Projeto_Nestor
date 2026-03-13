@@ -108,8 +108,16 @@ if port.get("created_at") and total_aportado > 0:
         rend_anual = (lucro_pct / dias) * 365
 
 mh1, mh2, mh3, mh4, mh5, mh6 = st.columns(6)
-mh1.metric("💎 Patrimônio", formatar_moeda(valor_total), help="Caixa + valor atual dos ativos")
-mh2.metric("💵 Investido", formatar_moeda(total_aportado), help="Total aportado líquido")
+mh1.markdown(
+    f"<small>💎 Patrimônio</small><br>"
+    f"<span style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda(valor_total)}</span>",
+    unsafe_allow_html=True
+)
+mh2.markdown(
+    f"<small>💵 Investido</small><br>"
+    f"<span style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda(total_aportado)}</span>",
+    unsafe_allow_html=True
+)
 cor_lucro_h = "#00C851" if lucro_acum >= 0 else "#FF4444"
 mh3.markdown(
     f"<small>📈 Lucro</small><br>"
@@ -132,7 +140,11 @@ mh5.markdown(
     + (f"<br><span style='color:#8B0000;font-size:0.75em'>{formatar_moeda_md(valor_comprometido)} comprometido</span>" if valor_comprometido > 0 else ""),
     unsafe_allow_html=True
 )
-mh6.metric("📊 Ativos", len(ativos))
+mh6.markdown(
+    f"<small>📊 Ativos</small><br>"
+    f"<span style='font-size: 1.15rem; font-weight: bold;'>{len(ativos)}</span>",
+    unsafe_allow_html=True
+)
 
 # --- 3 BOTÕES DE AÇÃO INLINE ---
 btn_c1, btn_c2, btn_c3 = st.columns(3)
