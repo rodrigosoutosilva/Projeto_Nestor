@@ -626,7 +626,7 @@ def resumo_transacoes_portfolio(portfolio_id: int) -> dict:
     for t in transacoes:
         if t["tipo"] == "aporte":
             resumo["total_aportes"] += t["valor"]
-        elif t["tipo"] == "retirada":
+        elif t["tipo"] == "retirada" and t.get("origem", "manual") != "sistema":
             resumo["total_retiradas"] += t["valor"]
         elif t["tipo"] == "compra":
             resumo["total_compras"] += t["valor"]
@@ -974,19 +974,18 @@ def cobrar_juros_cheque_especial():
         hoje = date.today()
         
         for p in portfolios_negativos:
-            # Verifica se já cobrou juros hoje ("Taxa Mensal Fixa Saldo Negativo%")
+            # Verifica se já cobrou juros hoje ("Juros Saldo Negativo (SELIC)%")
             ja_cobrou = session.query(Transaction).filter(
                 Transaction.portfolio_id == p.id,
                 Transaction.data == hoje,
-                Transaction.descricao.like("Taxa Mensal Fixa Saldo Negativo%")
+                Transaction.descricao.like("Juros Saldo Negativo (SELIC)%")
             ).first()
             
             if not ja_cobrou:
                 saldo_devedor = abs(p.montante_disponivel)
-                taxa_mensal = getattr(p, "taxa_saldo_negativo", 10.0)
-                if taxa_mensal is None:
-                    taxa_mensal = 10.0
-                taxa_diaria = (taxa_mensal / 100.0) / 30.0
+                # Utilizando taxa SELIC fixa de 11.25% ao ano para o exemplo
+                taxa_selic_anual = 0.1125 
+                taxa_diaria = taxa_selic_anual / 365.0
                 juros_hoje = saldo_devedor * taxa_diaria
                 
                 # Debita o valor do montante (que fica mais negativo)
@@ -997,7 +996,7 @@ def cobrar_juros_cheque_especial():
                     portfolio_id=p.id,
                     tipo=TipoTransacao.RETIRADA,
                     valor=juros_hoje,
-                    descricao=f"Taxa Mensal Fixa Saldo Negativo ({taxa_mensal}% a.m.)",
+                    descricao=f"Juros Saldo Negativo (SELIC)",
                     origem=OrigemTransacao.SISTEMA,
                     data=hoje
                 )

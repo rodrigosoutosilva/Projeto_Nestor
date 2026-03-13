@@ -418,34 +418,33 @@ with tab_extrato:
     st.subheader("Histórico de Movimentações")
     st.markdown("Todas as transações financeiras desta carteira.")
     
-    transacoes = listar_transacoes_portfolio(portfolio_id)
+    transacoes = listar_transacoes_portfolio(portfolio_id, limit=100)
     
-    if not transacoes:
-        st.info("Nenhuma movimentação registrada.")
-    else:
+    if transacoes:
+        # Preparar dados para tabela
+        dados_tabela = []
         for t in transacoes:
-            with st.container(border=True):
-                emj = "💰"
-                cor_v = "#00C851" if t["tipo"] in ("aporte", "venda", "dividendo") else "#FF4444"
-                sinal_v = "+" if t["tipo"] in ("aporte", "venda", "dividendo") else "-"
-                
-                if t["tipo"] == "aporte": emj = "📥"
-                elif t["tipo"] == "retirada": emj = "💸"
-                elif t["tipo"] == "compra": emj = "🛒"
-                elif t["tipo"] == "venda": emj = "🤝"
-                elif t["tipo"] == "dividendo": emj = "🤑"
-                
-                dt_str = formatar_data_br(t["data"].split(" ")[0]) if str(t.get("data")) else ""
-                ativo_str = f" — **{t['ticker']}**" if t.get("ticker") else ""
-                
-                c1, c2, c3 = st.columns([1, 6, 3])
-                with c1:
-                    st.markdown(f"<h3 style='margin:0; text-align:center;'>{emj}</h3>", unsafe_allow_html=True)
-                with c2:
-                    st.markdown(f"**{str(t['tipo']).capitalize()}**{ativo_str}")
-                    st.caption(f"{t.get('descricao', '')} | {dt_str}")
-                with c3:
-                    st.markdown(f"<h4 style='color:{cor_v}; text-align:right; margin:0;'>{sinal_v} {formatar_moeda(t['valor'])}</h4>", unsafe_allow_html=True)
+            tipo_emoji = {"aporte": "📥", "retirada": "📤", "compra": "🛒", "venda": "💰", "dividendo": "💵"}.get(t["tipo"], "📋")
+            
+            # Formatar Ticker para links - se tiver ticker formata diferente
+            ticker_display = t.get("ticker", "—")
+            
+            dados_tabela.append({
+                "Data": formatar_data_br(t["data"]) if t.get("data") else "",
+                "Tipo": f"{tipo_emoji} {t['tipo'].capitalize()}",
+                "Ticker": ticker_display,
+                "Qtd": t.get("quantidade", "—"),
+                "Preço Unit.": f"R$ {t['preco_unitario']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if t.get("preco_unitario") else "—",
+                "Valor Total": f"R$ {t['valor']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+                "Descrição": t.get("descricao", ""),
+                "Origem": str(t.get("origem", "manual")).capitalize()
+            })
+        
+        df = pd.DataFrame(dados_tabela)
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.caption(f"Mostrando as últimas {len(transacoes)} movimentações.")
+    else:
+        st.info("Nenhuma movimentação registrada nesta carteira.")
 
 with tab2:
     st.subheader("Ativos em Monitoramento")
@@ -1044,33 +1043,7 @@ else:
 
 st.markdown("---")
 
-# --- HISTÓRICO DE MOVIMENTAÇÕES ---
-with st.expander("📜 Histórico de Movimentações"):
-    transacoes = listar_transacoes_portfolio(portfolio_id, limit=50)
-    
-    if transacoes:
-        # Preparar dados para tabela
-        dados_tabela = []
-        for t in transacoes:
-            tipo_emoji = {"aporte": "📥", "retirada": "📤", "compra": "🛒", "venda": "💰", "dividendo": "💵"}.get(t["tipo"], "📋")
-            dados_tabela.append({
-                "Data": formatar_data_br(t["data"]) if t.get("data") else "",
-                "Tipo": f"{tipo_emoji} {t['tipo'].capitalize()}",
-                "Ticker": t.get("ticker", "—"),
-                "Qtd": t.get("quantidade", "—"),
-                "Preço Unit.": f"R$ {t['preco_unitario']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if t.get("preco_unitario") else "—",
-                "Valor": f"R$ {t['valor']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
-                "Descrição": t.get("descricao", ""),
-                "Origem": t.get("origem", "manual")
-            })
-        
-        df = pd.DataFrame(dados_tabela)
-        st.dataframe(df, use_container_width=True, hide_index=True)
-        st.caption(f"Mostrando as últimas {len(transacoes)} movimentações.")
-    else:
-        st.info("Nenhuma movimentação registrada nesta carteira.")
 
-st.markdown("---")
 if st.button("⚠️ Excluir Carteira Inteira", type="primary"):
     deletar_portfolio(portfolio_id)
     st.session_state.view_portfolio_id = None

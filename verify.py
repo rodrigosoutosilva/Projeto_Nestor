@@ -45,7 +45,7 @@ cobrar_juros_cheque_especial()
 # 3. Verify modifications
 with get_session() as session:
     port = session.query(Portfolio).filter_by(id=port_id).first()
-    taxa_esperada = (0.15 / 365.0) * 1000.0
+    taxa_esperada = (0.1125 / 365.0) * 1000.0
     saldo_esperado = -1000.0 - taxa_esperada
     
     print(f"Saldo Original: -1000.0")
@@ -58,7 +58,7 @@ with get_session() as session:
         print("[ERRO] Erro na atualizacao do Portfolio.")
         
     transacoes = session.query(Transaction).filter_by(portfolio_id=port_id).all()
-    if any("Selic" in t.descricao for t in transacoes):
+    if any("SELIC" in t.descricao for t in transacoes):
         print("[OK] Transacao de Juros (Selic) registrada no historico.")
     else:
         print("[ERRO] Faltando transacao no historico.")
