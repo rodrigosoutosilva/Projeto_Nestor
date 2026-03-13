@@ -114,7 +114,7 @@ def formatar_moeda_md(valor) -> str:
     return texto_formatado
 
 
-def render_metric(label: str, value: float, format_str: str = "moeda", delta_pct: float = None, font_size: str = "1.15rem"):
+def render_metric(label: str, value: float, format_str: str = "moeda", delta_pct: float = None, font_size: str = "1.82rem"):
     """
     Renderiza uma métrica customizada via st.markdown que permite
     colorir o valor principal de vermelho caso seja negativo.
@@ -417,8 +417,8 @@ def injetar_css_global():
     st.markdown("""<style>
     /* Métricas */
     [data-testid="stMetricLabel"] { font-size: 0.82rem !important; font-weight: 600 !important; }
-    [data-testid="stMetricValue"] > div { font-size: 1.15rem !important; font-weight: 800 !important; }
-    [data-testid="stMetricValue"] { font-size: 1.15rem !important; font-weight: 800 !important; }
+    [data-testid="stMetricValue"] > div { font-size: 1.82rem !important; font-weight: 800 !important; }
+    [data-testid="stMetricValue"] { font-size: 1.82rem !important; font-weight: 800 !important; }
     [data-testid="stMetricDelta"] { font-size: 0.72rem !important; }
     /* Headers — tamanho original */
     h1, .main-header { font-size: 1.4rem !important; }
