@@ -335,8 +335,8 @@ else:
                     # Exibição compacta
                     st.metric("💎 Valor Total", formatar_moeda(valor_total))
                     mc1, mc2 = st.columns(2)
-                    mc1.markdown(f"🏦 **Caixa:** {formatar_moeda_md(caixa)}", unsafe_allow_html=True)
-                    mc2.markdown(f"📊 **Patrimônio:** {formatar_moeda_md(patrimonio)}", unsafe_allow_html=True)
+                    mc1.markdown(f"🏦 **Caixa:** <span style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda_md(caixa)}</span>", unsafe_allow_html=True)
+                    mc2.markdown(f"📊 **Patrimônio:** <span style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda_md(patrimonio)}</span>", unsafe_allow_html=True)
                     
                     mc3, mc4 = st.columns(2)
                     cor_lucro = "green" if lucro_acum >= 0 else "red"
