@@ -113,12 +113,12 @@ with m1: render_metric("💎 Patrimônio", valor_total, font_size="1.55rem")
 with m2: render_metric("💵 Valor Investido", total_aportado_global, font_size="1.55rem")
 cor_lucro_h = "#00C851" if lucro_acum >= 0 else "#FF4444"
 m3.markdown(
-    f"<small>📈 Lucro</small><br><b><span style='color:{cor_lucro_h}; font-size:1.55rem; font-weight:800;'>{formatar_moeda_md(lucro_acum)}</span> <span style='font-size:0.9rem; color:{cor_lucro_h}'>({lucro_pct:+.1f}%)</span></b>",
+    f"<small>📈 Lucro</small><br><b><span style='color:{cor_lucro_h}; font-size:1.15rem; font-weight:800;'>{formatar_moeda_md(lucro_acum)}</span> <span style='font-size:0.9rem; color:{cor_lucro_h}'>({lucro_pct:+.1f}%)</span></b>",
     unsafe_allow_html=True
 )
 cor_rend = "#00C851" if rend_anual >= 0 else "#FF4444"
 m4.markdown(
-    f"<small>📅 Rend. Anual</small><br><b><span style='color:{cor_rend}; font-size:1.55rem; font-weight:800;'>{rend_anual:+.1f}% a.a.</span></b>",
+    f"<small>📅 Rend. Anual</small><br><b><span style='color:{cor_rend}; font-size:1.15rem; font-weight:800;'>{rend_anual:+.1f}% a.a.</span></b>",
     unsafe_allow_html=True
 )
 with m5: render_metric("🏦 Caixa", caixa_total, font_size="1.55rem")
@@ -231,14 +231,14 @@ else:
                 
                 st.metric("💎 Patrimônio", formatar_moeda(vt))
                 mc1, mc2 = st.columns(2)
-                mc1.markdown(f"💵 **Investido:** {formatar_moeda_md(ta)}", unsafe_allow_html=True)
+                mc1.markdown(f"💵 **Investido:** <span style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda_md(ta)}</span>", unsafe_allow_html=True)
                 cor_lucro_port = "green" if la >= 0 else "red"
-                mc2.markdown(f"📈 **Lucro:** <span style='color:{cor_lucro_port}'>{formatar_moeda_md(la)}</span> <small style='color:{cor_lucro_port}'>({lp:+.1f}%)</small>", unsafe_allow_html=True)
+                mc2.markdown(f"📈 **Lucro:** <span style='color:{cor_lucro_port}; font-size: 1.15rem; font-weight: bold;'>{formatar_moeda_md(la)}</span> <small style='color:{cor_lucro_port}'>({lp:+.1f}%)</small>", unsafe_allow_html=True)
                 
                 mc3, mc4 = st.columns(2)
                 cor_rend_p = "#00C851" if rend_anual_port >= 0 else "#FF4444"
-                mc3.markdown(f"📅 **Rend. Anual:** <b style='color:{cor_rend_p}'>{rend_anual_port:+.1f}% a.a.</b>", unsafe_allow_html=True)
-                mc4.markdown(f"📊 **{len(ativos_port)}** ativo(s)")
+                mc3.markdown(f"📅 **Rend. Anual:** <b style='color:{cor_rend_p}; font-size: 1.15rem;'>{rend_anual_port:+.1f}% a.a.</b>", unsafe_allow_html=True)
+                mc4.markdown(f"📊 <span style='font-size: 1.15rem; font-weight: bold;'>{len(ativos_port)}</span> ativo(s)", unsafe_allow_html=True)
                 
                 if port.get('aporte_periodico', 0) > 0:
                     fl = {"semanal":"sem","quinzenal":"quinz","mensal":"mês"}.get(port.get('frequencia_aporte',''),'')

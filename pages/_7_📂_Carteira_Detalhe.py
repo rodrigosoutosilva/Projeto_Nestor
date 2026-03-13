@@ -113,14 +113,14 @@ mh2.metric("💵 Investido", formatar_moeda(total_aportado), help="Total aportad
 cor_lucro_h = "#00C851" if lucro_acum >= 0 else "#FF4444"
 mh3.markdown(
     f"<small>📈 Lucro</small><br>"
-    f"<b>{formatar_moeda_md(lucro_acum)}</b> "
+    f"<span style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda_md(lucro_acum)}</span> "
     f"<span style='color:{cor_lucro_h};font-size:0.8em'>({lucro_pct:+.1f}%)</span>",
     unsafe_allow_html=True
 )
 cor_rend = "#00C851" if rend_anual >= 0 else "#FF4444"
 mh4.markdown(
     f"<small>📅 Rend. Anual</small><br>"
-    f"<b style='color:{cor_rend}'>{rend_anual:+.1f}% a.a.</b>",
+    f"<span style='color:{cor_rend}; font-size: 1.15rem; font-weight: bold;'>{rend_anual:+.1f}% a.a.</span>",
     unsafe_allow_html=True
 )
 # Calcular valor comprometido (ordens pendentes de COMPRA apenas)
@@ -128,7 +128,7 @@ ordens_pendentes_all = listar_ordens_pendentes(portfolio_id)
 valor_comprometido = sum(o["quantidade"] * o["preco_alvo"] for o in ordens_pendentes_all if o.get("tipo") == "compra")
 mh5.markdown(
     f"<small>🏦 Caixa</small><br>"
-    f"<b>{formatar_moeda_md(caixa)}</b>"
+    f"<span style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda_md(caixa)}</span>"
     + (f"<br><span style='color:#8B0000;font-size:0.75em'>{formatar_moeda_md(valor_comprometido)} comprometido</span>" if valor_comprometido > 0 else ""),
     unsafe_allow_html=True
 )

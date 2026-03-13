@@ -459,7 +459,7 @@ st.markdown("""
 
     /* Nomes de carteiras e personas nos cards */
     .metric-card .value {
-        font-size: 2.2rem !important;
+        font-size: 1.15rem !important;
         font-weight: 700 !important;
     }
 
