@@ -872,9 +872,9 @@ with tab4:
     sugestoes_mov = gerar_sugestoes_carteira(portfolio_id, usar_preco_futuro=usar_preco_futuro)
     
     if sugestoes_mov:
-        sugestoes_venda = [s for s in sugestoes_mov if s.get("acao") == "venda" and s.get("ticker") in tickers_na_carteira]
-        if sugestoes_venda:
-            for idx_m, s in enumerate(sugestoes_venda):
+        sugestoes_existentes = [s for s in sugestoes_mov if s.get("acao") in ("venda", "compra", "observar") and s.get("ticker") in tickers_na_carteira]
+        if sugestoes_existentes:
+            for idx_m, s in enumerate(sugestoes_existentes):
                 with st.container(border=True):
                     ativo_cart = next((a for a in ativos if a["ticker"] == s["ticker"]), None)
                     qtd_cart = ativo_cart["quantidade"] if ativo_cart else 0
@@ -887,8 +887,9 @@ with tab4:
                     c_nm, c_bm = st.columns([5, 2])
                     with c_nm:
                         novo_label = " 🆕 **NOVO**" if s.get("novo") else ""
+                        cor_acao_m = "#FF4444" if s["acao"] == "venda" else ("#00C851" if s["acao"] == "compra" else "#FFBB33")
                         st.markdown(f"**{s['ticker']}** — {nome_ativo(s['ticker'])}{novo_label}  |  {qtd_cart} cotas")
-                        st.markdown(f"<span style='color:#FF4444'>VENDA</span> (Score: {s['score']}/100) | PM: {formatar_moeda_md(pm_cart)} | Atual: {formatar_moeda_md(preco_atual_mov)} | L/P: <span style='color:{cor_lucro_m}'>{formatar_moeda_md(lucro_total)}</span>", unsafe_allow_html=True)
+                        st.markdown(f"<span style='color:{cor_acao_m}'>{s['acao'].upper()}</span> (Score: {s['score']}/100) | PM: {formatar_moeda_md(pm_cart)} | Atual: {formatar_moeda_md(preco_atual_mov)} | L/P: <span style='color:{cor_lucro_m}'>{formatar_moeda_md(lucro_total)}</span>", unsafe_allow_html=True)
                     with c_bm:
                         bm1, bm2 = st.columns(2)
                         with bm1:
@@ -908,11 +909,15 @@ with tab4:
                         with st.expander("💸 Negociar", expanded=True):
                             cm1, cm2, cm3, cm4 = st.columns(4)
                             with cm1:
-                                op_tipo_mov = st.selectbox("Operação", ["Venda", "Compra"], key=f"mov_tipo_{idx_m}_{s['ticker']}")
+                                op_tipo_mov = st.selectbox("Operação", ["Venda", "Compra"], index=0 if s["acao"] == "venda" else 1, key=f"mov_tipo_{idx_m}_{s['ticker']}")
                             with cm2:
-                                qtd_mov = st.number_input("Qtd", min_value=1, value=1, key=f"mov_qtd_{idx_m}_{s['ticker']}", step=1)
+                                qtd_default = qtd_cart if s["acao"] == "venda" else 1
+                                qtd_mov = st.number_input("Qtd", min_value=1, value=qtd_default, key=f"mov_qtd_{idx_m}_{s['ticker']}", step=1)
                             with cm3:
-                                prc_mov = st.number_input("Preço (R$)", min_value=0.01, value=float(preco_atual_mov), key=f"mov_prc_{idx_m}_{s['ticker']}", step=0.1, help="Alterar cria ordem condicional.")
+                                prc_def = float(preco_atual_mov)
+                                if usar_preco_futuro and s.get("indicadores", {}).get("preco_alvo_medio"):
+                                    prc_def = float(s["indicadores"]["preco_alvo_medio"])
+                                prc_mov = st.number_input("Preço (R$)", min_value=0.01, value=prc_def, key=f"mov_prc_{idx_m}_{s['ticker']}", step=0.1, help="Alterar cria ordem condicional.")
                                 if abs(prc_mov - preco_atual_mov) >= 0.01:
                                     st.caption(f"Preço atual: R$ {preco_atual_mov:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
                             with cm4:
@@ -956,7 +961,7 @@ with tab4:
                                         st.toast(f"{s['ticker']} comprado! 🎉", icon="✅")
                                         st.rerun()
         else:
-            st.info("✅ Nenhuma sugestão de venda para os ativos da sua carteira no momento.")
+            st.info("✅ Nenhuma sugestão pertinente para os ativos da sua carteira no momento.")
     else:
         st.info("Nenhuma sugestão encontrada. Adicione ativos à carteira para receber análises de movimentação.")
     
@@ -980,9 +985,82 @@ with tab4:
                 st.error(rec_mov.get("resumo", "Falha ao consultar IA."))
                 st.session_state["ia_loading_mov"] = False
     
-    if st.session_state.get("ia_resumo_mov"):
-        st.success(f"🔄 **Análise da IA:** {st.session_state['ia_resumo_mov']}")
-        st.caption("💡 Use esta análise junto com as sugestões técnicas acima para tomar decisões informadas.")
+    if st.session_state.get("ia_sugestoes_mov") is not None:
+        sugs_ia = st.session_state["ia_sugestoes_mov"]
+        if sugs_ia:
+            for idx_ia, s in enumerate(sugs_ia):
+                with st.container(border=True):
+                    acao_ia = s.get("acao", "manter").upper()
+                    cor_ia = "#00C851" if acao_ia == "COMPRA" else ("#FF4444" if acao_ia == "VENDA" else "#FFBB33")
+                    st.markdown(f"**{s['ticker']}** — {nome_ativo(s['ticker'])}")
+                    st.markdown(f"<span style='color:{cor_ia}'>{acao_ia}</span> | Qtd Sugerida: {s.get('quantidade_sugerida', 0)} | Preço Ref: {formatar_moeda_md(s.get('preco_sugerido', s.get('preco_estimado', 0)))}", unsafe_allow_html=True)
+                    st.info(s.get("motivo", ""))
+                    
+                    preco_ref = float(s.get("preco_sugerido", s.get("preco_estimado", 0.01)))
+                    qtd_sug = max(1, s.get("quantidade_sugerida", 1))
+                    
+                    with st.expander("💸 Negociar", expanded=True):
+                        ci1, ci2, ci3, ci4 = st.columns(4)
+                        with ci1:
+                            op_tipo_ia = st.selectbox("Operação", ["Venda", "Compra"], index=0 if acao_ia == "VENDA" else 1, key=f"ia_tipo_{idx_ia}_{s['ticker']}")
+                        with ci2:
+                            qtd_ia = st.number_input("Qtd", min_value=1, value=qtd_sug, key=f"ia_qtd_{idx_ia}_{s['ticker']}", step=1)
+                        with ci3:
+                            prc_ia = st.number_input("Preço (R$)", min_value=0.01, value=preco_ref, key=f"ia_prc_{idx_ia}_{s['ticker']}", step=0.1)
+                            preco_est_real = float(s.get("preco_estimado", 0.01))
+                            if abs(prc_ia - preco_est_real) >= 0.01:
+                                st.caption(f"Atual: R$ {preco_est_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                        with ci4:
+                            vt_ia = qtd_ia * prc_ia
+                            st.markdown(f"**Total:** R\\$ {vt_ia:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                            if st.button("Executar", key=f"ia_exec_{idx_ia}_{s['ticker']}", type="primary", use_container_width=True):
+                                caixa_ia = port.get("montante_disponivel", 0)
+                                tipo_ord_ia = "venda" if op_tipo_ia == "Venda" else "compra"
+                                executa_agora_ia = deve_executar_ordem(tipo_ord_ia, prc_ia, preco_est_real)
+                                
+                                ativo_cart_ia = next((a for a in ativos if a["ticker"] == s["ticker"]), None)
+                                qtd_cart_ia = ativo_cart_ia["quantidade"] if ativo_cart_ia else 0
+                                
+                                if not executa_agora_ia:
+                                    if tipo_ord_ia == "venda" and ativo_cart_ia and qtd_ia > qtd_cart_ia:
+                                        st.error("⚠️ Não possui essa quantidade.")
+                                    else:
+                                        criar_ordem_pendente(port["id"], s['ticker'], tipo_ord_ia, qtd_ia, prc_ia)
+                                        st.warning(f"⏳ Ordem de {s['ticker']} a R$ {prc_ia:.2f} **ainda não foi executada**.")
+                                elif tipo_ord_ia == "venda":
+                                    if not ativo_cart_ia or qtd_ia > qtd_cart_ia:
+                                        st.error(f"⚠️ Você só tem {qtd_cart_ia} papéis!")
+                                    else:
+                                        nq = qtd_cart_ia - qtd_ia
+                                        if nq <= 0: deletar_ativo(ativo_cart_ia["id"])
+                                        else: atualizar_ativo(ativo_cart_ia["id"], quantidade=nq, preco_medio=ativo_cart_ia["preco_medio"])
+                                        registrar_transacao(port["id"], "venda", vt_ia, s['ticker'], qtd_ia, prc_ia, "Venda (IA)", date.today())
+                                        atualizar_portfolio(port["id"], montante_disponivel=caixa_ia + vt_ia)
+                                        st.toast(f"{s['ticker']} vendido! 💰", icon="✅")
+                                        st.session_state["ia_loading_mov"] = True 
+                                        st.rerun()
+                                else:
+                                    if vt_ia > caixa_ia:
+                                        st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo. Clique de novo para confirmar.")
+                                        if not st.session_state.get(f"conf_op_ia_{idx_ia}_{s['ticker']}", False):
+                                            st.session_state[f"conf_op_ia_{idx_ia}_{s['ticker']}"] = True
+                                            st.stop()
+                                        st.session_state[f"conf_op_ia_{idx_ia}_{s['ticker']}"] = False
+                                        
+                                    if ativo_cart_ia:
+                                        q_ant = ativo_cart_ia["quantidade"]; p_ant = ativo_cart_ia["preco_medio"]
+                                        atualizar_ativo(ativo_cart_ia["id"], quantidade=q_ant + qtd_ia, preco_medio=((q_ant * p_ant) + vt_ia) / (q_ant + qtd_ia))
+                                    else:
+                                        adicionar_ativo(port["id"], s['ticker'], prc_ia, qtd_ia, date.today())
+                                    registrar_transacao(port["id"], "compra", vt_ia, s['ticker'], qtd_ia, prc_ia, "Compra (IA)", date.today())
+                                    atualizar_portfolio(port["id"], montante_disponivel=caixa_ia - vt_ia)
+                                    st.toast(f"{s['ticker']} comprado! 🎉", icon="✅")
+                                    st.session_state["ia_loading_mov"] = True
+                                    st.rerun()
+
+        if st.session_state.get("ia_resumo_mov"):
+            st.success(f"🔄 **Análise Geral da IA:** {st.session_state['ia_resumo_mov']}")
+            st.caption("💡 Use esta análise junto com as sugestões técnicas acima para tomar decisões informadas.")
 
 st.markdown("---")
 

@@ -690,6 +690,8 @@ def gerar_analise_rebalanceamento_ia(
             if 'preco_atual_real' not in a: a['preco_atual_real'] = 0
             if 'preco_alvo_str' not in a: a['preco_alvo_str'] = "N/A"
 
+    montante_disponivel = portfolio_info.get('montante_disponivel', 0)
+
     ativos_str = ""
     for a in ativos_com_alvo:
         lucro_prejuizo = ""
@@ -705,7 +707,9 @@ def gerar_analise_rebalanceamento_ia(
 
     prompt = f"""Você é um gestor de portfólio especializado no mercado brasileiro.
 
-Sua tarefa é analisar a carteira atual do investidor e fornecer uma RESPOSTA EM TEXTO CORRIDO sugerindo opções de rebalanceamento, vendas para realização de lucros ou novas aquisições para diversificação.
+Sua tarefa é analisar a carteira atual do investidor e fornecer sugestões claras de rebalanceamento peça a peça (COMPRA, VENDA ou MANTER), considerando o dinheiro livre em caixa.
+
+CAIXA ATUAL LIVRE: R$ {montante_disponivel:.2f}
 
 CARTEIRA ATUAL DO INVESTIDOR:
 {ativos_str}
@@ -721,19 +725,110 @@ INSTRUÇÕES:
    - Se o Preço Atual estiver próximo ou acima do alvo, e a posição tiver lucro, sugira realização de lucro (VENDA). 
    - Se estiver bem abaixo, sugira a retenção ou compra para diminuir o PM.
    - Considere a 'Frequência de Ação': traders ativos realizam lucros mais rápido que holders.
-2. Seja analítico, cite os ativos pelo Ticker e justifique suas decisões baseado no perfil.
-3. Formate a resposta detalhada como um relatório analítico e persuasivo. Use Markdown para destacar pontos chave.
+2. Responda EXATAMENTE no formato estruturado (uma sugestão por linha cobrindo TODOS os ativos avaliados e eventuais novos):
+Lembre-se que você DEVE analisar TODOS os ativos da carteira atual.
+
+TICKER: [código] | ACAO: [COMPRA/VENDA/MANTER] | PERCENTUAL: [0 a 100] | MOTIVO: [explicação curta]
+
+REGRAS DE PERCENTUAL:
+- Para VENDA: PERCENTUAL é a % da QUANTIDADE ATUAL do ativo a ser vendida (ex: 100 para vender tudo, 50 para vender metade).
+- Para COMPRA: PERCENTUAL é a % do CAIXA TOTAL (Caixa Livre + Valor gerado pelas Vendas sugeridas) a ser utilizada para comprar esse ativo. (A soma dos percentuais de compra não pode exceder 100).
+- Para MANTER: PERCENTUAL é 0.
+
+No final, adicione:
+RESUMO: [Explicação analítica unificada de 2 a 3 frases]
 """
 
     try:
         texto = _chamar_gemini_com_retry(prompt, "analise_rebalanceamento")
+        
+        sugestoes = []
+        resumo = ""
+
+        # Parser
+        for linha in texto.split("\n"):
+            linha = linha.strip()
+            if linha.upper().startswith("TICKER:"):
+                partes = linha.split("|")
+                sugestao = {}
+                for parte in partes:
+                    parte = parte.strip()
+                    if ":" in parte:
+                        chave, valor = parte.split(":", 1)
+                        chave = chave.strip().upper()
+                        valor = valor.strip()
+                        if chave == "TICKER":
+                            sugestao["ticker"] = valor.upper().replace(".SA", "")
+                        elif chave in ("ACAO", "AÇÃO"):
+                            sugestao["acao"] = valor.lower()
+                        elif chave == "PERCENTUAL":
+                            try:
+                                sugestao["percentual"] = float(valor.replace("%", ""))
+                            except ValueError:
+                                sugestao["percentual"] = 0
+                        elif chave == "MOTIVO":
+                            sugestao["motivo"] = valor
+                
+                if sugestao.get("ticker"):
+                    # Find matching asset from portfolio to get current quantity
+                    ativo_carteira = next((a for a in ativos_com_alvo if a['ticker'] == sugestao['ticker']), None)
+                    sugestao['quantidade_atual'] = ativo_carteira['quantidade'] if ativo_carteira else 0
+                    
+                    # Estimate precise current price
+                    preco_est = ativo_carteira['preco_atual_real'] if ativo_carteira else 0
+                    if not preco_est:
+                        from services.market_data import buscar_preco_atual
+                        d_preco = buscar_preco_atual(sugestao['ticker'])
+                        preco_est = d_preco.get('preco_atual', 0) if isinstance(d_preco, dict) else 0
+                    
+                    sugestao['preco_estimado'] = preco_est
+                    
+                    # Targeted Price if using future price
+                    if usar_preco_futuro and ativo_carteira and ativo_carteira.get("preco_alvo_str") != "N/A":
+                        try:
+                            sugestao['preco_sugerido'] = float(ativo_carteira["preco_alvo_str"].replace("R$ ", ""))
+                        except:
+                            sugestao['preco_sugerido'] = preco_est
+                    else:
+                        sugestao['preco_sugerido'] = preco_est
+                        
+                    sugestoes.append(sugestao)
+            elif linha.upper().startswith("RESUMO:"):
+                resumo = linha.split(":", 1)[1].strip()
+
+        # Phase 1: Vendas compute cash generated
+        caixa_livre = montante_disponivel
+        for s in sugestoes:
+            if s["acao"] == "venda":
+                qtd_vender = max(0, int(s["quantidade_atual"] * (s.get("percentual", 0) / 100)))
+                s["quantidade_sugerida"] = qtd_vender
+                s["valor_sugerido"] = qtd_vender * s["preco_estimado"]
+                caixa_livre += s["valor_sugerido"]
+
+        # Phase 2: Compras
+        for s in sugestoes:
+            if s["acao"] == "compra":
+                valor_comprar = caixa_livre * (s.get("percentual", 0) / 100)
+                qtd_comprar = int(valor_comprar / max(0.01, s["preco_estimado"]))
+                s["quantidade_sugerida"] = qtd_comprar
+                s["valor_sugerido"] = qtd_comprar * s["preco_estimado"]
+
+            elif s["acao"] == "manter" or s.get("acao") not in ["compra", "venda"]:
+                s["acao"] = "manter"
+                s["quantidade_sugerida"] = 0
+                s["valor_sugerido"] = 0
+
+        # Output payload
         return {
-            "resumo": texto,
+            "sugestoes": [s for s in sugestoes if s["acao"] != "manter" and s["quantidade_sugerida"] > 0],
+            "sugestoes_todas": sugestoes, # includes hold
+            "resumo": resumo or "Análise de rebalanceamento concluída.",
             "sucesso": True
         }
     except Exception as e:
         print(f"[ai_brain] Erro na análise de rebalanceamento: {e}")
         return {
-            "resumo": f"⚠️ Não foi possível gerar a análise de rebalanceamento neste momento: {str(e)}",
+            "sugestoes": [],
+            "resumo": f"⚠️ Não foi possível gerar a análise de rebalanceamento: {str(e)}",
             "sucesso": False
         }
