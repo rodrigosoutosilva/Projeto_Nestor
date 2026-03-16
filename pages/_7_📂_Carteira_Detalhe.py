@@ -857,11 +857,19 @@ with tab4:
     st.subheader("Sugestões de Movimentações")
     st.markdown("Avalie se é necessário **rebalancear ou vender** algum ativo da sua carteira atual.")
     
+    # Toggle de Preço Futuro
+    usar_preco_futuro = st.toggle(
+        "Sugestões baseadas em preço futuro", 
+        key="usar_preco_futuro", 
+        help="Se ativado, o algoritmo e a IA considerarão os preços-alvo dos ativos para sugerir realizações de lucro ou novas compras para diminuir o PM.", 
+        value=False
+    )
+    
     # Tickers que já estão na carteira
     tickers_na_carteira = {a["ticker"] for a in ativos}
     
     st.markdown("#### Algoritmo Técnico — Movimentações Sugeridas")
-    sugestoes_mov = gerar_sugestoes_carteira(portfolio_id)
+    sugestoes_mov = gerar_sugestoes_carteira(portfolio_id, usar_preco_futuro=usar_preco_futuro)
     
     if sugestoes_mov:
         sugestoes_venda = [s for s in sugestoes_mov if s.get("acao") == "venda" and s.get("ticker") in tickers_na_carteira]
@@ -962,9 +970,8 @@ with tab4:
     
     if st.session_state.get("ia_loading_mov"):
         with st.spinner("🧠 Analisando movimentações com IA..."):
-            from services.ai_brain import gerar_sugestoes_compra
-            portfolios_analise = buscar_portfolio_por_id(portfolio_id)
-            rec_mov = gerar_sugestoes_compra(ativos, persona, portfolios_analise)
+            from services.ai_brain import gerar_analise_rebalanceamento_ia
+            rec_mov = gerar_analise_rebalanceamento_ia(ativos, persona, port, usar_preco_futuro=usar_preco_futuro)
             
             if rec_mov and rec_mov.get("sucesso"):
                 st.session_state["ia_resumo_mov"] = rec_mov.get("resumo", "")

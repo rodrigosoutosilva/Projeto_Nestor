@@ -191,10 +191,11 @@ def calcular_score_perfil(persona: dict, portfolio: dict, indicadores: dict, fun
     return round(max(0, min(100, score)), 2)
 
 
-def pontuar_ativo(ticker: str, persona: dict, portfolio: dict) -> dict:
+def pontuar_ativo(ticker: str, persona: dict, portfolio: dict, pm_atual: float = 0.0, usar_preco_futuro: bool = False) -> dict:
     """
     Calcula a pontuação de um ativo (0–100) sem usar IA.
     Score = (Técnico * 0.35) + (Fundamentalista * 0.35) + (Perfil * 0.30)
+    Se usar_preco_futuro for True, ajusta o score baseado no preço alvo e margem de ganho.
     """
     historico = buscar_historico(ticker, "6mo")
     if historico is None or historico.empty:
@@ -207,12 +208,48 @@ def pontuar_ativo(ticker: str, persona: dict, portfolio: dict) -> dict:
     score_fundament = calcular_score_fundamentalista(fundamentos, portfolio)
     score_perfil = calcular_score_perfil(persona, portfolio, indicadores, fundamentos)
 
-    score_final = round(
-        (score_tecnico * 0.35) + (score_fundament * 0.35) + (score_perfil * 0.30), 2
-    )
+    score_final = (score_tecnico * 0.35) + (score_fundament * 0.35) + (score_perfil * 0.30)
+
+    # --- Lógica de Preço Futuro ---
+    texto_futuro = ""
+    if usar_preco_futuro:
+        preco_atual = indicadores.get("preco_atual", 0)
+        preco_alvo = fundamentos.get("preco_alvo_medio") or fundamentos.get("preco_alvo_max")
+        freq = persona.get("frequencia_acao", "semanal")
+
+        if preco_atual > 0 and preco_alvo and preco_alvo > 0:
+            upside = ((preco_alvo - preco_atual) / preco_atual) * 100
+            
+            # Threshold de venda adaptável conforme a frequência de giro da carteira
+            # day traders aceitam sair um pouco antes do alvo; buy and hold espera até passar do alvo.
+            threshold_venda = 0.0
+            if freq == "diario": threshold_venda = 2.0
+            elif freq == "semanal": threshold_venda = 0.0
+            else: threshold_venda = -5.0
+
+            if pm_atual > 0:
+                lucro_pct = ((preco_atual - pm_atual) / pm_atual) * 100
+                if upside <= threshold_venda and lucro_pct > 0:
+                    # Atingiu o alvo e está com lucro -> força VENDA (reduz drastically o score)
+                    score_final = min(score_final, 35.0)
+                    texto_futuro = f" O preço (R$ {preco_atual:.2f}) atingiu a região do preço-alvo médio (R$ {preco_alvo:.2f}) com lucro de {lucro_pct:.1f}%. Pela sua frequência de revisão ({freq}), sugere-se realizar lucro."
+                elif upside > 15.0 and lucro_pct < -5.0:
+                    # Caiu, mas o alvo continua indicando alta forte -> força COMPRA para baixar PM
+                    score_final = max(score_final, 75.0)
+                    texto_futuro = f" O ativo caiu e está com prejuízo de {abs(lucro_pct):.1f}%, mas o preço-alvo (R$ {preco_alvo:.2f}) indica potencial de {upside:.1f}%. Oportunidade para reduzir seu preço médio."
+            else:
+                if upside > 20.0:
+                    score_final = max(score_final, 75.0)
+                    texto_futuro = f" O preço-alvo (R$ {preco_alvo:.2f}) indica um excelente potencial de alta de {upside:.1f}% frente à cotação atual."
+                elif upside <= 5.0:
+                    score_final = min(score_final, 45.0)
+                    texto_futuro = f" Cotação (R$ {preco_atual:.2f}) muito próxima ao preço-alvo (R$ {preco_alvo:.2f}). Margem de segurança baixa para novas compras."
+
+    score_final = round(score_final, 2)
 
     # Mesclar fundamentos nos indicadores para exibição
     indicadores_completos = {**indicadores, **fundamentos}
+    indicadores_completos["texto_futuro"] = texto_futuro
 
     return {
         "sucesso": True,
@@ -296,6 +333,10 @@ def gerar_texto_resumo(ticker: str, indicadores: dict, score: float) -> str:
     elif score <= 40:
         texto += "**Conclusão:** Momento desfavorável ou baixo alinhamento com o perfil da carteira."
 
+    texto_futuro = indicadores.get("texto_futuro", "")
+    if texto_futuro:
+        texto += f"\n\n**Análise de Preço Futuro:**{texto_futuro}"
+
     return texto
 
 
@@ -323,7 +364,7 @@ TICKERS_POR_SETOR = {
 }
 
 
-def gerar_sugestoes_carteira(portfolio_id: int) -> list[dict]:
+def gerar_sugestoes_carteira(portfolio_id: int, usar_preco_futuro: bool = False) -> list[dict]:
     """
     Gera sugestões de movimento usando scoring completo (técnico + fundamentalista + perfil).
     Inclui tanto ativos já possuídos quanto novos ativos relevantes para o perfil.
@@ -339,7 +380,7 @@ def gerar_sugestoes_carteira(portfolio_id: int) -> list[dict]:
 
     # --- 1) Analisar ativos já possuídos ---
     for ativo in ativos:
-        resultado = pontuar_ativo(ativo["ticker"], persona, portfolio)
+        resultado = pontuar_ativo(ativo["ticker"], persona, portfolio, pm_atual=ativo["preco_medio"], usar_preco_futuro=usar_preco_futuro)
         if resultado.get("sucesso"):
             score = resultado["score"]
             if score >= 75:
@@ -391,7 +432,7 @@ def gerar_sugestoes_carteira(portfolio_id: int) -> list[dict]:
     
     # Limitar a 5 para não fazer muitas chamadas de API
     for ticker in list(tickers_novos)[:5]:
-        resultado = pontuar_ativo(ticker, persona, portfolio)
+        resultado = pontuar_ativo(ticker, persona, portfolio, usar_preco_futuro=usar_preco_futuro)
         if resultado.get("sucesso") and resultado["score"] >= 50:
             texto = gerar_texto_resumo(ticker, resultado["indicadores"], resultado["score"])
             sugestoes.append({

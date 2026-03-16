@@ -649,3 +649,91 @@ EXPLICACAO: [Explicação de 2-3 frases no formato: "O plano original era X, mas
             "variacao_percent": round(variacao, 2),
             "preco_atual": preco_atual
         }
+
+
+def gerar_analise_rebalanceamento_ia(
+    ativos_atuais: list[dict],
+    persona_info: dict,
+    portfolio_info: dict,
+    usar_preco_futuro: bool = False
+) -> dict:
+    """
+    Analisa a carteira atual e sugere rebalanceamento (compras e vendas)
+    considerando o contexto geral e, opcionalmente, os preços-alvo.
+    """
+    # Buscar os preços atuais e preços-alvo (se solicitado)
+    ativos_com_alvo = []
+    
+    try:
+        from services.market_data import buscar_dados_fundamentalistas, buscar_preco_atual
+        
+        for a in ativos_atuais:
+            preco_atual_data = buscar_preco_atual(a['ticker'])
+            preco_atual = preco_atual_data.get('preco_atual', 0) if isinstance(preco_atual_data, dict) else 0
+
+            alvo_str = "N/A"
+            if usar_preco_futuro:
+                fund = buscar_dados_fundamentalistas(a['ticker'])
+                alvo = fund.get('preco_alvo_medio') or fund.get('preco_alvo_max')
+                if alvo:
+                    alvo_str = f"R$ {alvo:.2f}"
+            
+            ativos_com_alvo.append({
+                **a,
+                'preco_atual_real': preco_atual,
+                'preco_alvo_str': alvo_str
+            })
+    except Exception as e:
+        print(f"[ai_brain] Erro ao enriquecer dados para rebalanceamento: {e}")
+        ativos_com_alvo = ativos_atuais
+        for a in ativos_com_alvo:
+            if 'preco_atual_real' not in a: a['preco_atual_real'] = 0
+            if 'preco_alvo_str' not in a: a['preco_alvo_str'] = "N/A"
+
+    ativos_str = ""
+    for a in ativos_com_alvo:
+        lucro_prejuizo = ""
+        if a.get('preco_atual_real', 0) > 0 and a.get('preco_medio', 0) > 0:
+            pct = ((a['preco_atual_real'] - a['preco_medio']) / a['preco_medio']) * 100
+            lucro_prejuizo = f" | Atual: R$ {a['preco_atual_real']:.2f} ({pct:+.1f}%)"
+            
+        alvo_str = f" | Preço Alvo: {a.get('preco_alvo_str', 'N/A')}" if usar_preco_futuro else ""
+        ativos_str += f"- {a['ticker']}: {a['quantidade']} cotas | PM: R$ {a['preco_medio']:.2f}{lucro_prejuizo}{alvo_str}\n"
+
+    if not ativos_str:
+        ativos_str = "Nenhum ativo na carteira no momento."
+
+    prompt = f"""Você é um gestor de portfólio especializado no mercado brasileiro.
+
+Sua tarefa é analisar a carteira atual do investidor e fornecer uma RESPOSTA EM TEXTO CORRIDO sugerindo opções de rebalanceamento, vendas para realização de lucros ou novas aquisições para diversificação.
+
+CARTEIRA ATUAL DO INVESTIDOR:
+{ativos_str}
+
+PERFIL DO INVESTIDOR:
+- Estilo: {persona_info.get('estilo', 'dividendos')}
+- Tolerância a Risco: {persona_info.get('tolerancia_risco', 5)}/10
+- Frequência de Ação: {persona_info.get('frequencia_acao', 'semanal')}
+- Objetivo de Prazo: {portfolio_info.get('objetivo_prazo', 'longo')}
+
+INSTRUÇÕES:
+1. Se a opção "Preço Futuro" estiver ativa (há Preço Alvo fornecido na lista de ativos), compare o Preço Atual com o Preço Alvo. 
+   - Se o Preço Atual estiver próximo ou acima do alvo, e a posição tiver lucro, sugira realização de lucro (VENDA). 
+   - Se estiver bem abaixo, sugira a retenção ou compra para diminuir o PM.
+   - Considere a 'Frequência de Ação': traders ativos realizam lucros mais rápido que holders.
+2. Seja analítico, cite os ativos pelo Ticker e justifique suas decisões baseado no perfil.
+3. Formate a resposta detalhada como um relatório analítico e persuasivo. Use Markdown para destacar pontos chave.
+"""
+
+    try:
+        texto = _chamar_gemini_com_retry(prompt, "analise_rebalanceamento")
+        return {
+            "resumo": texto,
+            "sucesso": True
+        }
+    except Exception as e:
+        print(f"[ai_brain] Erro na análise de rebalanceamento: {e}")
+        return {
+            "resumo": f"⚠️ Não foi possível gerar a análise de rebalanceamento neste momento: {str(e)}",
+            "sucesso": False
+        }
