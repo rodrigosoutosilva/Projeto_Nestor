@@ -76,12 +76,11 @@ if not personas:
     st.stop()
 
 # ---------------------------------------------------------------------------
-# Selecionar Persona
+# Filtro de Persona para Listagem (Global)
 # ---------------------------------------------------------------------------
-persona_nomes = [f"{p['nome']} (Risco: {p['tolerancia_risco']}/10)" for p in personas]
-persona_idx = st.selectbox("Selecione a Persona:", range(len(personas)),
-                           format_func=lambda i: persona_nomes[i])
-persona_selecionada = personas[persona_idx]
+opcoes_filtro = ["Todas as Personas"] + [f"{p['nome']} (Risco: {p['tolerancia_risco']}/10)" for p in personas]
+filtro_idx = st.selectbox("Filtrar Carteiras por Persona:", range(len(opcoes_filtro)),
+                          format_func=lambda i: opcoes_filtro[i])
 
 st.markdown("---")
 
@@ -96,6 +95,13 @@ _criando = st.session_state.criando_carteira
 
 with st.expander("➕ Criar Nova Carteira", expanded=False):
     with st.container():
+        persona_nomes_criar = [f"{p['nome']} (Risco: {p['tolerancia_risco']}/10)" for p in personas]
+        persona_idx_criar = st.selectbox("Vincular à Persona:", range(len(personas)),
+                                   format_func=lambda i: persona_nomes_criar[i],
+                                   disabled=_criando)
+        persona_selecionada = personas[persona_idx_criar]
+        st.markdown("---")
+
         col1, col2 = st.columns(2)
 
         with col1:
@@ -284,11 +290,18 @@ with st.expander("➕ Criar Nova Carteira", expanded=False):
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# Listar Carteiras da Persona
+# Listar Carteiras
 # ---------------------------------------------------------------------------
-st.markdown(f"### 💼 Carteiras de '{persona_selecionada['nome']}'")
-
-portfolios = listar_portfolios_persona(persona_selecionada["id"])
+if filtro_idx == 0:
+    st.markdown("### 💼 Todas as Carteiras")
+    portfolios = []
+    for p in personas:
+        portfolios.extend(listar_portfolios_persona(p["id"]))
+    # Order by created_at or just leave as is (ordered by persona and then by creation)
+else:
+    persona_filtro = personas[filtro_idx - 1]
+    st.markdown(f"### 💼 Carteiras de '{persona_filtro['nome']}'")
+    portfolios = listar_portfolios_persona(persona_filtro["id"])
 
 if not portfolios:
     st.info("Nenhuma carteira nesta persona. Crie uma acima.")
@@ -311,7 +324,8 @@ else:
                 tipo_emoji = {"acoes": "📈", "fiis": "🏢", "misto": "🔀"}.get(port["tipo_ativo"], "📊")
                 with st.container(border=True):
                     st.markdown(f"#### {tipo_emoji} {port['nome']}")
-                    st.caption(f"Persona: **{persona_selecionada['nome']}** | Prazo: {port['objetivo_prazo'].capitalize()}")
+                    persona_da_carteira = next((p["nome"] for p in personas if p["id"] == port["persona_id"]), "Desconhecida")
+                    st.caption(f"Persona: **{persona_da_carteira}** | Prazo: {port['objetivo_prazo'].capitalize()}")
                     
                     # Calcular métricas financeiras
                     caixa = port.get("montante_disponivel", 0)
@@ -386,7 +400,8 @@ else:
             with st.expander(f"{tipo_emoji} **{port['nome']}** — Tipo: {port['tipo_ativo'].capitalize()}{montante_txt}"):
                 c1, c2 = st.columns([3, 1])
                 with c1:
-                    st.markdown(f"**Prazo:** {port['objetivo_prazo'].capitalize()} | **Meta DY:** {port['meta_dividendos']}%")
+                    persona_da_carteira = next((p["nome"] for p in personas if p["id"] == port["persona_id"]), "Desconhecida")
+                    st.markdown(f"**Persona:** {persona_da_carteira} | **Prazo:** {port['objetivo_prazo'].capitalize()} | **Meta DY:** {port['meta_dividendos']}%")
                     if port.get("setores_preferidos"):
                         setores_list = port["setores_preferidos"].split(",")
                         st.markdown(f"🏭 **Setores:** {', '.join(s.capitalize() for s in setores_list)}")

@@ -974,18 +974,23 @@ def cobrar_juros_cheque_especial():
         hoje = date.today()
         
         for p in portfolios_negativos:
-            # Verifica se já cobrou juros hoje ("Juros Saldo Negativo (SELIC)%")
+            # Verifica se já cobrou juros hoje
             ja_cobrou = session.query(Transaction).filter(
                 Transaction.portfolio_id == p.id,
                 Transaction.data == hoje,
-                Transaction.descricao.like("Juros Saldo Negativo (SELIC)%")
+                Transaction.descricao.like("Juros Saldo Negativo%")
             ).first()
             
             if not ja_cobrou:
                 saldo_devedor = abs(p.montante_disponivel)
-                # Utilizando taxa SELIC fixa de 11.25% ao ano para o exemplo
-                taxa_selic_anual = 0.1125 
-                taxa_diaria = taxa_selic_anual / 365.0
+                
+                # Obtem a taxa configurada na carteira (% a.m.)
+                taxa_mensal_perc = getattr(p, "taxa_saldo_negativo", 10.0)
+                if taxa_mensal_perc is None:
+                    taxa_mensal_perc = 10.0
+                
+                taxa_mensal = taxa_mensal_perc / 100.0
+                taxa_diaria = taxa_mensal / 30.0
                 juros_hoje = saldo_devedor * taxa_diaria
                 
                 # Debita o valor do montante (que fica mais negativo)
@@ -996,7 +1001,7 @@ def cobrar_juros_cheque_especial():
                     portfolio_id=p.id,
                     tipo=TipoTransacao.RETIRADA,
                     valor=juros_hoje,
-                    descricao=f"Juros Saldo Negativo (SELIC)",
+                    descricao=f"Juros Saldo Negativo ({taxa_mensal_perc:.1f}% a.m.)",
                     origem=OrigemTransacao.SISTEMA,
                     data=hoje
                 )
