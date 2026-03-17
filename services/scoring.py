@@ -212,38 +212,37 @@ def pontuar_ativo(ticker: str, persona: dict, portfolio: dict, pm_atual: float =
 
     # --- Lógica de Preço Futuro ---
     texto_futuro = ""
-    if usar_preco_futuro:
-        preco_atual = indicadores.get("preco_atual", 0)
-        preco_alvo = fundamentos.get("preco_alvo_medio") or fundamentos.get("preco_alvo_max")
-        freq = persona.get("frequencia_acao", "semanal")
+    preco_atual = indicadores.get("preco_atual", 0)
+    preco_alvo = fundamentos.get("preco_alvo_medio") or fundamentos.get("preco_alvo_max")
+    freq = persona.get("frequencia_acao", "semanal")
 
-        if preco_atual > 0 and preco_alvo and preco_alvo > 0:
-            upside = ((preco_alvo - preco_atual) / preco_atual) * 100
-            
-            # Threshold de venda adaptável conforme a frequência de giro da carteira
-            # day traders aceitam sair um pouco antes do alvo; buy and hold espera até passar do alvo.
-            threshold_venda = 0.0
-            if freq == "diario": threshold_venda = 2.0
-            elif freq == "semanal": threshold_venda = 0.0
-            else: threshold_venda = -5.0
+    if preco_atual > 0 and preco_alvo and preco_alvo > 0:
+        upside = ((preco_alvo - preco_atual) / preco_atual) * 100
+        
+        # Threshold de venda adaptável conforme a frequência de giro da carteira
+        # day traders aceitam sair um pouco antes do alvo; buy and hold espera até passar do alvo.
+        threshold_venda = 0.0
+        if freq == "diario": threshold_venda = 2.0
+        elif freq == "semanal": threshold_venda = 0.0
+        else: threshold_venda = -5.0
 
-            if pm_atual > 0:
-                lucro_pct = ((preco_atual - pm_atual) / pm_atual) * 100
-                if upside <= threshold_venda and lucro_pct > 0:
-                    # Atingiu o alvo e está com lucro -> força VENDA (reduz drastically o score)
-                    score_final = min(score_final, 35.0)
-                    texto_futuro = f" O preço (R\\$ {preco_atual:.2f}) atingiu a região do preço-alvo médio (R\\$ {preco_alvo:.2f}) com lucro de {lucro_pct:.1f}%. Pela sua frequência de revisão ({freq}), sugere-se realizar lucro."
-                elif upside > 15.0 and lucro_pct < -5.0:
-                    # Caiu, mas o alvo continua indicando alta forte -> força COMPRA para baixar PM
-                    score_final = max(score_final, 75.0)
-                    texto_futuro = f" O ativo caiu e está com prejuízo de {abs(lucro_pct):.1f}%, mas o preço-alvo (R\\$ {preco_alvo:.2f}) indica potencial de {upside:.1f}%. Oportunidade para reduzir seu preço médio."
-            else:
-                if upside > 20.0:
-                    score_final = max(score_final, 75.0)
-                    texto_futuro = f" O preço-alvo (R\\$ {preco_alvo:.2f}) indica um excelente potencial de alta de {upside:.1f}% frente à cotação atual."
-                elif upside <= 5.0:
-                    score_final = min(score_final, 45.0)
-                    texto_futuro = f" Cotação (R\\$ {preco_atual:.2f}) muito próxima ao preço-alvo (R\\$ {preco_alvo:.2f}). Margem de segurança baixa para novas compras."
+        if pm_atual > 0:
+            lucro_pct = ((preco_atual - pm_atual) / pm_atual) * 100
+            if upside <= threshold_venda and lucro_pct > 0:
+                # Atingiu o alvo e está com lucro -> força VENDA (reduz drastically o score)
+                score_final = min(score_final, 35.0)
+                texto_futuro = f" O preço (R\\$ {preco_atual:.2f}) atingiu a região do preço-alvo médio (R\\$ {preco_alvo:.2f}) com lucro de {lucro_pct:.1f}%. Pela sua frequência de revisão ({freq}), sugere-se realizar lucro."
+            elif upside > 15.0 and lucro_pct < -5.0:
+                # Caiu, mas o alvo continua indicando alta forte -> força COMPRA para baixar PM
+                score_final = max(score_final, 75.0)
+                texto_futuro = f" O ativo caiu e está com prejuízo de {abs(lucro_pct):.1f}%, mas o preço-alvo (R\\$ {preco_alvo:.2f}) indica potencial de {upside:.1f}%. Oportunidade para reduzir seu preço médio."
+        else:
+            if upside > 20.0:
+                score_final = max(score_final, 75.0)
+                texto_futuro = f" O preço-alvo (R\\$ {preco_alvo:.2f}) indica um excelente potencial de alta de {upside:.1f}% frente à cotação atual."
+            elif upside <= 5.0:
+                score_final = min(score_final, 45.0)
+                texto_futuro = f" Cotação (R\\$ {preco_atual:.2f}) muito próxima ao preço-alvo (R\\$ {preco_alvo:.2f}). Margem de segurança baixa para novas compras."
 
     score_final = round(score_final, 2)
 

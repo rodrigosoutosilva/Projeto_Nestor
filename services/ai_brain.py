@@ -672,11 +672,10 @@ def gerar_analise_rebalanceamento_ia(
             preco_atual = preco_atual_data.get('preco_atual', 0) if isinstance(preco_atual_data, dict) else 0
 
             alvo_str = "N/A"
-            if usar_preco_futuro:
-                fund = buscar_dados_fundamentalistas(a['ticker'])
-                alvo = fund.get('preco_alvo_medio') or fund.get('preco_alvo_max')
-                if alvo:
-                    alvo_str = f"R$ {alvo:.2f}"
+            fund = buscar_dados_fundamentalistas(a['ticker'])
+            alvo = fund.get('preco_alvo_medio') or fund.get('preco_alvo_max')
+            if alvo:
+                alvo_str = f"R$ {alvo:.2f}"
             
             ativos_com_alvo.append({
                 **a,
@@ -721,7 +720,7 @@ PERFIL DO INVESTIDOR:
 - Objetivo de Prazo: {portfolio_info.get('objetivo_prazo', 'longo')}
 
 INSTRUÇÕES:
-1. Se a opção "Preço Futuro" estiver ativa (há Preço Alvo fornecido na lista de ativos), compare o Preço Atual com o Preço Alvo. 
+1. Compare o Preço Atual com o Preço Alvo fornecido na lista de ativos (se disponível). 
    - Se o Preço Atual estiver próximo ou acima do alvo, e a posição tiver lucro, sugira realização de lucro (VENDA). 
    - Se estiver bem abaixo, sugira a retenção ou compra para diminuir o PM.
    - Considere a 'Frequência de Ação': traders ativos realizam lucros mais rápido que holders.
@@ -784,7 +783,7 @@ RESUMO: [Explicação analítica unificada de 2 a 3 frases]
                     sugestao['preco_estimado'] = preco_est
                     
                     # Targeted Price if using future price
-                    if usar_preco_futuro and ativo_carteira and ativo_carteira.get("preco_alvo_str") != "N/A":
+                    if ativo_carteira and ativo_carteira.get("preco_alvo_str") != "N/A":
                         try:
                             sugestao['preco_sugerido'] = float(ativo_carteira["preco_alvo_str"].replace("R$ ", ""))
                         except:

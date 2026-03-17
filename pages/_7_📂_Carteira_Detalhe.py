@@ -859,9 +859,9 @@ with tab4:
     
     # Toggle de Preço Futuro
     usar_preco_futuro = st.toggle(
-        "Sugestões baseadas em preço futuro", 
+        "Preparar ordens em Preços Alvo (Não alcançados)", 
         key="usar_preco_futuro", 
-        help="Se ativado, o algoritmo e a IA considerarão os preços-alvo dos ativos para sugerir realizações de lucro ou novas compras para diminuir o PM.", 
+        help="Se ativado, as ordens de movimentação sugeridas virão preenchidas com os preços-alvo futuros dos ativos, criando ordens condicionais no sistema.", 
         value=False
     )
     
