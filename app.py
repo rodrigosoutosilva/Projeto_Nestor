@@ -510,11 +510,29 @@ def setup():
 
 gemini_configurado = setup()
 
-try:
-    from database.crud import cobrar_juros_cheque_especial
-    cobrar_juros_cheque_especial()
-except Exception as e:
-    print(f"Erro ao cobrar juros do cheque especial: {e}")
+@st.cache_resource
+def iniciar_scheduler_juros():
+    import threading
+    import time
+    from datetime import datetime
+    
+    def _run_scheduler():
+        while True:
+            agora = datetime.now()
+            if agora.hour == 23 and agora.minute == 59:
+                try:
+                    from database.crud import cobrar_juros_cheque_especial
+                    cobrar_juros_cheque_especial()
+                except Exception as e:
+                    print(f"Erro no auto-pagamento de juros: {e}")
+                time.sleep(60) # Evita multíplas chamadas dentro do mesmo minuto
+            time.sleep(30)
+            
+    t = threading.Thread(target=_run_scheduler, daemon=True)
+    t.start()
+    return True
+
+iniciar_scheduler_juros()
 
 
 # ---------------------------------------------------------------------------

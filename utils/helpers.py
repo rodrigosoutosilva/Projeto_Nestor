@@ -414,6 +414,8 @@ def injetar_css_global():
     """Injeta CSS global para métricas, headers e dropdowns.
     DEVE ser chamada em TODAS as páginas logo após st.set_page_config()."""
     import streamlit as st
+
+    
     st.markdown("""<style>
     /* Métricas */
     [data-testid="stMetricLabel"] { font-size: 0.82rem !important; font-weight: 600 !important; }

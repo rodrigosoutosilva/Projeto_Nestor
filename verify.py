@@ -11,9 +11,9 @@ init_db()
 
 with get_session() as session:
     # 1. Setup minimal data for testing if it doesn't exist
-    user = session.query(User).filter_by(email="test_selic@example.com").first()
+    user = session.query(User).filter_by(email="test_juros@example.com").first()
     if not user:
-        user = User(nome="Test Selic", email="test_selic@example.com", senha="123")
+        user = User(nome="Test Juros", email="test_juros@example.com", senha="123")
         session.add(user)
         session.flush()
 
@@ -38,14 +38,14 @@ with get_session() as session:
     # Record ID for test
     port_id = port.id
 
-# 2. Run the Selic interest function
+# 2. Run the interest function
 print("Lidando com saldo de -R$1000.0 ... Cobrando juros...")
 cobrar_juros_cheque_especial()
 
 # 3. Verify modifications
 with get_session() as session:
     port = session.query(Portfolio).filter_by(id=port_id).first()
-    taxa_esperada = (0.1125 / 365.0) * 1000.0
+    taxa_esperada = (10.0 / 100.0 / 30.0) * 1000.0
     saldo_esperado = -1000.0 - taxa_esperada
     
     print(f"Saldo Original: -1000.0")
@@ -58,8 +58,8 @@ with get_session() as session:
         print("[ERRO] Erro na atualizacao do Portfolio.")
         
     transacoes = session.query(Transaction).filter_by(portfolio_id=port_id).all()
-    if any("SELIC" in t.descricao for t in transacoes):
-        print("[OK] Transacao de Juros (Selic) registrada no historico.")
+    if any("Juros" in t.descricao for t in transacoes):
+        print("[OK] Transacao de Juros registrada no historico.")
     else:
         print("[ERRO] Faltando transacao no historico.")
 

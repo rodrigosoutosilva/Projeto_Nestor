@@ -302,7 +302,7 @@ with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=
                             # Logica Nova: permite saldo negativo com warning
                             if v_compra > caixa_disp and not st.session_state.get(f"confirm_negative_{ticker}_{port_id}", False):
                                 st.session_state[f"confirm_negative_{ticker}_{port_id}"] = True
-                                st.warning("⚠️ Caixa insuficiente! A compra resultará em **saldo negativo**, sujeito à cobrança diária de juros Selic. Clique novamente em Executar para confirmar.")
+                                st.warning("⚠️ Caixa insuficiente! A compra resultará em **saldo negativo**, sujeito à cobrança diária da taxa configurada. Clique novamente em Executar para confirmar.")
                             else:
                                 st.session_state[f"confirm_negative_{ticker}_{port_id}"] = False
                                 ativos_cart = listar_ativos_portfolio(port_id)

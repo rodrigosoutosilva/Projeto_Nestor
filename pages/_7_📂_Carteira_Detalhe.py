@@ -663,7 +663,7 @@ with tab3:
                                     v_compra = qtd_editada * preco_editado
                                     if v_compra > caixa_at and not st.session_state.get(f"confirm_negative_{ticker_sug}_{port['id']}", False):
                                         st.session_state[f"confirm_negative_{ticker_sug}_{port['id']}"] = True
-                                        st.warning("⚠️ Caixa insuficiente! A compra resultará em saldo negativo. Clique novamente em Executar para confirmar e arcar com os juros (Selic).")
+                                        st.warning("⚠️ Caixa insuficiente! A compra resultará em saldo negativo. Clique novamente em Executar para confirmar e arcar com a taxa configurada.")
                                     else:
                                         st.session_state[f"confirm_negative_{ticker_sug}_{port['id']}"] = False
                                         ativo_ext = next((x for x in ativos if x["ticker"] == ticker_sug), None)
@@ -722,7 +722,7 @@ with tab3:
                 if st.button("🛒 Comprar Tudo", key="btn_comprar_tudo_ia", type="primary", use_container_width=True):
                     if total_compra_tudo > caixa_disponivel and not st.session_state.get("confirm_negative_comprar_tudo", False):
                         st.session_state["confirm_negative_comprar_tudo"] = True
-                        st.warning(f"⚠️ O total (R\\$ {total_compra_tudo:,.2f}) excede o caixa disponível (R\\$ {caixa_disponivel:,.2f}). A compra resultará em saldo negativo. Clique novamente em 'Comprar Tudo' para confirmar e arcar com os juros (Selic).")
+                        st.warning(f"⚠️ O total (R\\$ {total_compra_tudo:,.2f}) excede o caixa disponível (R\\$ {caixa_disponivel:,.2f}). A compra resultará em saldo negativo. Clique novamente em 'Comprar Tudo' para confirmar e arcar com a taxa configurada.")
                     else:
                         st.session_state["confirm_negative_comprar_tudo"] = False
                         caixa_restante = caixa_disponivel

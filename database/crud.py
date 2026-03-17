@@ -989,8 +989,8 @@ def cobrar_juros_cheque_especial():
                 if taxa_mensal_perc is None:
                     taxa_mensal_perc = 10.0
                 
-                taxa_mensal = taxa_mensal_perc / 100.0
-                taxa_diaria = taxa_mensal / 30.0
+                # Juros Saldo Negativo (Fixo Mensal proporcional diário)
+                taxa_diaria = (taxa_mensal_perc / 100.0) / 30.0
                 juros_hoje = saldo_devedor * taxa_diaria
                 
                 # Debita o valor do montante (que fica mais negativo)
