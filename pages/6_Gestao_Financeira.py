@@ -1,5 +1,5 @@
 """
-📜 Gestão Financeira - Histórico de Movimentações Financeiras
+Gestão Financeira - Histórico de Movimentações Financeiras
 =====================================================
 
 Página para visualizar todas as movimentações das carteiras:
@@ -22,17 +22,17 @@ from database.crud import (
 from utils.helpers import formatar_moeda, formatar_data_br, formatar_moeda_md, injetar_css_global, render_metric
 from datetime import date
 
-st.set_page_config(page_title="📜 Gestão Financeira", page_icon="📜", layout="wide")
+st.set_page_config(page_title="Gestão Financeira", page_icon="▪️", layout="wide")
 injetar_css_global()
 
 # Verificar login
 if "user" not in st.session_state or st.session_state.user is None:
-    st.warning("⚠️ Faça login na página principal primeiro.")
+    st.warning("Faça login na página principal primeiro.")
     st.stop()
 
 user = st.session_state.user
 
-st.markdown("### 📜 Gestão Financeira")
+st.markdown("### Gestão Financeira")
 st.markdown("*Acompanhe toda a movimentação financeira das suas carteiras*")
 st.markdown("---")
 
@@ -46,14 +46,14 @@ with col_ex2:
     if "excel_data" not in st.session_state:
         st.session_state.excel_data = None
         
-    if st.button("📊 Gerar Relatório Excel", use_container_width=True):
+    if st.button("Gerar Relatório Excel", use_container_width=True, type="primary"):
         from services.excel_export import gerar_relatorio_excel
         with st.spinner("Gerando planilha..."):
             st.session_state.excel_data = gerar_relatorio_excel(user['id'])
             
     if st.session_state.get("excel_data"):
         st.download_button(
-            label="📥 Baixar .xlsx",
+            label="Baixar .xlsx",
             data=st.session_state.excel_data,
             file_name="relatorio_completo_egolab.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -88,7 +88,7 @@ if not todos_portfolios:
 # ---------------------------------------------------------------------------
 # Filtros opcionais (começa mostrando tudo)
 # ---------------------------------------------------------------------------
-st.markdown("#### 🔍 Filtros")
+st.markdown("#### Filtros")
 col_f1, col_f2 = st.columns(2)
 
 with col_f1:
@@ -116,7 +116,7 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Resumo Financeiro Consolidado
 # ---------------------------------------------------------------------------
-st.markdown("### 💰 Resumo Financeiro")
+st.markdown("### Resumo Financeiro")
 
 resumo_total = {
     "total_aportes": 0, "total_retiradas": 0,
@@ -132,20 +132,20 @@ for pt in carteiras_filtradas:
     caixa_total += pt.get("montante_disponivel", 0)
 
 col1, col2, col3, col4, col5 = st.columns(5)
-with col1: render_metric("💵 Caixa Total", caixa_total)
-with col2: render_metric("📥 Aportes", resumo_total["total_aportes"])
-with col3: render_metric("📤 Retiradas", resumo_total["total_retiradas"])
-with col4: render_metric("🛒 Compras", resumo_total["total_compras"])
-with col5: render_metric("💰 Dividendos", resumo_total["total_dividendos"])
+with col1: render_metric("Caixa Total", caixa_total)
+with col2: render_metric("Aportes", resumo_total["total_aportes"])
+with col3: render_metric("Retiradas", resumo_total["total_retiradas"])
+with col4: render_metric("Compras", resumo_total["total_compras"])
+with col5: render_metric("Dividendos", resumo_total["total_dividendos"])
 
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
 # Registrar Movimentação (sempre pede a carteira)
 # ---------------------------------------------------------------------------
-st.markdown("### ➕ Registrar Movimentação")
+st.markdown("### Registrar Movimentação")
 
-tab_aporte, tab_retirada, tab_dividendo = st.tabs(["📥 Aporte", "📤 Retirada", "💰 Dividendo"])
+tab_aporte, tab_retirada, tab_dividendo = st.tabs(["Aporte", "Retirada", "Dividendo"])
 
 # Opções de carteira para os formulários
 opcoes_port_form = {pt["id"]: f"{pt['nome']} ({pt['persona_nome']})" for pt in todos_portfolios}
@@ -161,13 +161,13 @@ with tab_aporte:
             aporte_data = st.date_input("Data:", value=date.today(), key="aporte_data")
         aporte_desc = st.text_input("Descrição (opcional):", placeholder="Ex: Salário de fevereiro", key="aporte_desc")
 
-        if st.form_submit_button("📥 Registrar Aporte", use_container_width=True):
+        if st.form_submit_button("Registrar Aporte", use_container_width=True, type="primary"):
             registrar_transacao(
                 portfolio_id=port_aporte, tipo="aporte",
                 valor=aporte_valor, descricao=aporte_desc or "Aporte",
                 data_transacao=aporte_data
             )
-            st.toast(f"Aporte de {formatar_moeda(aporte_valor)} registrado! 📥".replace("$", r"\$"))
+            st.toast(f"Aporte de {formatar_moeda(aporte_valor)} registrado!".replace("$", r"\$"))
             st.rerun()
 
 with tab_retirada:
@@ -181,11 +181,11 @@ with tab_retirada:
             ret_data = st.date_input("Data:", value=date.today(), key="ret_data")
         ret_desc = st.text_input("Descrição (opcional):", placeholder="Ex: Emergência", key="ret_desc")
 
-        if st.form_submit_button("📤 Registrar Retirada", use_container_width=True):
+        if st.form_submit_button("Registrar Retirada", use_container_width=True, type="primary"):
             port_info = buscar_portfolio_por_id(port_ret)
             caixa_disp = port_info.get("montante_disponivel", 0) if port_info else 0
             if ret_valor > caixa_disp:
-                st.warning(f"⚠️ Caixa insuficiente (Disponível: {formatar_moeda(caixa_disp)}). Esta retirada causará saldo negativo, sujeito a cobrança diária de juros. Clique em Registrar Retirada novamente para confirmar.".replace("$", r"\$"))
+                st.warning(f"Caixa insuficiente (Disponível: {formatar_moeda(caixa_disp)}). Esta retirada causará saldo negativo, sujeito a cobrança diária de juros. Clique em Registrar Retirada novamente para confirmar.".replace("$", r"\$"))
                 if not st.session_state.get(f"conf_retirada_gestao", False):
                     st.session_state[f"conf_retirada_gestao"] = True
                     st.stop()
@@ -198,7 +198,7 @@ with tab_retirada:
             )
             from database.crud import atualizar_portfolio
             atualizar_portfolio(port_ret, montante_disponivel=caixa_disp - ret_valor)
-            st.toast(f"Retirada de {formatar_moeda(ret_valor)} registrada! 📤".replace("$", r"\$"))
+            st.toast(f"Retirada de {formatar_moeda(ret_valor)} registrada!".replace("$", r"\$"))
             st.rerun()
 
 with tab_dividendo:
@@ -214,7 +214,7 @@ with tab_dividendo:
             div_data = st.date_input("Data:", value=date.today(), key="div_data")
         div_desc = st.text_input("Descrição (opcional):", placeholder="Ex: Dividendo trimestral", key="div_desc")
 
-        if st.form_submit_button("💰 Registrar Dividendo", use_container_width=True):
+        if st.form_submit_button("Registrar Dividendo", use_container_width=True, type="primary"):
             if not div_ticker:
                 st.error("Informe o ticker do ativo!")
             else:
@@ -224,7 +224,7 @@ with tab_dividendo:
                     descricao=div_desc or f"Dividendo {div_ticker.upper()}",
                     data_transacao=div_data
                 )
-                st.toast(f"Dividendo de {formatar_moeda(div_valor)} de {div_ticker.upper()} registrado! 💰".replace("$", r"\$"))
+                st.toast(f"Dividendo de {formatar_moeda(div_valor)} de {div_ticker.upper()} registrado!".replace("$", r"\$"))
                 st.rerun()
 
 st.markdown("---")
@@ -232,16 +232,16 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Tabela de Transações Consolidada
 # ---------------------------------------------------------------------------
-st.markdown("#### 📋 Histórico de Transações")
+st.markdown("#### Histórico de Transações")
 
 # Filtro por tipo
 filtro_tipo = st.selectbox(
     "Filtrar por tipo:",
     ["todos", "aporte", "retirada", "compra", "venda", "dividendo"],
     format_func=lambda x: {
-        "todos": "📊 Todos", "aporte": "📥 Aportes",
-        "retirada": "📤 Retiradas", "compra": "🟢 Compras",
-        "venda": "🔴 Vendas", "dividendo": "💰 Dividendos"
+        "todos": "Todos", "aporte": "Aportes",
+        "retirada": "Retiradas", "compra": "Compras",
+        "venda": "Vendas", "dividendo": "Dividendos"
     }.get(x, x)
 )
 
@@ -260,16 +260,16 @@ todas_transacoes.sort(key=lambda t: t.get("data", ""), reverse=True)
 
 if todas_transacoes:
     tipo_emoji = {
-        "aporte": "📥", "retirada": "📤",
-        "compra": "🟢", "venda": "🔴", "dividendo": "💰"
+        "aporte": "▪️", "retirada": "▪️",
+        "compra": "▪️", "venda": "▪️", "dividendo": "▪️"
     }
 
     for t in todas_transacoes:
-        emoji = tipo_emoji.get(t["tipo"], "📊")
+        emoji = tipo_emoji.get(t["tipo"], "▪️")
         ticker_txt = f" — {t['ticker']}" if t.get('ticker') else ""
         qtd_txt = f" ({t['quantidade']}x @ {formatar_moeda_md(t['preco_unitario'])})" if t.get('quantidade') and t.get('preco_unitario') else ""
         desc_txt = f" · <em>{t['descricao']}</em>" if t.get('descricao') else ""
-        carteira_txt = f" | 📂 {t.get('carteira_nome', '')}"
+        carteira_txt = f" | Carteira: {t.get('carteira_nome', '')}"
 
         if t["tipo"] in ("aporte", "venda", "dividendo"):
             valor_txt = f"+{formatar_moeda_md(t['valor'])}"
@@ -281,13 +281,13 @@ if todas_transacoes:
         st.markdown(
             f"{emoji} **{t['tipo'].upper()}**{ticker_txt}{qtd_txt} | "
             f"<span style='color:{cor};font-weight:700'>{valor_txt}</span> | "
-            f"📅 {formatar_data_br(t['data'])}{carteira_txt}{desc_txt}",
+            f"{formatar_data_br(t['data'])}{carteira_txt}{desc_txt}",
             unsafe_allow_html=True
         )
 
     # Gráfico de evolução
     st.markdown("---")
-    st.markdown("#### 📈 Evolução do Caixa")
+    st.markdown("#### Evolução do Caixa")
 
     transacoes_ordenadas = sorted(todas_transacoes, key=lambda t: t.get("data", ""))
     saldo = 0

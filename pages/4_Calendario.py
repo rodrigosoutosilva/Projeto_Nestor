@@ -7,14 +7,14 @@ from database.crud import (
 )
 from utils.helpers import formatar_moeda, nome_ativo, injetar_css_global
 
-st.set_page_config(page_title="Calendário de Movimentos", page_icon="📅", layout="wide")
+st.set_page_config(page_title="Calendário de Movimentos", page_icon="▪️", layout="wide")
 injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:
-    st.warning("⚠️ Faça login na página principal primeiro.")
+    st.warning("Faça login na página principal primeiro.")
     st.stop()
 
-st.header("📅 Calendário de Movimentos")
+st.header("Calendário de Movimentos")
 st.markdown("Visualize suas operações planejadas e executadas organizadas cronologicamente.")
 
 personas = listar_personas_usuario(st.session_state.user['id'])
@@ -60,7 +60,7 @@ for pid in portfolios_filtrados:
     for a in acoes:
         movimentos.append({
             "Data": a["data_planejada"],
-            "Status": "⏳ Planejado",
+            "Status": "Planejado",
             "Ativo": f"{a['asset_ticker']} - {nome_ativo(a['asset_ticker'])}",
             "Operação": a["tipo_acao"].upper(),
             "Valor": formatar_moeda(a.get("caixa_necessario") or 0),
@@ -73,7 +73,7 @@ for pid in portfolios_filtrados:
     for t in transacoes:
         movimentos.append({
             "Data": pd.to_datetime(t["data"]).date() if isinstance(t["data"], str) else t["data"],
-            "Status": "✅ Executado",
+            "Status": "Executado",
             "Ativo": f"{t['ticker']} - {nome_ativo(t['ticker'])}" if t['ticker'] else "-",
             "Operação": t["tipo"].upper(),
             "Valor": formatar_moeda(t["valor"]),

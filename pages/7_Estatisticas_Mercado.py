@@ -1,5 +1,5 @@
 """
-7_📈_Estatisticas_Mercado.py - Relatório Estatístico
+7_Estatisticas_Mercado.py - Relatório Estatístico
 
 Agrega dados por setor mostrando Mínimos, Máximos, Médias e Modas (ao invés de Medianas).
 """
@@ -14,10 +14,10 @@ from services.market_data import buscar_dados_fundamentalistas
 from services.scoring import TICKERS_POR_SETOR
 from utils.helpers import injetar_css_global
 
-st.set_page_config(page_title="Estatísticas de Mercado", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Estatísticas de Mercado", page_icon="▪️", layout="wide")
 injetar_css_global()
 
-st.markdown("### 📈 Relatório Estatístico de Mercado")
+st.markdown("### Estatísticas de Mercado")
 st.markdown("*Acompanhe métricas (Mínimo, Máximo, Média e Moda) agregadas por setor no mercado nacional.*")
 st.markdown("---")
 
@@ -110,23 +110,23 @@ if df_stats.empty:
 
 # --- INTERFACE EXECUTIVA ---
 setores_disp = sorted(df_stats["Setor"].unique().tolist())
-filtro_setor = st.selectbox("🏭 Filtrar por Setor (Tabela Estatística):", ["Visão Geral de Todos"] + setores_disp)
+filtro_setor = st.selectbox("Filtrar por Setor (Tabela Estatística):", ["Visão Geral de Todos"] + setores_disp)
 
 st.markdown("---")
 
 if filtro_setor == "Visão Geral de Todos":
-    st.markdown("#### 📊 Tabela de Dispersão Geral")
+    st.markdown("#### Tabela de Dispersão Geral")
     st.dataframe(df_stats, use_container_width=True, hide_index=True)
 else:
     df_setor = df_stats[df_stats["Setor"] == filtro_setor].copy()
     
-    st.markdown(f"#### 🏢 Indicadores do Setor: {filtro_setor}")
+    st.markdown(f"#### Indicadores do Setor: {filtro_setor}")
     st.dataframe(df_setor, use_container_width=True, hide_index=True)
 
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown("---")
 
-st.markdown("### 💼 Ir para os Detalhes do Ativo")
+st.markdown("### Ir para os Detalhes do Ativo")
 st.markdown("*Use os tickers descobertos nas colunas de **Mínimo/Máximo** lado a lado da tabela para estudá-los a fundo na central.*")
 
 c_input, c_btn = st.columns([1, 4])
@@ -134,10 +134,10 @@ with c_input:
     busca_ticker = st.text_input("Ticker da Ação / Fundo", placeholder="PETR4", key="btn_dt_ticker").strip().upper()
 with c_btn:
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🔍 Inspecionar Ativo", type="primary"):
+    if st.button("Inspecionar Ativo", type="primary"):
         if busca_ticker:
             st.session_state['view_asset_ticker'] = busca_ticker
-            st.session_state['voltar_para_pagina'] = "pages/7_📈_Estatisticas_Mercado.py"
-            st.switch_page("pages/_8_📄_Ativo.py")
+            st.session_state['voltar_para_pagina'] = "pages/7_Estatisticas_Mercado.py"
+            st.switch_page("pages/_8_Ativo.py")
         else:
             st.warning("Por favor, digite um Ticker válido antes de pesquisar.")

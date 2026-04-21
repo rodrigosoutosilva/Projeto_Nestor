@@ -1,5 +1,5 @@
 """
-🧑 Personas - Gestão de Perfis de Investimento
+Personas - Gestão de Perfis de Investimento
 =================================================
 
 Cada persona representa uma estratégia de investimento diferente.
@@ -18,24 +18,24 @@ from database.crud import (
 from services.market_data import buscar_preco_atual
 from utils.helpers import formatar_moeda, formatar_moeda_md, injetar_css_global
 
-st.set_page_config(page_title="🧑 Personas", page_icon="🧑", layout="wide")
+st.set_page_config(page_title="Personas", page_icon="▪️", layout="wide")
 injetar_css_global()
 
 # Verificar login
 if "user" not in st.session_state or st.session_state.user is None:
-    st.warning("⚠️ Faça login na página principal primeiro.")
+    st.warning("Faça login na página principal primeiro.")
     st.stop()
 
 user = st.session_state.user
 
-st.markdown("### 🧑 Gestão de Personas")
+st.markdown("### Gestão de Personas")
 st.markdown("*Configure perfis de investimento com diferentes estratégias*")
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
 # Criar Nova Persona
 # ---------------------------------------------------------------------------
-with st.expander("➕ Criar Nova Persona", expanded=False):
+with st.expander("Criar Nova Persona", expanded=False):
     with st.form("form_nova_persona"):
         col1, col2 = st.columns(2)
 
@@ -48,9 +48,9 @@ with st.expander("➕ Criar Nova Persona", expanded=False):
                 "Frequência de Revisão",
                 options=["diario", "semanal", "mensal"],
                 format_func=lambda x: {
-                    "diario": "📅 Diário (day trader)",
-                    "semanal": "📆 Semanal (swing trader)",
-                    "mensal": "🗓️ Mensal (buy & hold)"
+                    "diario": "Diário (day trader)",
+                    "semanal": "Semanal (swing trader)",
+                    "mensal": "Mensal (buy & hold)"
                 }[x],
                 index=1
             )
@@ -65,23 +65,23 @@ with st.expander("➕ Criar Nova Persona", expanded=False):
                 "Estilo de Investimento",
                 options=["dividendos", "crescimento", "equilibrado"],
                 format_func=lambda x: {
-                    "dividendos": "💰 Dividendos (renda passiva)",
-                    "crescimento": "🚀 Crescimento (valorização)",
-                    "equilibrado": "⚖️ Equilibrado (mix de renda + valorização)"
+                    "dividendos": "Dividendos (renda passiva)",
+                    "crescimento": "Crescimento (valorização)",
+                    "equilibrado": "Equilibrado (mix de renda + valorização)"
                 }[x]
             )
 
         # Indicador visual de perfil
         if tolerancia <= 3:
-            perfil_txt = "🟢 **Conservador** — Prefere segurança e renda fixa"
+            perfil_txt = "**Conservador** — Prefere segurança e renda fixa"
         elif tolerancia <= 6:
-            perfil_txt = "🟡 **Moderado** — Equilibra risco e retorno"
+            perfil_txt = "**Moderado** — Equilibra risco e retorno"
         else:
-            perfil_txt = "🔴 **Arrojado** — Aceita volatilidade por maiores retornos"
+            perfil_txt = "**Arrojado** — Aceita volatilidade por maiores retornos"
 
         st.markdown(f"Perfil detectado: {perfil_txt}")
 
-        submitted = st.form_submit_button("✅ Criar Persona", use_container_width=True)
+        submitted = st.form_submit_button("Criar Persona", use_container_width=True, type="primary")
         if submitted:
             if not nome:
                 st.error("O nome da persona é obrigatório!")
@@ -94,15 +94,15 @@ with st.expander("➕ Criar Nova Persona", expanded=False):
                     estilo=estilo
                 )
                 st.session_state.view_persona_id = result["id"]
-                st.toast(f"Persona **{nome}** criada com sucesso! 🎉")
-                st.switch_page("pages/_9_🧑_Persona_Detalhe.py")
+                st.toast(f"Persona **{nome}** criada com sucesso!")
+                st.switch_page("pages/_9_Persona_Detalhe.py")
 
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
 # Listar Personas em Cards
 # ---------------------------------------------------------------------------
-st.markdown("### 📋 Suas Personas")
+st.markdown("### Suas Personas")
 
 personas = listar_personas_usuario(user["id"])
 
@@ -117,18 +117,18 @@ else:
         with cols[i % 2]:
             # Cores por tolerância
             if persona["tolerancia_risco"] <= 3:
-                cor, perfil = "🟢", "Conservador"
+                cor, perfil = "▪️", "Conservador"
             elif persona["tolerancia_risco"] <= 6:
-                cor, perfil = "🟡", "Moderado"
+                cor, perfil = "▪️", "Moderado"
             else:
-                cor, perfil = "🔴", "Arrojado"
+                cor, perfil = "▪️", "Arrojado"
 
             freq_label = {
-                "diario": "📅 Diário", "semanal": "📆 Semanal", "mensal": "🗓️ Mensal"
+                "diario": "Diário", "semanal": "Semanal", "mensal": "Mensal"
             }.get(persona.get("frequencia_acao", ""), "")
 
             estilo_label = {
-                "dividendos": "💰 Dividendos", "crescimento": "🚀 Crescimento", "equilibrado": "⚖️ Equilibrado"
+                "dividendos": "Dividendos", "crescimento": "Crescimento", "equilibrado": "Equilibrado"
             }.get(persona.get("estilo", ""), "")
 
             with st.container(border=True):
@@ -158,42 +158,41 @@ else:
                 valor_total = caixa_total + patrimonio_total
                 lucro = valor_total - total_aportado if total_aportado > 0 else 0
 
-                st.metric("💎 Valor Total", formatar_moeda(valor_total))
+                st.metric("Valor Total", formatar_moeda(valor_total))
                 mc1, mc2, mc3 = st.columns(3)
-                mc1.markdown(f"💼 **{len(portfolios)}** carteira(s)")
-                mc2.markdown(f"📈 **{total_ativos}** ativo(s)")
+                mc1.markdown(f"**{len(portfolios)}** carteira(s)")
+                mc2.markdown(f"**{total_ativos}** ativo(s)")
                 cor_lucro = "green" if lucro >= 0 else "red"
-                mc3.markdown(f"📊 <span style='color:{cor_lucro}'>{formatar_moeda_md(lucro)}</span>", unsafe_allow_html=True)
+                mc3.markdown(f"<span style='color:{cor_lucro}'>{formatar_moeda_md(lucro)}</span>", unsafe_allow_html=True)
 
                 st.divider()
                 
-                # Botoes de acao (Detalhes e Excluir)
                 b1, b2 = st.columns([3, 1])
                 with b1:
-                    if st.button("➡️ Ver Detalhes", key=f"btn_persona_{persona['id']}", use_container_width=True):
+                    if st.button("Ver Detalhes", key=f"btn_persona_{persona['id']}", use_container_width=True, type="tertiary"):
                         st.session_state.view_persona_id = persona["id"]
-                        st.switch_page("pages/_9_🧑_Persona_Detalhe.py")
+                        st.switch_page("pages/_9_Persona_Detalhe.py")
                 with b2:
-                    if st.button("🗑️", key=f"btn_del_persona_req_{persona['id']}", use_container_width=True, help="Excluir Persona"):
+                    if st.button("Excluir", key=f"btn_del_persona_req_{persona['id']}", use_container_width=True, help="Excluir Persona", type="tertiary"):
                         st.session_state[f"confirmar_del_persona_{persona['id']}"] = True
                         
                 # Modal inline de confirmacao de exclusao
                 if st.session_state.get(f"confirmar_del_persona_{persona['id']}", False):
                     st.error(
-                        "⚠️ **Atenção:** Você está prestes a apagar esta Persona.\n\n"
+                        "**Atenção:** Você está prestes a apagar esta Persona.\n\n"
                         "Ao confirmar, **todas as carteiras, ativos, movimentações "
                         "e históricos** atrelados a ela serão dizimados do sistema como se nunca tivessem existido. "
                         "Esta ação não tem volta."
                     )
                     c_conf1, c_conf2 = st.columns(2)
                     with c_conf1:
-                        if st.button("❌ Cancelar", key=f"btn_cancel_del_p_{persona['id']}", use_container_width=True):
+                        if st.button("Cancelar", key=f"btn_cancel_del_p_{persona['id']}", use_container_width=True, type="tertiary"):
                             st.session_state[f"confirmar_del_persona_{persona['id']}"] = False
                             st.rerun()
                     with c_conf2:
-                        if st.button("✔️ Confirmar Exclusão", key=f"btn_confirm_del_p_{persona['id']}", type="primary", use_container_width=True):
+                        if st.button("Confirmar Exclusão", key=f"btn_confirm_del_p_{persona['id']}", type="primary", use_container_width=True):
                             from database.crud import deletar_persona
                             deletar_persona(persona["id"])
                             st.session_state[f"confirmar_del_persona_{persona['id']}"] = False
-                            st.toast(f"Persona '{persona['nome']}' eliminada das cinzas.", icon="💥")
+                            st.toast(f"Persona '{persona['nome']}' eliminada das cinzas.")
                             st.rerun()

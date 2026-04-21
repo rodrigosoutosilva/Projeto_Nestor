@@ -21,18 +21,18 @@ from database.crud import (
 from services.market_data import buscar_preco_atual
 from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, injetar_css_global, render_metric
 
-st.set_page_config(page_title="Persona Detalhe", page_icon="🧑", layout="wide")
+st.set_page_config(page_title="Persona Detalhe", layout="wide")
 injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:
-    st.warning("⚠️ Faça login.")
+    st.warning("Faça login.")
     st.stop()
 
 persona_id = st.session_state.get("view_persona_id", None)
 if not persona_id:
     st.error("Nenhuma persona selecionada.")
-    if st.button("⬅️ Voltar para Personas"):
-        st.switch_page("pages/2_🧑_Personas.py")
+    if st.button("Voltar para Personas", type="tertiary"):
+        st.switch_page("pages/2_Personas.py")
     st.stop()
 
 persona = buscar_persona_por_id(persona_id)
@@ -40,23 +40,23 @@ if not persona:
     st.error("Persona não encontrada.")
     st.stop()
 
-if st.button("⬅️ Voltar para Personas", key="btn_voltar_personas_top"):
-    st.switch_page("pages/2_🧑_Personas.py")
+if st.button("Voltar para Personas", key="btn_voltar_personas_top", type="tertiary"):
+    st.switch_page("pages/2_Personas.py")
 
 # --- CABEÇALHO ---
 if persona["tolerancia_risco"] <= 3:
-    cor, perfil = "🟢", "Conservador"
+    cor, perfil = "", "Conservador"
 elif persona["tolerancia_risco"] <= 6:
-    cor, perfil = "🟡", "Moderado"
+    cor, perfil = "", "Moderado"
 else:
-    cor, perfil = "🔴", "Arrojado"
+    cor, perfil = "", "Arrojado"
 
-freq_label = {"diario": "📅 Diário", "semanal": "📆 Semanal", "mensal": "🗓️ Mensal"}.get(persona.get("frequencia_acao", ""), "")
-estilo_label = {"dividendos": "💰 Dividendos", "crescimento": "🚀 Crescimento", "equilibrado": "⚖️ Equilibrado"}.get(persona.get("estilo", ""), "")
+freq_label = {"diario": "Diário", "semanal": "Semanal", "mensal": "Mensal"}.get(persona.get("frequencia_acao", ""), "")
+estilo_label = {"dividendos": "Dividendos", "crescimento": "Crescimento", "equilibrado": "Equilibrado"}.get(persona.get("estilo", ""), "")
 
 st.markdown(f"""
 <style>.big-name {{ font-size: 1.76rem !important; font-weight: 700 !important; margin-bottom: 0.3rem; }}</style>
-<div class='big-name'>{cor} {persona['nome']}</div>
+<div class='big-name'>{persona['nome']}</div>
 """, unsafe_allow_html=True)
 st.caption(f"Perfil: **{perfil}** | Risco: {persona['tolerancia_risco']}/10 | Estilo: {estilo_label} | Frequência: {freq_label}")
 
@@ -111,14 +111,14 @@ if data_mais_antiga and total_aportado_global > 0:
 m1, m2, m3, m4, m5, m6 = st.columns(6)
 m1.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>💎 Patrimônio</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Patrimônio</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda(valor_total)}</div>"
     f"</div>",
     unsafe_allow_html=True
 )
 m2.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>💵 Valor Investido</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Valor Investido</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda(total_aportado_global)}</div>"
     f"</div>",
     unsafe_allow_html=True
@@ -126,38 +126,42 @@ m2.markdown(
 cor_lucro_h = "#00C851" if lucro_acum >= 0 else "#FF4444"
 m3.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>📈 Lucro</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Lucro</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold; color: {cor_lucro_h};'>"
     f"{formatar_moeda(lucro_acum)} <span style='font-size: 0.85rem;'>({lucro_pct:+.1f}%)</span>"
     f"</div></div>",
     unsafe_allow_html=True
 )
 cor_rend = "#00C851" if rend_anual >= 0 else "#FF4444"
+_data_inicio_persona_txt = ""
+if data_mais_antiga:
+    _data_inicio_persona_txt = f"<div style='font-size: 0.7rem; color: #aaa; margin-top: 0.15rem;'>desde {data_mais_antiga.strftime('%d/%m/%Y')}</div>"
 m4.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>📅 Rend. Anual</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Rend. Anual</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold; color: {cor_rend};'>{rend_anual:+.1f}% a.a.</div>"
+    f"{_data_inicio_persona_txt}"
     f"</div>",
     unsafe_allow_html=True
 )
 cor_caixa_p = "#FF4444" if caixa_total < 0 else "inherit"
 m5.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>🏦 Caixa</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Caixa</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold; color: {cor_caixa_p};'>{formatar_moeda(caixa_total)}</div>"
     f"</div>",
     unsafe_allow_html=True
 )
 m6.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>💼 Carteiras</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Carteiras</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold;'>{len(portfolios)}</div>"
     f"</div>",
     unsafe_allow_html=True
 )
 
 # --- OBSERVAÇÕES ---
-with st.expander("📝 Observações", expanded=False):
+with st.expander("Observações", expanded=False):
     observacoes = listar_observacoes("persona", persona_id)
     
     if observacoes:
@@ -167,7 +171,7 @@ with st.expander("📝 Observações", expanded=False):
                 data_obs = formatar_data_br(obs["created_at"].split(" ")[0]) if obs.get("created_at") else ""
                 st.markdown(f"• {obs['texto']}  \n<small style='color:#888'>{data_obs}</small>", unsafe_allow_html=True)
             with c_obs_del:
-                if st.button("🗑️", key=f"del_obs_{obs['id']}", help="Remover"):
+                if st.button("Remover", key=f"del_obs_{obs['id']}", help="Remover", type="tertiary"):
                     deletar_observacao(obs["id"])
                     st.rerun()
     else:
@@ -178,7 +182,7 @@ with st.expander("📝 Observações", expanded=False):
     with c_nova_obs:
         nova_obs = st.text_input("Nova observação", placeholder="Escreva uma nota...", key="nova_obs_persona", label_visibility="collapsed")
     with c_btn_obs:
-        if st.button("➕", key="btn_add_obs_persona", use_container_width=True, help="Adicionar observação"):
+        if st.button("Adicionar", key="btn_add_obs_persona", use_container_width=True, help="Adicionar observação"):
             if nova_obs and nova_obs.strip():
                 adicionar_observacao("persona", persona_id, nova_obs.strip())
                 st.rerun()
@@ -188,10 +192,10 @@ if "persona_edit_open" not in st.session_state:
     st.session_state.persona_edit_open = False
 
 if st.session_state.get("persona_salva_msg"):
-    st.success("✅ Persona atualizada com sucesso!")
+    st.success("Persona atualizada com sucesso!")
     st.session_state.persona_salva_msg = False
 
-if st.button("✏️ Editar Persona", key="toggle_edit_persona"):
+if st.button("Editar Persona", key="toggle_edit_persona", type="tertiary"):
     st.session_state.persona_edit_open = not st.session_state.persona_edit_open
     st.rerun()
 
@@ -202,15 +206,15 @@ if st.session_state.persona_edit_open:
             novo_nome = st.text_input("Nome:", value=persona["nome"], key="edit_pn")
             nova_freq = st.selectbox("Frequência:", ["diario", "semanal", "mensal"],
                                       index=["diario", "semanal", "mensal"].index(persona.get("frequencia_acao", "mensal")),
-                                      format_func=lambda x: {"diario": "📅 Diário", "semanal": "📆 Semanal", "mensal": "🗓️ Mensal"}[x],
+                                      format_func=lambda x: {"diario": "Diário", "semanal": "Semanal", "mensal": "Mensal"}[x],
                                       key="edit_pf")
         with col2:
             nova_tol = st.slider("Tolerância:", 0, 10, persona["tolerancia_risco"], key="edit_pt")
             novo_estilo = st.selectbox("Estilo:", ["dividendos", "crescimento", "equilibrado"],
                                         index=["dividendos", "crescimento", "equilibrado"].index(persona.get("estilo", "dividendos")),
-                                        format_func=lambda x: {"dividendos":"💰 Dividendos","crescimento":"🚀 Crescimento","equilibrado":"⚖️ Equilibrado"}[x],
+                                        format_func=lambda x: {"dividendos":"Dividendos","crescimento":"Crescimento","equilibrado":"Equilibrado"}[x],
                                         key="edit_pe")
-        if st.button("💾 Salvar", key="save_persona", use_container_width=True):
+        if st.button("Salvar", key="save_persona", use_container_width=True, type="primary"):
             atualizar_persona(persona_id, nome=novo_nome, tolerancia_risco=nova_tol, frequencia_acao=nova_freq, estilo=novo_estilo)
             st.session_state.persona_edit_open = False
             st.session_state.persona_salva_msg = True
@@ -219,7 +223,7 @@ if st.session_state.persona_edit_open:
 st.markdown("---")
 
 # --- CARTEIRAS DA PERSONA ---
-st.subheader(f"💼 Carteiras de {persona['nome']}")
+st.subheader(f"Carteiras de {persona['nome']}")
 
 if not portfolios:
     st.info("Nenhuma carteira nesta persona.")
@@ -227,9 +231,9 @@ else:
     cols = st.columns(2)
     for i, port in enumerate(portfolios):
         with cols[i % 2]:
-            tipo_emoji = {"acoes": "📈", "fiis": "🏢", "misto": "🔀"}.get(port.get("tipo_ativo", ""), "📊")
+            tipo_emoji = ""
             with st.container(border=True):
-                st.markdown(f"#### {tipo_emoji} {port['nome']}")
+                st.markdown(f"#### {port['nome']}")
                 st.caption(f"Prazo: {port.get('objetivo_prazo', 'N/A').capitalize()}")
                 
                 caixa = port.get("montante_disponivel", 0)
@@ -261,68 +265,75 @@ else:
                         if dias > 0:
                             rend_anual_port = (lp / dias) * 365
                 
-                st.metric("💎 Patrimônio", formatar_moeda(vt))
+                st.metric("Patrimônio", formatar_moeda(vt))
                 mc1, mc2 = st.columns(2)
-                mc1.markdown(f"💵 **Investido:** {formatar_moeda_md(ta)}", unsafe_allow_html=True)
+                mc1.markdown(f"**Investido:** {formatar_moeda_md(ta)}", unsafe_allow_html=True)
                 cor_lucro_port = "green" if la >= 0 else "red"
-                mc2.markdown(f"📈 **Lucro:** <span style='color:{cor_lucro_port}'>{formatar_moeda_md(la)}</span> <small style='color:{cor_lucro_port}'>({lp:+.1f}%)</small>", unsafe_allow_html=True)
+                mc2.markdown(f"**Lucro:** <span style='color:{cor_lucro_port}'>{formatar_moeda_md(la)}</span> <small style='color:{cor_lucro_port}'>({lp:+.1f}%)</small>", unsafe_allow_html=True)
                 
                 mc3, mc4 = st.columns(2)
                 cor_rend_p = "#00C851" if rend_anual_port >= 0 else "#FF4444"
-                mc3.markdown(f"📅 **Rend. Anual:** <b style='color:{cor_rend_p}'>{rend_anual_port:+.1f}% a.a.</b>", unsafe_allow_html=True)
-                mc4.markdown(f"📊 **{len(ativos_port)}** ativo(s)")
+                _data_cart_txt = ""
+                if port.get("created_at"):
+                    try:
+                        _dt_c = datetime.fromisoformat(port["created_at"].replace("Z", "+00:00")) if "T" in str(port["created_at"]) else datetime.strptime(str(port["created_at"]).split(".")[0], "%Y-%m-%d %H:%M:%S")
+                        _data_cart_txt = f" <small style='color:#aaa;font-size:0.7rem'>desde {_dt_c.strftime('%d/%m/%Y')}</small>"
+                    except Exception:
+                        pass
+                mc3.markdown(f"**Rend. Anual:** <b style='color:{cor_rend_p}'>{rend_anual_port:+.1f}% a.a.</b>{_data_cart_txt}", unsafe_allow_html=True)
+                mc4.markdown(f"**{len(ativos_port)}** ativo(s)")
                 
                 if port.get('aporte_periodico', 0) > 0:
                     fl = {"semanal":"sem","quinzenal":"quinz","mensal":"mês"}.get(port.get('frequencia_aporte',''),'')
-                    st.caption(f"💸 Aporte: {formatar_moeda(port['aporte_periodico'])}/{fl}".replace("$", r"\$"))
+                    st.caption(f"Aporte: {formatar_moeda(port['aporte_periodico'])}/{fl}".replace("$", r"\$"))
                 
                 st.divider()
                 # Botoes de acao (Detalhes e Excluir)
                 b1, b2 = st.columns([3, 1])
                 with b1:
-                    if st.button("➡️ Ver Detalhes", key=f"btn_prt_{port['id']}", use_container_width=True):
+                    if st.button("Ver Detalhes", key=f"btn_prt_{port['id']}", use_container_width=True, type="tertiary"):
                         st.session_state.view_portfolio_id = port["id"]
-                        st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+                        st.switch_page("pages/_7_Carteira_Detalhe.py")
                 with b2:
-                    if st.button("🗑️", key=f"btn_del_port_req_pd_{port['id']}", use_container_width=True, help="Excluir Carteira"):
+                    if st.button("Excluir", key=f"btn_del_port_req_pd_{port['id']}", use_container_width=True, help="Excluir Carteira", type="tertiary"):
                         st.session_state[f"confirmar_del_port_pd_{port['id']}"] = True
                         
                 # Modal inline de confirmacao de exclusao
                 if st.session_state.get(f"confirmar_del_port_pd_{port['id']}", False):
                     st.error(
-                        "⚠️ **Atenção:** Destruir Carteira?\n\n"
+                        "**Atenção:** Destruir Carteira?\n\n"
                         "Todos os ativos, relatórios e depósitos dessa carteira serão dizimados."
                     )
                     c_conf1, c_conf2 = st.columns(2)
                     with c_conf1:
-                        if st.button("❌ Cancelar", key=f"btn_cancel_del_po_pd_{port['id']}", use_container_width=True):
+                        if st.button("Cancelar", key=f"btn_cancel_del_po_pd_{port['id']}", use_container_width=True, type="tertiary"):
                             st.session_state[f"confirmar_del_port_pd_{port['id']}"] = False
                             st.rerun()
                     with c_conf2:
-                        if st.button("✔️ Apagar Tudo", key=f"btn_confirm_del_po_pd_{port['id']}", type="primary", use_container_width=True):
+                        if st.button("Apagar Tudo", key=f"btn_confirm_del_po_pd_{port['id']}", type="primary", use_container_width=True):
                             from database.crud import deletar_portfolio
                             deletar_portfolio(port["id"])
                             st.session_state[f"confirmar_del_port_pd_{port['id']}"] = False
-                            st.toast(f"Carteira '{port['nome']}' eliminada.", icon="💥")
+                            st.toast(f"Carteira '{port['nome']}' eliminada.")
                             st.rerun()
 
 # --- CRIAR CARTEIRA ---
 st.markdown("---")
-with st.expander("➕ Criar Nova Carteira para esta Persona"):
+with st.expander("Criar Nova Carteira para esta Persona"):
     with st.container():
         col1, col2 = st.columns(2)
         with col1:
             port_nome = st.text_input("Nome da Carteira", placeholder="Ex: Mix Ações")
             tipo_ativo = st.selectbox("Tipo de Ativo", ["acoes", "fiis", "misto"],
-                                       format_func=lambda x: {"acoes":"📈 Ações","fiis":"🏢 FIIs","misto":"🔀 Misto"}[x])
+                                       format_func=lambda x: {"acoes":"Ações","fiis":"FIIs","misto":"Misto"}[x])
             montante = st.number_input(
-                "💰 Aporte Inicial (R$)",
+                "Aporte Inicial (R$)",
                 min_value=0.0, max_value=10_000_000.0, value=1000.0, step=100.0,
                 help="Dinheiro inicial em reais que você está destinando para iniciar os investimentos desta carteira."
             )
         with col2:
             prazo = st.selectbox("Objetivo Prazo", ["curto", "medio", "longo"],
-                                  format_func=lambda x: {"curto":"⚡ Curto","medio":"📅 Médio","longo":"🏔️ Longo"}[x])
+                                  format_func=lambda x: {"curto":"Curto","medio":"Médio","longo":"Longo"}[x])
             meta_dy = st.number_input("Meta DY (%)", min_value=0.0, value=6.0, step=0.5)
         
         # Importar as constantes de setores
@@ -369,7 +380,7 @@ with st.expander("➕ Criar Nova Carteira para esta Persona"):
         with col_ap3:
             taxa_sn = st.number_input("Taxa Saldo Negativo (% a.m.)", min_value=0.0, value=10.0, step=1.0)
         
-        if st.button("✅ Criar Carteira", key="btn_criar_carteira_px", type="primary", use_container_width=True):
+        if st.button("Criar Carteira", key="btn_criar_carteira_px", type="primary", use_container_width=True):
             if not port_nome or not port_nome.strip():
                 st.error("Nome obrigatório (não pode ser vazio ou apenas espaços)!")
             else:
@@ -390,6 +401,6 @@ with st.expander("➕ Criar Nova Carteira para esta Persona"):
                         valor=montante,
                         descricao="Aporte inicial ao criar carteira"
                     )
-                st.toast(f"Carteira '{port_nome}' criada! 🎉")
+                st.toast(f"Carteira '{port_nome}' criada!")
                 st.session_state.view_portfolio_id = result["id"]
-                st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+                st.switch_page("pages/_7_Carteira_Detalhe.py")

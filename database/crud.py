@@ -963,8 +963,10 @@ def cobrar_juros_cheque_especial():
     """
     Verifica se há carteiras com saldo negativo (montante_disponivel < 0)
     e cobra taxa fixa mensal proporcional ao dia via transação.
-    Executado no máximo uma vez por dia por carteira.
+    Cobra retroativamente para todos os dias em que não houve cobrança,
+    garantindo que dias perdidos (app offline, reinicializações) sejam cobrados.
     """
+    from datetime import timedelta
     with get_session() as session:
         # Pega carteiras negativadas
         portfolios_negativos = session.query(Portfolio).filter(
@@ -974,40 +976,62 @@ def cobrar_juros_cheque_especial():
         hoje = date.today()
         
         for p in portfolios_negativos:
-            # Verifica se já cobrou juros hoje
-            ja_cobrou = session.query(Transaction).filter(
+            # Encontrar a última data em que houve cobrança de juros
+            ultima_cobranca = session.query(Transaction.data).filter(
                 Transaction.portfolio_id == p.id,
-                Transaction.data == hoje,
                 Transaction.descricao.like("Juros Saldo Negativo%")
-            ).first()
+            ).order_by(Transaction.data.desc()).first()
             
-            if not ja_cobrou:
-                saldo_devedor = abs(p.montante_disponivel)
+            if ultima_cobranca:
+                # Cobrar a partir do dia seguinte à última cobrança
+                data_inicio = ultima_cobranca[0] + timedelta(days=1)
+            else:
+                # Nunca foi cobrado — cobrar a partir de ontem (o saldo pode ter
+                # ficado negativo hoje, então não cobrar hoje ainda)
+                data_inicio = hoje
+            
+            # Não cobrar juros do dia corrente (só cobra no dia seguinte)
+            # Ou seja, cobra até ontem inclusive
+            data_fim = hoje
+            
+            if data_inicio > data_fim:
+                continue
+            
+            # Obtem a taxa configurada na carteira (% a.m.)
+            taxa_mensal_perc = getattr(p, "taxa_saldo_negativo", 10.0)
+            if taxa_mensal_perc is None:
+                taxa_mensal_perc = 10.0
+            
+            taxa_diaria = (taxa_mensal_perc / 100.0) / 30.0
+            
+            # Cobrar cada dia pendente
+            dia_atual = data_inicio
+            while dia_atual <= data_fim:
+                # Verificar se já cobrou neste dia específico
+                ja_cobrou = session.query(Transaction).filter(
+                    Transaction.portfolio_id == p.id,
+                    Transaction.data == dia_atual,
+                    Transaction.descricao.like("Juros Saldo Negativo%")
+                ).first()
                 
-                # Obtem a taxa configurada na carteira (% a.m.)
-                taxa_mensal_perc = getattr(p, "taxa_saldo_negativo", 10.0)
-                if taxa_mensal_perc is None:
-                    taxa_mensal_perc = 10.0
+                if not ja_cobrou:
+                    saldo_devedor = abs(p.montante_disponivel)
+                    juros_dia = saldo_devedor * taxa_diaria
+                    
+                    # Debita o valor do montante (fica mais negativo)
+                    p.montante_disponivel -= juros_dia
+                    
+                    # Registra transacao
+                    t_juros = Transaction(
+                        portfolio_id=p.id,
+                        tipo=TipoTransacao.RETIRADA,
+                        valor=juros_dia,
+                        descricao=f"Juros Saldo Negativo ({taxa_mensal_perc:.1f}% a.m.)",
+                        origem=OrigemTransacao.SISTEMA,
+                        data=dia_atual
+                    )
+                    session.add(t_juros)
                 
-                # Juros Saldo Negativo (Fixo Mensal proporcional diário)
-                taxa_diaria = (taxa_mensal_perc / 100.0) / 30.0
-                juros_hoje = saldo_devedor * taxa_diaria
-                
-                # Debita o valor do montante (que fica mais negativo)
-                p.montante_disponivel -= juros_hoje
-                
-                # Registra transacao
-                t_juros = Transaction(
-                    portfolio_id=p.id,
-                    tipo=TipoTransacao.RETIRADA,
-                    valor=juros_hoje,
-                    descricao=f"Juros Saldo Negativo ({taxa_mensal_perc:.1f}% a.m.)",
-                    origem=OrigemTransacao.SISTEMA,
-                    data=hoje
-                )
-                session.add(t_juros)
+                dia_atual += timedelta(days=1)
         
-        # Salva o flush
         session.commit()
-
-

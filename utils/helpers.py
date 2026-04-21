@@ -319,15 +319,15 @@ def interpretar_score(score: float) -> dict:
     Retorna emoji, texto descritivo e cor.
     """
     if score >= 80:
-        return {"emoji": "🟢", "texto": "Excelente", "cor": "#00C851"}
+        return {"texto": "Excelente", "cor": "#00C851"}
     elif score >= 60:
-        return {"emoji": "🔵", "texto": "Bom", "cor": "#2196F3"}
+        return {"texto": "Bom", "cor": "#2196F3"}
     elif score >= 40:
-        return {"emoji": "🟡", "texto": "Moderado", "cor": "#FFB300"}
+        return {"texto": "Moderado", "cor": "#FFB300"}
     elif score >= 20:
-        return {"emoji": "🟠", "texto": "Fraco", "cor": "#FF9800"}
+        return {"texto": "Fraco", "cor": "#FF9800"}
     else:
-        return {"emoji": "🔴", "texto": "Muito Fraco", "cor": "#FF4444"}
+        return {"texto": "Muito Fraco", "cor": "#FF4444"}
 
 
 def explicar_rsi(rsi: float) -> str:
@@ -335,15 +335,15 @@ def explicar_rsi(rsi: float) -> str:
     if rsi is None or rsi == 0:
         return "RSI indisponível"
     if rsi > 70:
-        return f"RSI {rsi:.0f}/100 — ⚠️ **Sobrecomprado**: preço pode estar caro, risco de correção"
+        return f"RSI {rsi:.0f}/100 — **Sobrecomprado**: preço pode estar caro, risco de correção"
     elif rsi < 30:
-        return f"RSI {rsi:.0f}/100 — 💡 **Sobrevendido**: preço pode estar barato, possível oportunidade"
+        return f"RSI {rsi:.0f}/100 — **Sobrevendido**: preço pode estar barato, possível oportunidade"
     elif rsi < 45:
-        return f"RSI {rsi:.0f}/100 — 📉 **Tendência fraca**: pressão vendedora leve"
+        return f"RSI {rsi:.0f}/100 — **Tendência fraca**: pressão vendedora leve"
     elif rsi > 55:
-        return f"RSI {rsi:.0f}/100 — 📈 **Tendência forte**: pressão compradora"
+        return f"RSI {rsi:.0f}/100 — **Tendência forte**: pressão compradora"
     else:
-        return f"RSI {rsi:.0f}/100 — ⚖️ **Neutro**: sem pressão dominante"
+        return f"RSI {rsi:.0f}/100 — **Neutro**: sem pressão dominante"
 
 
 def explicar_tendencia(tendencia: str, preco_atual: float, sma_20: float) -> str:
@@ -351,10 +351,10 @@ def explicar_tendencia(tendencia: str, preco_atual: float, sma_20: float) -> str
     if sma_20 and sma_20 > 0:
         desvio = ((preco_atual - sma_20) / sma_20) * 100
         if tendencia == "alta":
-            return f"📈 **Alta** — Preço {desvio:+.1f}% acima da média de 20 dias"
+            return f"**Alta** — Preço {desvio:+.1f}% acima da média de 20 dias"
         elif tendencia == "baixa":
-            return f"📉 **Baixa** — Preço {desvio:+.1f}% abaixo da média de 20 dias"
-    return "⚖️ **Lateral** — Sem tendência definida"
+            return f"**Baixa** — Preço {desvio:+.1f}% abaixo da média de 20 dias"
+    return "**Lateral** — Sem tendência definida"
 
 
 def emoji_acao(tipo_acao: str) -> str:
@@ -364,75 +364,53 @@ def emoji_acao(tipo_acao: str) -> str:
         "venda": "🔴",
         "manter": "🟡"
     }
-    return mapa.get(tipo_acao, "⚪")
+    return mapa.get(tipo_acao, "")
 
 
 def emoji_status(status: str) -> str:
     """Retorna emoji para o status da ação planejada."""
     mapa = {
-        "planejado": "📋",
-        "executado": "✅",
-        "revisao_necessaria": "⚠️",
-        "ignorado": "❌"
+        "planejado": "Planejado",
+        "executado": "Executado",
+        "revisao_necessaria": "Revisão",
+        "ignorado": "Ignorado"
     }
-    return mapa.get(status, "⚪")
+    return mapa.get(status, "Indefinido")
 
 
 def emoji_urgencia(urgencia: str) -> str:
     """Retorna emoji para o nível de urgência."""
     mapa = {
-        "alta": "🔴",
-        "media": "🟡",
-        "baixa": "🟢"
+        "alta": "Alta",
+        "media": "Média",
+        "baixa": "Baixa"
     }
-    return mapa.get(urgencia, "🟡")
+    return mapa.get(urgencia, "Indefinido")
 
 
 # Setores disponíveis para preferência de carteira
 SETORES_ACOES = [
-    ("bancos", "🏦 Bancos (ITUB4, BBAS3, BBDC4...)"),
-    ("petroleo", "🛢️ Petróleo & Gás (PETR4, PRIO3, RECV3...)"),
-    ("mineracao", "⛏️ Mineração (VALE3, CMIN3...)"),
-    ("energia", "⚡ Energia Elétrica (TAEE11, ENBR3, ELET3...)"),
-    ("varejo", "🛒 Varejo (MGLU3, VIIA3, LREN3...)"),
-    ("tecnologia", "💻 Tecnologia (TOTS3, LWSA3, POSI3...)"),
-    ("saude", "🏥 Saúde (HAPV3, RDOR3, FLRY3...)"),
-    ("construcao", "🏗️ Construção (MRV3, CYRE3, EZTC3...)"),
-    ("saneamento", "💧 Saneamento (SAPR11, SBSP3...)"),
-    ("seguros", "🛡️ Seguros (BBSE3, IRBR3, PSSA3...)"),
+    ("bancos", "Bancos (ITUB4, BBAS3, BBDC4...)"),
+    ("petroleo", "Petróleo & Gás (PETR4, PRIO3, RECV3...)"),
+    ("mineracao", "Mineração (VALE3, CMIN3...)"),
+    ("energia", "Energia Elétrica (TAEE11, ENBR3, ELET3...)"),
+    ("varejo", "Varejo (MGLU3, VIIA3, LREN3...)"),
+    ("tecnologia", "Tecnologia (TOTS3, LWSA3, POSI3...)"),
+    ("saude", "Saúde (HAPV3, RDOR3, FLRY3...)"),
+    ("construcao", "Construção (MRV3, CYRE3, EZTC3...)"),
+    ("saneamento", "Saneamento (SAPR11, SBSP3...)"),
+    ("seguros", "Seguros (BBSE3, IRBR3, PSSA3...)"),
 ]
 
 SETORES_FIIS = [
-    ("tijolo", "🧱 FIIs de Tijolo (shoppings, galpões, escritórios)"),
-    ("papel", "📄 FIIs de Papel (CRI, CRA, LCI)"),
-    ("hibrido", "🔀 FIIs Híbridos (tijolo + papel)"),
-    ("fof", "📦 Fundos de Fundos (FoFs)"),
+    ("tijolo", "FIIs de Tijolo (shoppings, galpões, escritórios)"),
+    ("papel", "FIIs de Papel (CRI, CRA, LCI)"),
+    ("hibrido", "FIIs Híbridos (tijolo + papel)"),
+    ("fof", "Fundos de Fundos (FoFs)"),
 ]
 
 
 def injetar_css_global():
-    """Injeta CSS global para métricas, headers e dropdowns.
-    DEVE ser chamada em TODAS as páginas logo após st.set_page_config()."""
-    import streamlit as st
-
-    
-    st.markdown("""<style>
-    /* Métricas */
-    [data-testid="stMetricLabel"] { font-size: 0.82rem !important; font-weight: 600 !important; }
-    [data-testid="stMetricValue"] > div { font-size: 1.82rem !important; font-weight: 800 !important; }
-    [data-testid="stMetricValue"] { font-size: 1.82rem !important; font-weight: 800 !important; }
-    [data-testid="stMetricDelta"] { font-size: 0.72rem !important; }
-    /* Headers — tamanho original */
-    h1, .main-header { font-size: 1.4rem !important; }
-    h2 { font-size: 2rem !important; }
-    h3 { font-size: 1rem !important; }
-    h4 { font-size: 0.9rem !important; }
-    /* Dropdowns não-editáveis */
-    div[data-baseweb="select"] input { caret-color: transparent !important; cursor: pointer !important; pointer-events: none !important; }
-    div[data-baseweb="select"] { cursor: pointer !important; }
-    /* Fonte base — tamanho original */
-    .stApp p, .stApp li, .stApp span { font-size: 0.88rem; }
-    .stApp .stCaption, .stApp caption { font-size: 0.72rem !important; }
-    hr { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
-</style>""", unsafe_allow_html=True)
+    """Não injeta mais CSS global. App agora usa apenas estilização nativa focada em minimalismo."""
+    pass
 

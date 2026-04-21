@@ -19,20 +19,20 @@ st.set_page_config(page_title="Detalhes do Ativo", page_icon="📄", layout="wid
 injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:
-    st.warning("⚠️ Faça login.")
+    st.warning("Faça login.")
     st.stop()
 
 ticker = st.session_state.get("view_asset_ticker", None)
 if not ticker:
     st.error("Nenhum ativo selecionado.")
-    if st.button("⬅️ Ir para Início"): st.switch_page("app.py")
+    if st.button("Ir para Início", type="tertiary"): st.switch_page("app.py")
     st.stop()
 
 voltar_para = st.session_state.get("voltar_para_pagina", "app.py")
-if st.button("⬅️ Voltar"):
+if st.button("Voltar", type="tertiary"):
     st.switch_page(voltar_para)
 
-st.header(f"📄 {ticker} — {nome_ativo(ticker)}")
+st.header(f"{ticker} — {nome_ativo(ticker)}")
 
 # --- DADOS DE MERCADO ---
 with st.spinner("Buscando dados do mercado..."):
@@ -56,7 +56,7 @@ if fundamentos.get("industria") and fundamentos["industria"] != fundamentos.get(
 
 # --- TABELA DE INDICADORES FUNDAMENTALISTAS E REFERÊNCIA DO SETOR ---
 st.markdown("---")
-st.markdown("#### 📊 Indicadores e Referência do Setor")
+st.markdown("#### Indicadores e Referência do Setor")
 
 with st.spinner("Buscando dados de referência do setor..."):
     from services.market_data import buscar_referencia_setor
@@ -90,45 +90,45 @@ def _fmt_num(val, decimals=2):
 # Definição de todos os indicadores com tooltip
 # (chave_no_dict, nome_exibição, tooltip, função_de_formatação)
 indicadores_config = {
-    "📈 Valuation": [
+    "Valuation": [
         ("pl",                "P/L",                "Preço/Lucro: quanto o mercado paga por cada R$1 de lucro. Menor pode indicar ativo mais barato.",     lambda v: _fmt_num(v, 1)),
         ("pvp",               "P/VP",               "Preço/Valor Patrimonial: relação entre preço de mercado e patrimônio líquido. Abaixo de 1 = negocia abaixo do patrimônio.",     lambda v: _fmt_num(v)),
         ("ev_ebitda",         "EV/EBITDA",          "Enterprise Value / EBITDA: valuation da empresa incluindo dívida. Menor = mais barato.",           lambda v: _fmt_num(v)),
         ("peg_ratio",         "PEG Ratio",          "P/L dividido pelo crescimento de lucros. PEG < 1 pode indicar ação subvalorizada para seu crescimento.",          lambda v: _fmt_num(v)),
         ("preco_sobre_vendas","P/Vendas",           "Preço/Receita: quanto se paga por cada R$1 de receita. Útil para empresas sem lucro.",           lambda v: _fmt_num(v)),
     ],
-    "💰 Rentabilidade": [
+    "Rentabilidade": [
         ("roe",               "ROE",                "Return on Equity: retorno sobre o patrimônio líquido. Mede eficiência do capital próprio. Acima de 15% é considerado bom.",   lambda v: _fmt_pct(v)),
         ("roa",               "ROA",                "Return on Assets: retorno sobre ativos totais. Mede eficiência do uso dos ativos da empresa.",   lambda v: _fmt_pct(v)),
     ],
-    "🏦 Endividamento": [
+    "Endividamento": [
         ("divida_pl",         "Dívida/PL",          "Dívida Líquida / Patrimônio Líquido: quanto de dívida para cada R$1 de patrimônio. Acima de 100% merece atenção.",      lambda v: _fmt_num(v)),
         ("liquidez_corrente", "Liquidez Corrente",   "Ativo circulante / Passivo circulante. Acima de 1 indica capacidade de pagar dívidas de curto prazo.",    lambda v: _fmt_num(v)),
     ],
-    "📊 Margens": [
+    "Margens": [
         ("margem_bruta",      "Margem Bruta",       "Lucro bruto / Receita líquida. Indica o quanto sobra da receita após custos diretos de produção.",   lambda v: _fmt_pct(v)),
         ("margem_operacional","Margem Operacional",  "Lucro operacional / Receita. Mostra eficiência operacional antes de juros e impostos.",    lambda v: _fmt_pct(v)),
         ("margem_liquida",    "Margem Líquida",     "Lucro líquido / Receita líquida. Indica o percentual de lucro final por cada R$1 de receita.",   lambda v: _fmt_pct(v)),
     ],
-    "🚀 Crescimento": [
+    "Crescimento": [
         ("crescimento_receita","Cresc. Receita",    "Crescimento da receita no último período reportado em relação ao anterior.",                  lambda v: _fmt_pct(v)),
         ("crescimento_lucro",  "Cresc. Lucro",      "Crescimento do lucro no último período reportado em relação ao anterior.",                    lambda v: _fmt_pct(v)),
     ],
-    "🪙 Dividendos": [
+    "Dividendos": [
         ("dy",                "Dividend Yield",     "Rendimento anual estimado de dividendos em relação ao preço atual.",                        lambda v: _fmt_pct(v)),
         ("dividend_rate",     "Dividendo/Cota (R$)","Valor em reais dos dividendos pagos por ação/cota nos últimos 12 meses.",                    lambda v: f"R$ {v:.2f}" if v else "—"),
         ("payout",            "Payout",             "Percentual do lucro líquido distribuído como dividendos. Payout > 100% pode não ser sustentável.",   lambda v: _fmt_pct(v)),
         ("dy_medio_5_anos",   "DY Médio 5 Anos",   "Dividend Yield médio dos últimos 5 anos. Útil para comparar com o DY atual.",               lambda v: f"{v:.2f}%" if v else "—"),
     ],
-    "🌐 Mercado": [
+    "Mercado": [
         ("market_cap",        "Valor de Mercado",   "Capitalização de mercado: preço da ação × total de ações emitidas.",                        _fmt_moeda_compacta),
         ("ebitda",            "EBITDA",             "Lucro antes de juros, impostos, depreciação e amortização. Proxy de geração de caixa operacional.",  _fmt_moeda_compacta),
         ("fluxo_caixa_livre", "Fluxo Cx. Livre",   "Free Cash Flow: caixa gerado disponível após investimentos. Indica capacidade de pagar dividendos e reduzir dívida.",     _fmt_moeda_compacta),
         ("beta",              "Beta",               "Volatilidade em relação ao mercado. Beta 1 = igual ao mercado. > 1 = mais volátil. < 1 = menos volátil.",  lambda v: _fmt_num(v, 3)),
         ("var_52_semanas",    "Var. 52 Semanas",    "Variação percentual do preço nos últimos 12 meses.",                                        lambda v: _fmt_pct(v)),
     ],
-    "🎯 Analistas": [
-        ("consenso_analistas","Consenso",           "Recomendação consensual dos analistas que cobrem o ativo (buy, hold, sell).",                lambda v: {"buy":"🟢 Compra","hold":"🟡 Neutro","sell":"🔴 Venda","strong_buy":"🟢 Compra Forte","underperform":"🔴 Abaixo","none":"—"}.get(v, v or "—")),
+    "Analistas": [
+        ("consenso_analistas","Consenso",           "Recomendação consensual dos analistas que cobrem o ativo (buy, hold, sell).",                lambda v: {"buy":"Compra","hold":"Neutro","sell":"Venda","strong_buy":"Compra Forte","underperform":"Abaixo","none":"—"}.get(v, v or "—")),
         ("preco_alvo_medio",  "Preço-Alvo Médio",   "Média dos preços-alvo definidos pelos analistas para os próximos 12 meses.",                lambda v: f"R$ {v:.2f}" if v else "—"),
         ("preco_alvo_min",    "Preço-Alvo Mín.",    "Preço-alvo mais pessimista entre os analistas.",                                            lambda v: f"R$ {v:.2f}" if v else "—"),
         ("preco_alvo_max",    "Preço-Alvo Máx.",    "Preço-alvo mais otimista entre os analistas.",                                              lambda v: f"R$ {v:.2f}" if v else "—"),
@@ -217,7 +217,7 @@ else:
     st.info("Dados fundamentalistas indisponíveis para este ativo.")
 
 # --- AÇÕES RÁPIDAS ---
-with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=True):
+with st.expander("Ações Rápidas (Operações e Monitoramento)", expanded=True):
     personas = listar_personas_usuario(st.session_state.user['id'])
     if personas:
         opcoes_p = {p["id"]: p["nome"] for p in personas}
@@ -253,15 +253,15 @@ with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=
             
             c1, c2 = st.columns(2)
             with c1:
-                if st.button("👀 Adicionar à Watchlist", use_container_width=True):
+                if st.button("Adicionar à Watchlist", use_container_width=True, type="tertiary"):
                     adicionar_watchlist(port_id, ticker, manual=True)
                     st.success(f"{ticker} adicionado à watchlist da carteira '{opcoes_port[port_id]}'!")
             with c2:
-                if st.button("📂 Ir para Carteira", use_container_width=True):
+                if st.button("Ir para Carteira", use_container_width=True, type="tertiary"):
                     st.session_state.view_portfolio_id = port_id
-                    st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+                    st.switch_page("pages/_7_Carteira_Detalhe.py")
 
-            with st.expander("💸 Negociar", expanded=True):
+            with st.expander("Negociar", expanded=True):
                 caixa_disp = port_detalhe.get('montante_disponivel', 0) if port_detalhe else 0
                 st.markdown(f"**Saldo em caixa:** {formatar_moeda_md(caixa_disp)}", unsafe_allow_html=True)
                 
@@ -289,10 +289,10 @@ with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=
                             from database.crud import criar_ordem_pendente
                             criar_ordem_pendente(port_id, ticker, tipo_ord, qtd_editada, preco_editado)
                             if tipo_ord == "compra" and valor_total_display > caixa_disp:
-                                st.warning(f"⚠️ Ordem condicional de {tipo_ord} de {ticker} a R$ {preco_editado:.2f} crida! Caixa atual é inferior ao necessário, sujeito a juros se executada futuramente.", icon="⚠️")
+                                st.warning(f"Ordem condicional de {tipo_ord} de {ticker} a R$ {preco_editado:.2f} crida! Caixa atual é inferior ao necessário, sujeito a juros se executada futuramente.")
                             else:
-                                st.warning(f"⏳ Ordem de {tipo_ord} de {ticker} a R$ {preco_editado:.2f} **ainda não foi executada**. Será executada quando o ativo atingir esse valor.")
-                                st.toast(f"📋 Ordem condicional de {ticker} criada!", icon="📋")
+                                st.warning(f"Ordem de {tipo_ord} de {ticker} a R$ {preco_editado:.2f} **ainda não foi executada**. Será executada quando o ativo atingir esse valor.")
+                                st.toast(f"Ordem condicional de {ticker} criada!")
                         elif tipo_ord == "compra":
                             from database.crud import adicionar_ativo, atualizar_ativo, registrar_transacao, listar_ativos_portfolio, atualizar_portfolio
                             from datetime import date
@@ -302,7 +302,7 @@ with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=
                             # Logica Nova: permite saldo negativo com warning
                             if v_compra > caixa_disp and not st.session_state.get(f"confirm_negative_{ticker}_{port_id}", False):
                                 st.session_state[f"confirm_negative_{ticker}_{port_id}"] = True
-                                st.warning("⚠️ Caixa insuficiente! A compra resultará em **saldo negativo**, sujeito à cobrança diária da taxa configurada. Clique novamente em Executar para confirmar.")
+                                st.warning("Caixa insuficiente! A compra resultará em **saldo negativo**, sujeito à cobrança diária da taxa configurada. Clique novamente em Executar para confirmar.")
                             else:
                                 st.session_state[f"confirm_negative_{ticker}_{port_id}"] = False
                                 ativos_cart = listar_ativos_portfolio(port_id)
@@ -319,7 +319,7 @@ with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=
                                 
                                 registrar_transacao(port_id, "compra", v_compra, ticker, qtd_editada, preco_editado, "Compra Manual", date.today())
                                 atualizar_portfolio(port_id, montante_disponivel=caixa_disp - v_compra)
-                                st.toast(f"{ticker} comprado! 🎉", icon="✅")
+                                st.toast(f"{ticker} comprado!")
                                 st.rerun()
                         else:
                             from database.crud import atualizar_ativo, deletar_ativo, registrar_transacao, listar_ativos_portfolio, atualizar_portfolio
@@ -329,7 +329,7 @@ with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=
                             ativo_ext = next((x for x in ativos_cart if x["ticker"] == ticker), None)
                             
                             if not ativo_ext or qtd_editada > ativo_ext["quantidade"]:
-                                st.error("⚠️ Não possui essa quantidade para vender.")
+                                st.error("Não possui essa quantidade para vender.")
                             else:
                                 v_venda = qtd_editada * preco_editado
                                 nova_qtd = ativo_ext["quantidade"] - qtd_editada
@@ -339,7 +339,7 @@ with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=
                                     atualizar_ativo(ativo_ext["id"], quantidade=nova_qtd, preco_medio=ativo_ext["preco_medio"])
                                 registrar_transacao(port_id, "venda", v_venda, ticker, qtd_editada, preco_editado, "Venda Manual", date.today())
                                 atualizar_portfolio(port_id, montante_disponivel=caixa_disp + v_venda)
-                                st.toast(f"{ticker} vendido! 💰", icon="✅")
+                                st.toast(f"{ticker} vendido!")
                                 st.rerun()
             
             # Insights rapidos
@@ -353,8 +353,8 @@ with st.expander("⚡ Ações Rápidas (Operações e Monitoramento)", expanded=
                     st.info(f"**Score ({res['score']}):** {resumo}")
                     
                     # Botão IA
-                    if st.button("💡 Análise Inteligente com IA", key=f"ia_btn_{ticker}"):
-                        with st.spinner("🧠 Analisando com IA..."):
+                    if st.button("Análise Inteligente com IA", key=f"ia_btn_{ticker}", type="primary"):
+                        with st.spinner("Analisando com IA..."):
                             rec = gerar_recomendacao_completa(ticker, pid, port_id)
                             if rec.get("sucesso"):
                                 st.success(f"**[IA - {rec['recomendacao'].get('confianca', 0)}% Trust]**\n\n{rec['recomendacao']['explicacao']}")
@@ -408,7 +408,7 @@ else:
     st.info("Dados históricos indisponíveis para este período/intervalo.")
 
 # --- NOTÍCIAS (ordenadas por data) ---
-st.subheader("📰 Notícias Recentes")
+st.subheader("Notícias Recentes")
 with st.spinner("Buscando notícias..."):
     noticias = buscar_noticias_ticker(ticker, max_resultados=5)
     

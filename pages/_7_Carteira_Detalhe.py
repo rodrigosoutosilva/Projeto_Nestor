@@ -27,19 +27,19 @@ try:
 except Exception:
     pass
 
-st.set_page_config(page_title="Detalhes da Carteira", page_icon="📂", layout="wide")
+st.set_page_config(page_title="Detalhes da Carteira", page_icon="▪️", layout="wide")
 injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:
-    st.warning("⚠️ Faça login na página principal primeiro.")
+    st.warning("Faça login na página principal primeiro.")
     st.stop()
 
 # --- CARREGAMENTO ---
 portfolio_id = st.session_state.get("view_portfolio_id", None)
 if not portfolio_id:
     st.error("Nenhuma carteira selecionada. Volte e selecione uma na página 'Carteiras'.")
-    if st.button("⬅️ Voltar para Carteiras", key="btn_volt_err"):
-        st.switch_page("pages/3_💼_Carteiras.py")
+    if st.button("Voltar para Carteiras", key="btn_volt_err", type="tertiary"):
+        st.switch_page("pages/3_Carteiras.py")
     st.stop()
 
 port = buscar_portfolio_por_id(portfolio_id)
@@ -54,18 +54,18 @@ watchlist = listar_watchlist_portfolio(portfolio_id)
 btn_col1, btn_col2 = st.columns([1, 1])
 with btn_col1:
     persona_nome = persona['nome'] if persona else 'Persona'
-    if st.button(f"⬅️ {persona_nome}", key="btn_volt_persona", use_container_width=True):
+    if st.button(f"Voltar para {persona_nome}", key="btn_volt_persona", use_container_width=True, type="tertiary"):
         st.session_state.view_persona_id = port["persona_id"]
-        st.switch_page("pages/_9_🧑_Persona_Detalhe.py")
+        st.switch_page("pages/_9_Persona_Detalhe.py")
 with btn_col2:
-    if st.button("Carteiras", key="btn_volt_carteiras", use_container_width=True):
-        st.switch_page("pages/3_💼_Carteiras.py")
+    if st.button("Voltar para Carteiras", key="btn_volt_carteiras", use_container_width=True, type="tertiary"):
+        st.switch_page("pages/3_Carteiras.py")
 
 # --- CABEÇALHO ---
-tipo_emoji = {"acoes": "📈", "fiis": "🏢", "misto": "🔀"}.get(port["tipo_ativo"], "📊")
+tipo_emoji = {"acoes": "Ações", "fiis": "FIIs", "misto": "Misto"}.get(port["tipo_ativo"], "")
 st.markdown(f"""
 <style>.big-name {{ font-size: 1.76rem !important; font-weight: 700 !important; margin-bottom: 0.3rem; }}</style>
-<div class='big-name'>{tipo_emoji} {port['nome']}</div>
+<div class='big-name'>{port['nome']} ({tipo_emoji})</div>
 """, unsafe_allow_html=True)
 st.caption(f"Persona: **{persona['nome'] if persona else 'N/A'}** | Prazo: {port['objetivo_prazo'].capitalize()} | Meta DY: {port['meta_dividendos']}%")
 
@@ -111,7 +111,7 @@ mh1, mh2, mh3, mh4, mh5, mh6 = st.columns(6)
 
 mh1.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>💎 Patrimônio</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Patrimônio</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda(valor_total)}</div>"
     f"</div>",
     unsafe_allow_html=True
@@ -119,7 +119,7 @@ mh1.markdown(
 
 mh2.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>💵 Investido</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Investido</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold;'>{formatar_moeda(total_aportado)}</div>"
     f"</div>",
     unsafe_allow_html=True
@@ -128,7 +128,7 @@ mh2.markdown(
 cor_lucro_h = "#00C851" if lucro_acum >= 0 else "#FF4444"
 mh3.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>📈 Lucro</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Lucro</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold; color: {cor_lucro_h};'>"
     f"{formatar_moeda(lucro_acum)} <span style='font-size: 0.85rem;'>({lucro_pct:+.1f}%)</span>"
     f"</div></div>",
@@ -136,10 +136,20 @@ mh3.markdown(
 )
 
 cor_rend = "#00C851" if rend_anual >= 0 else "#FF4444"
+# Formatar data de criação da carteira
+_data_inicio_txt = ""
+if port.get("created_at"):
+    try:
+        from dateutil import parser as _dp
+        _dt_inicio = _dp.parse(str(port["created_at"])).replace(tzinfo=None)
+        _data_inicio_txt = f"<div style='font-size: 0.7rem; color: #aaa; margin-top: 0.15rem;'>desde {_dt_inicio.strftime('%d/%m/%Y')}</div>"
+    except Exception:
+        pass
 mh4.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>📅 Rend. Anual</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Rend. Anual</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold; color: {cor_rend};'>{rend_anual:+.1f}% a.a.</div>"
+    f"{_data_inicio_txt}"
     f"</div>",
     unsafe_allow_html=True
 )
@@ -152,7 +162,7 @@ compr_html = f"<div style='font-size: 0.8rem; color: #8B0000; margin-top:0.2rem;
 cor_caixa = "#FF4444" if caixa < 0 else "inherit"
 mh5.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>🏦 Caixa</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Caixa</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold; color: {cor_caixa};'>{formatar_moeda(caixa)}</div>"
     f"{compr_html}"
     f"</div>",
@@ -161,7 +171,7 @@ mh5.markdown(
 
 mh6.markdown(
     f"<div style='margin-bottom:1rem;'>"
-    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>📊 Ativos</div>"
+    f"<div style='font-size: 0.85rem; font-weight: 600; color: #888; margin-bottom: 0.25rem;'>Ativos</div>"
     f"<div style='font-size: 1.15rem; font-weight: bold;'>{len(ativos)}</div>"
     f"</div>",
     unsafe_allow_html=True
@@ -170,19 +180,19 @@ mh6.markdown(
 # --- 3 BOTÕES DE AÇÃO INLINE ---
 btn_c1, btn_c2, btn_c3 = st.columns(3)
 with btn_c1:
-    if st.button("✏️ Editar Carteira", key="tgl_edit", use_container_width=True):
+    if st.button("Editar Carteira", key="tgl_edit", use_container_width=True, type="tertiary"):
         st.session_state["show_edit_port"] = not st.session_state.get("show_edit_port", False)
         st.session_state["show_aporte"] = False
         st.session_state["show_compra_dir"] = False
         st.rerun()
 with btn_c2:
-    if st.button("📥 Aporte / Retirada", key="tgl_aporte", use_container_width=True):
+    if st.button("Aporte / Retirada", key="tgl_aporte", use_container_width=True, type="tertiary"):
         st.session_state["show_aporte"] = not st.session_state.get("show_aporte", False)
         st.session_state["show_edit_port"] = False
         st.session_state["show_compra_dir"] = False
         st.rerun()
 with btn_c3:
-    if st.button("🛒 Comprar Ativo", key="tgl_compra", use_container_width=True):
+    if st.button("Comprar Ativo", key="tgl_compra", use_container_width=True, type="tertiary"):
         st.session_state["show_compra_dir"] = not st.session_state.get("show_compra_dir", False)
         st.session_state["show_edit_port"] = False
         st.session_state["show_aporte"] = False
@@ -202,10 +212,10 @@ if st.session_state.get("show_edit_port"):
                 e_freq = st.selectbox("Frequência Aporte", ["", "semanal", "quinzenal", "mensal"], index=["", "semanal", "quinzenal", "mensal"].index(port.get("frequencia_aporte", "")))
             with c_taxa:
                 e_taxa = st.number_input("Taxa Saldo Negativo (% a.m.)", value=float(port.get("taxa_saldo_negativo", 10.0)), step=1.0)
-            if st.form_submit_button("Salvar Edição"):
+            if st.form_submit_button("Salvar Edição", type="primary"):
                 atualizar_portfolio(port["id"], nome=e_nome, aporte_periodico=e_aporte, frequencia_aporte=e_freq, taxa_saldo_negativo=e_taxa)
                 st.session_state["show_edit_port"] = False
-                st.toast("Carteira atualizada! ✅")
+                st.toast("Carteira atualizada!")
                 st.rerun()
 
 # Painel: Aporte / Retirada
@@ -220,11 +230,11 @@ if st.session_state.get("show_aporte"):
             data_movimento = st.date_input("Data", value=date.today(), key="data_mov_caixa")
         with c_ap4:
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("✅ Confirmar", key="btn_conf_mov_caixa", type="primary", use_container_width=True):
+            if st.button("Confirmar", key="btn_conf_mov_caixa", type="primary", use_container_width=True):
                 tipo_db = "aporte" if "Aporte" in tipo_movimento else "retirada"
                 caixa_c = port.get("montante_disponivel", 0)
                 if tipo_db == "retirada" and valor_movimento > caixa_c:
-                    st.warning("⚠️ Saldo insuficiente! Esta retirada causará saldo negativo, sujeito a cobrança diária de juros. Clique em Confirmar novamente para prosseguir.")
+                    st.warning("Saldo insuficiente! Esta retirada causará saldo negativo, sujeito a cobrança diária de juros. Clique em Confirmar novamente para prosseguir.")
                     if not st.session_state.get(f"conf_retirada_port", False):
                         st.session_state[f"conf_retirada_port"] = True
                         st.stop()
@@ -235,7 +245,7 @@ if st.session_state.get("show_aporte"):
                 novo_caixa = caixa_c + (valor_movimento if tipo_db == "aporte" else -valor_movimento)
                 atualizar_portfolio(port["id"], montante_disponivel=novo_caixa)
                 st.session_state["show_aporte"] = False
-                st.toast(f"{tipo_db.capitalize()} registrado! ✅")
+                st.toast(f"{tipo_db.capitalize()} registrado!")
                 st.rerun()
 
 # Painel: Comprar Ativo Direto
@@ -256,7 +266,7 @@ if st.session_state.get("show_compra_dir"):
             novo_preco = st.number_input("Preço (R$)", min_value=0.01, value=_preco_default_compra, step=0.1, key="novo_preco_compra", help="Se alterar o preço, a ordem só será executada quando o ativo atingir este valor.")
             if abs(novo_preco - _preco_default_compra) >= 0.01:
                 st.caption(f"Preço atual: R$ {_preco_default_compra:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        if st.button("✅ Registrar Compra", key="btn_novo_ativo_compra", type="primary", use_container_width=True):
+        if st.button("Registrar Compra", key="btn_novo_ativo_compra", type="primary", use_container_width=True):
             if not novo_ticker:
                 st.error("Informe o Ticker.")
             else:
@@ -272,7 +282,7 @@ if st.session_state.get("show_compra_dir"):
                     # Execução imediata
                     if valor_total_nova_compra > caixa and not st.session_state.get(f"confirm_negative_{ticker_upper}_{port['id']}", False):
                         st.session_state[f"confirm_negative_{ticker_upper}_{port['id']}"] = True
-                        st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Registrar Compra novamente para confirmar.")
+                        st.warning(f"Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Registrar Compra novamente para confirmar.")
                     else:
                         st.session_state[f"confirm_negative_{ticker_upper}_{port['id']}"] = False
                         ativo_ext = next((x for x in ativos if x["ticker"] == ticker_upper), None)
@@ -287,18 +297,18 @@ if st.session_state.get("show_compra_dir"):
                         registrar_transacao(port["id"], "compra", valor_total_nova_compra, ticker_upper, novo_qtd, novo_preco, "Compra Direta", date.today())
                         atualizar_portfolio(port["id"], montante_disponivel=caixa - valor_total_nova_compra)
                         st.session_state["show_compra_dir"] = False
-                        st.toast(f"Ativo {ticker_upper} comprado! 🎉")
+                        st.toast(f"Ativo {ticker_upper} comprado!")
                         st.rerun()
                 else:
                     # Ordem condicional (preço abaixo do mercado)
                     criar_ordem_pendente(port["id"], ticker_upper, "compra", novo_qtd, novo_preco)
                     st.session_state["show_compra_dir"] = False
-                    st.warning(f"⏳ Ordem de compra de {ticker_upper} a R$ {novo_preco:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
-                    st.toast(f"📋 Ordem condicional criada!", icon="📋")
+                    st.warning(f"Ordem de compra de {ticker_upper} a R$ {novo_preco:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
+                    st.toast(f"Ordem condicional criada!")
                     st.rerun()
 
 # --- OBSERVAÇÕES ---
-with st.expander("📝 Observações", expanded=False):
+with st.expander("Observações", expanded=False):
     observacoes = listar_observacoes("portfolio", portfolio_id)
     
     if observacoes:
@@ -308,7 +318,7 @@ with st.expander("📝 Observações", expanded=False):
                 data_obs = formatar_data_br(obs["created_at"].split(" ")[0]) if obs.get("created_at") else ""
                 st.markdown(f"• {obs['texto']}  \n<small style='color:#888'>{data_obs}</small>", unsafe_allow_html=True)
             with c_obs_del:
-                if st.button("🗑️", key=f"del_obs_port_{obs['id']}", help="Remover"):
+                if st.button("Excluir", key=f"del_obs_port_{obs['id']}", help="Remover", type="tertiary"):
                     deletar_observacao(obs["id"])
                     st.rerun()
     else:
@@ -319,7 +329,7 @@ with st.expander("📝 Observações", expanded=False):
     with c_nova_obs:
         nova_obs = st.text_input("Nova observação", placeholder="Escreva uma nota...", key="nova_obs_portfolio", label_visibility="collapsed")
     with c_btn_obs:
-        if st.button("➕", key="btn_add_obs_portfolio", use_container_width=True, help="Adicionar observação"):
+        if st.button("Adicionar", key="btn_add_obs_portfolio", use_container_width=True, help="Adicionar observação", type="tertiary"):
             if nova_obs and nova_obs.strip():
                 adicionar_observacao("portfolio", portfolio_id, nova_obs.strip())
                 st.rerun()
@@ -328,14 +338,14 @@ st.markdown("---")
 
 # --- TABS: ATIVOS | MONITORANDO | ORDENS PENDENTES | SUGESTÕES ATIVOS | SUGESTÕES MOVIMENTAÇÕES ---
 qtd_ordens = len(ordens_pendentes_all) if 'ordens_pendentes_all' in locals() else 0
-tab_ordens_title = f"📋 Ordens Pendentes ({qtd_ordens})" if qtd_ordens > 0 else "📋 Ordens Pendentes"
+tab_ordens_title = f"Ordens Pendentes ({qtd_ordens})" if qtd_ordens > 0 else "Ordens Pendentes"
 tab1, tab2, tab3, tab4, tab_ordens, tab_extrato = st.tabs([
-    "📊 Meus Ativos", 
-    "👁️ Monitorando", 
-    "💡 Sugestões de Ativos", 
-    "🔄 Sugestões de Movimentações", 
+    "Meus Ativos", 
+    "Monitorando", 
+    "Sugestões de Ativos", 
+    "Sugestões de Movimentações", 
     tab_ordens_title, 
-    "📜 Histórico / Extrato"
+    "Histórico / Extrato"
 ])
 
 with tab1:
@@ -362,14 +372,14 @@ with tab1:
                 with c_btns:
                     col_bi, col_bw = st.columns(2)
                     with col_bi:
-                        if st.button("ℹ️ Info", key=f"info_{a['id']}", use_container_width=True):
+                        if st.button("Info", key=f"info_{a['id']}", use_container_width=True, type="tertiary"):
                             st.session_state.view_asset_ticker = a["ticker"]
-                            st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
-                            st.switch_page("pages/_8_📄_Ativo.py")
+                            st.session_state.voltar_para_pagina = "pages/_7_Carteira_Detalhe.py"
+                            st.switch_page("pages/_8_Ativo.py")
                     with col_bw:
-                        if st.button("👁️ Watch", key=f"watch_{a['id']}", use_container_width=True, help="Adicionar à Watchlist"):
+                        if st.button("Watch", key=f"watch_{a['id']}", use_container_width=True, help="Adicionar à Watchlist", type="tertiary"):
                             adicionar_watchlist(portfolio_id, a["ticker"])
-                            st.toast(f"{a['ticker']} adicionado à watchlist! 👁️", icon="✅")
+                            st.toast(f"{a['ticker']} adicionado à watchlist!")
                             st.rerun()
                 
                 # Linha 2: Métricas financeiras
@@ -390,7 +400,7 @@ with tab1:
                         unsafe_allow_html=True
                     )
                 
-                with st.expander("💸 Negociar (Comprar / Vender)"):
+                with st.expander("Negociar (Comprar / Vender)"):
                     c_op1, c_op2, c_op3, c_op4 = st.columns(4)
                     with c_op1:
                         op_tipo = st.selectbox("Operação", ["Compra", "Venda"], key=f"op_tipo_{a['id']}")
@@ -412,14 +422,14 @@ with tab1:
                             if not executa_agora:
                                 # Ordem condicional
                                 if tipo_ord == "venda" and op_qtd > a["quantidade"]:
-                                    st.error("⚠️ Não possui essa quantidade para vender.")
+                                    st.error("Não possui essa quantidade para vender.")
                                 else:
                                     criar_ordem_pendente(port["id"], a["ticker"], tipo_ord, op_qtd, op_preco)
-                                    st.warning(f"⏳ Ordem de {tipo_ord} de {a['ticker']} a R$ {op_preco:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
-                                    st.toast(f"📋 Ordem condicional criada!", icon="📋")
+                                    st.warning(f"Ordem de {tipo_ord} de {a['ticker']} a R$ {op_preco:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
+                                    st.toast(f"Ordem condicional criada!")
                             elif op_tipo == "Compra":
                                 if valor_op > caixa_atual:
-                                    st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Executar novamente para confirmar.")
+                                    st.warning(f"Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Executar novamente para confirmar.")
                                     if not st.session_state.get(f"conf_op_cart_{a['id']}", False):
                                         st.session_state[f"conf_op_cart_{a['id']}"] = True
                                         st.stop()
@@ -432,11 +442,11 @@ with tab1:
                                 atualizar_ativo(a["id"], quantidade=q_nova, preco_medio=p_novo)
                                 registrar_transacao(port["id"], "compra", valor_op, a["ticker"], op_qtd, op_preco, f"Compra {a['ticker']}", date.today())
                                 atualizar_portfolio(port["id"], montante_disponivel=caixa_atual - valor_op)
-                                st.toast(f"Compra de {a['ticker']} registrada! 💸")
+                                st.toast(f"Compra de {a['ticker']} registrada!")
                                 st.rerun()
                             else: # Venda imediata
                                 if op_qtd > a["quantidade"]:
-                                    st.error("⚠️ Você não possui essa quantidade toda para vender.")
+                                    st.error("Você não possui essa quantidade toda para vender.")
                                 else:
                                     nova_qtd = a["quantidade"] - op_qtd
                                     if nova_qtd <= 0:
@@ -445,7 +455,7 @@ with tab1:
                                         atualizar_ativo(a["id"], quantidade=nova_qtd, preco_medio=a["preco_medio"])
                                     registrar_transacao(port["id"], "venda", valor_op, a["ticker"], op_qtd, op_preco, f"Venda {a['ticker']}", date.today())
                                     atualizar_portfolio(port["id"], montante_disponivel=caixa_atual + valor_op)
-                                    st.toast(f"Venda de {a['ticker']} registrada! 💰")
+                                    st.toast(f"Venda de {a['ticker']} registrada!")
                                     st.rerun()
     else:            
         st.info("Sua carteira ainda não possui ativos.")
@@ -460,14 +470,13 @@ with tab_extrato:
         # Preparar dados para tabela
         dados_tabela = []
         for t in transacoes:
-            tipo_emoji = {"aporte": "📥", "retirada": "📤", "compra": "🛒", "venda": "💰", "dividendo": "💵"}.get(t["tipo"], "📋")
             
             # Formatar Ticker para links - se tiver ticker formata diferente
             ticker_display = t.get("ticker", "—")
             
             dados_tabela.append({
                 "Data": formatar_data_br(t["data"]) if t.get("data") else "",
-                "Tipo": f"{tipo_emoji} {t['tipo'].capitalize()}",
+                "Tipo": f"{t['tipo'].capitalize()}",
                 "Ticker": ticker_display,
                 "Qtd": t.get("quantidade", "—"),
                 "Preço Unit.": f"R$ {t['preco_unitario']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if t.get("preco_unitario") else "—",
@@ -490,7 +499,7 @@ with tab2:
         with c1: novo_watch = st.text_input("Adicionar Ticker à Watchlist", placeholder="VALE3")
         with c2: 
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.form_submit_button("➕ Adicionar", use_container_width=True) and novo_watch:
+            if st.form_submit_button("Adicionar", use_container_width=True, type="primary") and novo_watch:
                 adicionar_watchlist(portfolio_id, novo_watch)
                 st.rerun()
                 
@@ -513,18 +522,18 @@ with tab2:
                 with c_acoes_w:
                     bc1, bc2 = st.columns(2)
                     with bc1:
-                        if st.button("ℹ️ Info", key=f"w_info_{w['id']}", use_container_width=True):
+                        if st.button("Info", key=f"w_info_{w['id']}", use_container_width=True, type="tertiary"):
                             st.session_state.view_asset_ticker = ticker_w
-                            st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
-                            st.switch_page("pages/_8_📄_Ativo.py")
+                            st.session_state.voltar_para_pagina = "pages/_7_Carteira_Detalhe.py"
+                            st.switch_page("pages/_8_Ativo.py")
                     with bc2:
-                        if st.button("🗑️ Remover", key=f"w_del_{w['id']}", use_container_width=True):
+                        if st.button("Remover", key=f"w_del_{w['id']}", use_container_width=True, type="tertiary"):
                             remover_watchlist(w["id"])
                             st.rerun()
                 
                 # Negotiation expander
                 if preco_val > 0:
-                    with st.expander("💸 Negociar"):
+                    with st.expander("Negociar"):
                         wc1, wc2, wc3, wc4 = st.columns(4)
                         with wc1:
                             op_tipo_w = st.selectbox("Operação", ["Compra", "Venda"], key=f"w_tipo_{w['id']}")
@@ -543,10 +552,10 @@ with tab2:
                                 executa_agora = deve_executar_ordem(tipo_ord, prc_w, preco_val)
                                 if not executa_agora:
                                     criar_ordem_pendente(port["id"], ticker_w, tipo_ord, qtd_w, prc_w)
-                                    st.warning(f"⏳ Ordem de {tipo_ord} de {ticker_w} a R$ {prc_w:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
+                                    st.warning(f"Ordem de {tipo_ord} de {ticker_w} a R$ {prc_w:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
                                 elif tipo_ord == "compra":
                                     if vt_w > caixa_w:
-                                        st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Executar novamente para confirmar.")
+                                        st.warning(f"Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Executar novamente para confirmar.")
                                         if not st.session_state.get(f"conf_op_watch_{w['id']}", False):
                                             st.session_state[f"conf_op_watch_{w['id']}"] = True
                                             st.stop()
@@ -558,32 +567,32 @@ with tab2:
                                         atualizar_ativo(ativo_ext["id"], quantidade=q_ant + qtd_w, preco_medio=((q_ant * p_ant) + vt_w) / (q_ant + qtd_w))
                                     else:
                                         adicionar_ativo(port["id"], ticker_w, prc_w, qtd_w, date.today())
-                                    registrar_transacao(port["id"], "compra", vt_w, ticker_w, qtd_w, prc_w, "Compra (Watch)", date.today())
+                                     registrar_transacao(port["id"], "compra", vt_w, ticker_w, qtd_w, prc_w, "Compra (Watch)", date.today())
                                     atualizar_portfolio(port["id"], montante_disponivel=caixa_w - vt_w)
-                                    st.toast(f"{ticker_w} comprado! 🎉", icon="✅")
+                                    st.toast(f"{ticker_w} comprado!")
                                     st.rerun()
                                 else:
                                     ativo_ext = next((x for x in ativos if x["ticker"] == ticker_w), None)
                                     if not ativo_ext or qtd_w > ativo_ext["quantidade"]:
-                                        st.error("⚠️ Não possui essa quantidade para vender.")
+                                        st.error("Não possui essa quantidade para vender.")
                                     else:
                                         nq = ativo_ext["quantidade"] - qtd_w
                                         if nq <= 0: deletar_ativo(ativo_ext["id"])
                                         else: atualizar_ativo(ativo_ext["id"], quantidade=nq, preco_medio=ativo_ext["preco_medio"])
                                         registrar_transacao(port["id"], "venda", vt_w, ticker_w, qtd_w, prc_w, "Venda (Watch)", date.today())
                                         atualizar_portfolio(port["id"], montante_disponivel=caixa_w + vt_w)
-                                        st.toast(f"{ticker_w} vendido! 💰", icon="✅"); st.rerun()
+                                        st.toast(f"{ticker_w} vendido!"); st.rerun()
 
 with tab3:
     st.subheader("Sugestões de Ativos")
     st.markdown("Ativos sugeridos para **compra ou observação**. Use para montar sua carteira ou alocar saldo disponível.")
     
     # 1. Botão Geral de IA — Sugestões de Compra
-    if st.button("💡 Gerar Sugestões de Compra com IA", type="primary", use_container_width=True):
+    if st.button("Gerar Sugestões de Compra com IA", type="primary", use_container_width=True):
         st.session_state["ia_loading_geral"] = True
     
     if st.session_state.get("ia_loading_geral"):
-        with st.spinner("🧠 Analisando carteira com IA (Pode demorar um pouco)..."):
+        with st.spinner("Analisando carteira com IA (Pode demorar um pouco)..."):
             from services.ai_brain import gerar_sugestoes_compra
             portfolios_analise = buscar_portfolio_por_id(portfolio_id)
             rec_geral = gerar_sugestoes_compra(ativos, persona, portfolios_analise)
@@ -597,13 +606,13 @@ with tab3:
                 st.session_state["ia_loading_geral"] = False
                 
     if st.session_state.get("ia_resumo_geral"):
-        st.success(f"✅ **Análise da IA:** {st.session_state['ia_resumo_geral']}")
+        st.success(f"**Análise da IA:** {st.session_state['ia_resumo_geral']}")
         sugestoes_ia = st.session_state.get("ia_sugestoes_raw", [])
         
         total_todas_sugestoes = sum(s.get("valor_total", 0) for s in sugestoes_ia if s.get("quantidade", 0) > 0)
         caixa_disponivel = port.get("montante_disponivel", 0)
         
-        st.markdown(f"**💰 Caixa disponível:** R\\$ {caixa_disponivel:,.2f} | **🛒 Total das sugestões:** R\\$ {total_todas_sugestoes:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        st.markdown(f"**Caixa disponível:** R\\$ {caixa_disponivel:,.2f} | **Total das sugestões:** R\\$ {total_todas_sugestoes:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
         
         # Filtrar sugestões com quantidade 0
         sugestoes_mostrar = [s for s in sugestoes_ia if s.get("quantidade", 0) > 0]
@@ -622,22 +631,22 @@ with tab3:
                     c_nome_s, c_btns_s = st.columns([5, 2])
                     with c_nome_s:
                         st.markdown(f"**{ticker_sug}** — {nome_ativo(ticker_sug)}  |  Alocação: {alocacao_pct:.0f}%")
-                        st.caption(f"📝 {sug.get('motivo', '')}")
+                        st.caption(f"{sug.get('motivo', '')}")
                     with c_btns_s:
                         sb1, sb2 = st.columns(2)
                         with sb1:
-                            if st.button("ℹ️ Info", key=f"info_sug_{i}_{ticker_sug}", use_container_width=True):
+                            if st.button("Info", key=f"info_sug_{i}_{ticker_sug}", use_container_width=True, type="tertiary"):
                                 st.session_state.view_asset_ticker = ticker_sug
-                                st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
-                                st.switch_page("pages/_8_📄_Ativo.py")
+                                st.session_state.voltar_para_pagina = "pages/_7_Carteira_Detalhe.py"
+                                st.switch_page("pages/_8_Ativo.py")
                         with sb2:
-                            if st.button("👁️ Watch", key=f"watch_sug_{i}_{ticker_sug}", use_container_width=True):
+                            if st.button("Watch", key=f"watch_sug_{i}_{ticker_sug}", use_container_width=True, type="tertiary"):
                                 adicionar_watchlist(portfolio_id, ticker_sug)
-                                st.toast(f"{ticker_sug} adicionado à watchlist!", icon="✅")
+                                st.toast(f"{ticker_sug} adicionado à watchlist!")
                                 st.rerun()
                     
                     # Pre-expanded negotiation
-                    with st.expander("💸 Negociar", expanded=True):
+                    with st.expander("Negociar", expanded=True):
                         cs1, cs2, cs3, cs4 = st.columns(4)
                         with cs1:
                             op_tipo_sug = st.selectbox("Operação", ["Compra", "Venda"], key=f"op_sug_tipo_{i}_{ticker_sug}")
@@ -657,13 +666,13 @@ with tab3:
                                 
                                 if not executa_agora:
                                     criar_ordem_pendente(port["id"], ticker_sug, tipo_ord, qtd_editada, preco_editado)
-                                    st.warning(f"⏳ Ordem de {tipo_ord} de {ticker_sug} a R$ {preco_editado:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
-                                    st.toast(f"📋 Ordem condicional de {ticker_sug} criada!", icon="📋")
+                                    st.warning(f"Ordem de {tipo_ord} de {ticker_sug} a R$ {preco_editado:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
+                                    st.toast(f"Ordem condicional de {ticker_sug} criada!")
                                 elif tipo_ord == "compra":
                                     v_compra = qtd_editada * preco_editado
                                     if v_compra > caixa_at and not st.session_state.get(f"confirm_negative_{ticker_sug}_{port['id']}", False):
                                         st.session_state[f"confirm_negative_{ticker_sug}_{port['id']}"] = True
-                                        st.warning("⚠️ Caixa insuficiente! A compra resultará em saldo negativo. Clique novamente em Executar para confirmar e arcar com a taxa configurada.")
+                                        st.warning("Caixa insuficiente! A compra resultará em saldo negativo. Clique novamente em Executar para confirmar e arcar com a taxa configurada.")
                                     else:
                                         st.session_state[f"confirm_negative_{ticker_sug}_{port['id']}"] = False
                                         ativo_ext = next((x for x in ativos if x["ticker"] == ticker_sug), None)
@@ -677,12 +686,12 @@ with tab3:
                                             adicionar_ativo(port["id"], ticker_sug, preco_editado, qtd_editada, date.today())
                                         registrar_transacao(port["id"], "compra", v_compra, ticker_sug, qtd_editada, preco_editado, "Compra Sugerida IA", date.today())
                                         atualizar_portfolio(port["id"], montante_disponivel=caixa_at - v_compra)
-                                        st.toast(f"{ticker_sug} comprado! 🎉", icon="✅")
+                                        st.toast(f"{ticker_sug} comprado!")
                                         st.rerun()
                                 else:
                                     ativo_ext = next((x for x in ativos if x["ticker"] == ticker_sug), None)
                                     if not ativo_ext or qtd_editada > ativo_ext["quantidade"]:
-                                        st.error("⚠️ Não possui essa quantidade para vender.")
+                                        st.error("Não possui essa quantidade para vender.")
                                     else:
                                         v_venda = qtd_editada * preco_editado
                                         nova_qtd = ativo_ext["quantidade"] - qtd_editada
@@ -692,7 +701,7 @@ with tab3:
                                             atualizar_ativo(ativo_ext["id"], quantidade=nova_qtd, preco_medio=ativo_ext["preco_medio"])
                                         registrar_transacao(port["id"], "venda", v_venda, ticker_sug, qtd_editada, preco_editado, "Venda IA", date.today())
                                         atualizar_portfolio(port["id"], montante_disponivel=caixa_at + v_venda)
-                                        st.toast(f"{ticker_sug} vendido! 💰", icon="✅")
+                                        st.toast(f"{ticker_sug} vendido!")
                                         st.rerun()
         
         # Botão "Comprar Tudo" (executa todas as sugestões com qtd editada)
@@ -715,14 +724,14 @@ with tab3:
             col_btn1, col_btn2 = st.columns([3, 1])
             with col_btn1:
                 st.markdown(
-                    f"**🛒 Comprar todos os {len(sugestoes_para_compra)} ativos** — "
+                    f"**Comprar todos os {len(sugestoes_para_compra)} ativos** — "
                     f"Total: R\\$ {total_compra_tudo:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                 )
             with col_btn2:
-                if st.button("🛒 Comprar Tudo", key="btn_comprar_tudo_ia", type="primary", use_container_width=True):
+                if st.button("Comprar Tudo", key="btn_comprar_tudo_ia", type="primary", use_container_width=True):
                     if total_compra_tudo > caixa_disponivel and not st.session_state.get("confirm_negative_comprar_tudo", False):
                         st.session_state["confirm_negative_comprar_tudo"] = True
-                        st.warning(f"⚠️ O total (R\\$ {total_compra_tudo:,.2f}) excede o caixa disponível (R\\$ {caixa_disponivel:,.2f}). A compra resultará em saldo negativo. Clique novamente em 'Comprar Tudo' para confirmar e arcar com a taxa configurada.")
+                        st.warning(f"O total (R\\$ {total_compra_tudo:,.2f}) excede o caixa disponível (R\\$ {caixa_disponivel:,.2f}). A compra resultará em saldo negativo. Clique novamente em 'Comprar Tudo' para confirmar e arcar com a taxa configurada.")
                     else:
                         st.session_state["confirm_negative_comprar_tudo"] = False
                         caixa_restante = caixa_disponivel
@@ -756,7 +765,7 @@ with tab3:
                         
                         atualizar_portfolio(port["id"], montante_disponivel=caixa_restante)
                         if compras_ok > 0:
-                            st.toast(f"{compras_ok} compra(s) registrada(s) com sucesso. (Ordens executadas imediatamente ou marcadas como pendentes).", icon="✅")
+                            st.toast(f"{compras_ok} compra(s) registrada(s) com sucesso. (Ordens executadas imediatamente ou marcadas como pendentes).")
                             st.session_state["ia_resumo_geral"] = None # Limpa para não reexibir
                             st.rerun()
         
@@ -772,7 +781,7 @@ with tab3:
         if sugestoes_compra_obs:
             for idx_s, s in enumerate(sugestoes_compra_obs):
                 with st.container(border=True):
-                    novo_label = " 🆕 **NOVO**" if s.get("novo") else ""
+                    novo_label = " **NOVO**" if s.get("novo") else ""
                     cor_acao = "#00C851" if s['acao'] == "compra" else "#FFBB33"
                     preco_sug_inline = 0.0
                     cot = buscar_preco_atual(s["ticker"])
@@ -786,20 +795,20 @@ with tab3:
                     with c_btns_a:
                         ab1, ab2 = st.columns(2)
                         with ab1:
-                            if st.button("ℹ️ Info", key=f"alc_i_{idx_s}_{s['ticker']}", use_container_width=True):
+                            if st.button("Info", key=f"alc_i_{idx_s}_{s['ticker']}", use_container_width=True, type="tertiary"):
                                 st.session_state.view_asset_ticker = s['ticker']
-                                st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
-                                st.switch_page("pages/_8_📄_Ativo.py")
+                                st.session_state.voltar_para_pagina = "pages/_7_Carteira_Detalhe.py"
+                                st.switch_page("pages/_8_Ativo.py")
                         with ab2:
-                            if st.button("👁️ Watch", key=f"alc_watch_{idx_s}_{s['ticker']}", use_container_width=True):
+                            if st.button("Watch", key=f"alc_watch_{idx_s}_{s['ticker']}", use_container_width=True, type="tertiary"):
                                 adicionar_watchlist(portfolio_id, s['ticker'])
-                                st.toast(f"{s['ticker']} adicionado à watchlist!", icon="✅")
+                                st.toast(f"{s['ticker']} adicionado à watchlist!")
                                 st.rerun()
                     
                     st.info(s['texto'])
                     
                     if preco_sug_inline > 0:
-                        with st.expander("💸 Negociar", expanded=True):
+                        with st.expander("Negociar", expanded=True):
                             ca1, ca2, ca3, ca4 = st.columns(4)
                             with ca1:
                                 op_tipo_alg = st.selectbox("Operação", ["Compra", "Venda"], key=f"alg_tipo_{idx_s}_{s['ticker']}")
@@ -818,7 +827,7 @@ with tab3:
                                     executa_agora = deve_executar_ordem(tipo_ord, prc_alg, preco_sug_inline)
                                     if not executa_agora:
                                         criar_ordem_pendente(port["id"], s['ticker'], tipo_ord, qtd_alg, prc_alg)
-                                        st.warning(f"⏳ Ordem de {tipo_ord} de {s['ticker']} a R$ {prc_alg:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
+                                        st.warning(f"Ordem de {tipo_ord} de {s['ticker']} a R$ {prc_alg:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
                                     elif tipo_ord == "compra":
                                         if vt_alg > caixa_alg:
                                             st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Executar novamente para confirmar.")
@@ -886,27 +895,27 @@ with tab4:
                     
                     c_nm, c_bm = st.columns([5, 2])
                     with c_nm:
-                        novo_label = " 🆕 **NOVO**" if s.get("novo") else ""
+                        novo_label = " **NOVO**" if s.get("novo") else ""
                         cor_acao_m = "#FF4444" if s["acao"] == "venda" else ("#00C851" if s["acao"] == "compra" else "#FFBB33")
                         st.markdown(f"**{s['ticker']}** — {nome_ativo(s['ticker'])}{novo_label}  |  {qtd_cart} cotas")
                         st.markdown(f"<span style='color:{cor_acao_m}'>{s['acao'].upper()}</span> (Score: {s['score']}/100) | PM: {formatar_moeda_md(pm_cart)} | Atual: {formatar_moeda_md(preco_atual_mov)} | L/P: <span style='color:{cor_lucro_m}'>{formatar_moeda_md(lucro_total)}</span>", unsafe_allow_html=True)
                     with c_bm:
                         bm1, bm2 = st.columns(2)
                         with bm1:
-                            if st.button("ℹ️ Info", key=f"mov_i_{idx_m}_{s['ticker']}", use_container_width=True):
+                            if st.button("Info", key=f"mov_i_{idx_m}_{s['ticker']}", use_container_width=True, type="tertiary"):
                                 st.session_state.view_asset_ticker = s['ticker']
-                                st.session_state.voltar_para_pagina = "pages/_7_📂_Carteira_Detalhe.py"
-                                st.switch_page("pages/_8_📄_Ativo.py")
+                                st.session_state.voltar_para_pagina = "pages/_7_Carteira_Detalhe.py"
+                                st.switch_page("pages/_8_Ativo.py")
                         with bm2:
-                            if st.button("👁️ Watch", key=f"mov_watch_{idx_m}_{s['ticker']}", use_container_width=True):
+                            if st.button("Watch", key=f"mov_watch_{idx_m}_{s['ticker']}", use_container_width=True, type="tertiary"):
                                 adicionar_watchlist(portfolio_id, s['ticker'])
-                                st.toast(f"{s['ticker']} adicionado à watchlist!", icon="✅")
+                                st.toast(f"{s['ticker']} adicionado à watchlist!")
                                 st.rerun()
                     
                     st.info(s['texto'])
                     
                     if preco_atual_mov > 0:
-                        with st.expander("💸 Negociar", expanded=True):
+                        with st.expander("Negociar", expanded=True):
                             cm1, cm2, cm3, cm4 = st.columns(4)
                             with cm1:
                                 op_tipo_mov = st.selectbox("Operação", ["Venda", "Compra"], index=0 if s["acao"] == "venda" else 1, key=f"mov_tipo_{idx_m}_{s['ticker']}")
@@ -929,13 +938,13 @@ with tab4:
                                     executa_agora = deve_executar_ordem(tipo_ord, prc_mov, preco_atual_mov)
                                     if not executa_agora:
                                         if tipo_ord == "venda" and ativo_cart and qtd_mov > ativo_cart["quantidade"]:
-                                            st.error("⚠️ Não possui essa quantidade.")
+                                            st.error("Não possui essa quantidade.")
                                         else:
                                             criar_ordem_pendente(port["id"], s['ticker'], tipo_ord, qtd_mov, prc_mov)
-                                            st.warning(f"⏳ Ordem de {tipo_ord} de {s['ticker']} a R$ {prc_mov:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
+                                            st.warning(f"Ordem de {tipo_ord} de {s['ticker']} a R$ {prc_mov:.2f} **ainda não foi executada**. Será executada quando o preço for atingido.")
                                     elif tipo_ord == "venda":
                                         if not ativo_cart or qtd_mov > ativo_cart["quantidade"]:
-                                            st.error(f"⚠️ Você só tem {qtd_cart} papéis!")
+                                            st.error(f"Você só tem {qtd_cart} papéis!")
                                         else:
                                             nq = ativo_cart["quantidade"] - qtd_mov
                                             if nq <= 0: deletar_ativo(ativo_cart["id"])
@@ -945,7 +954,7 @@ with tab4:
                                             st.toast(f"{s['ticker']} vendido! 💰", icon="✅"); st.rerun()
                                     else:
                                         if vt_mov > caixa_mov:
-                                            st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Executar novamente para confirmar.")
+                                            st.warning(f"Caixa insuficiente! Esta compra causará saldo negativo, sujeito a cobrança diária de juros. Clique em Executar novamente para confirmar.")
                                             if not st.session_state.get(f"conf_op_mov_{idx_m}_{s['ticker']}", False):
                                                 st.session_state[f"conf_op_mov_{idx_m}_{s['ticker']}"] = True
                                                 st.stop()
@@ -961,20 +970,20 @@ with tab4:
                                         st.toast(f"{s['ticker']} comprado! 🎉", icon="✅")
                                         st.rerun()
         else:
-            st.info("✅ Nenhuma sugestão pertinente para os ativos da sua carteira no momento.")
+            st.info("Nenhuma sugestão pertinente para os ativos da sua carteira no momento.")
     else:
         st.info("Nenhuma sugestão encontrada. Adicione ativos à carteira para receber análises de movimentação.")
     
     # 2. IA Geral — Análise de Rebalanceamento
     st.markdown("---")
-    st.markdown("#### 🧠 Análise de Rebalanceamento com IA")
+    st.markdown("#### Análise de Rebalanceamento com IA")
     st.markdown("A IA analisa sua carteira atual e sugere movimentações (compra, venda, rebalanceamento) e próximos passos.")
     
-    if st.button("🔄 Analisar Movimentações com IA", type="primary", use_container_width=True):
+    if st.button("Analisar Movimentações com IA", type="primary", use_container_width=True):
         st.session_state["ia_loading_mov"] = True
     
     if st.session_state.get("ia_loading_mov"):
-        with st.spinner("🧠 Analisando movimentações com IA..."):
+        with st.spinner("Analisando movimentações com IA..."):
             from services.ai_brain import gerar_analise_rebalanceamento_ia
             rec_mov = gerar_analise_rebalanceamento_ia(ativos, persona, port, usar_preco_futuro=usar_preco_futuro)
             
@@ -1023,13 +1032,13 @@ with tab4:
                                 
                                 if not executa_agora_ia:
                                     if tipo_ord_ia == "venda" and ativo_cart_ia and qtd_ia > qtd_cart_ia:
-                                        st.error("⚠️ Não possui essa quantidade.")
+                                        st.error("Não possui essa quantidade.")
                                     else:
                                         criar_ordem_pendente(port["id"], s['ticker'], tipo_ord_ia, qtd_ia, prc_ia)
-                                        st.warning(f"⏳ Ordem de {s['ticker']} a R$ {prc_ia:.2f} **ainda não foi executada**.")
+                                        st.warning(f"Ordem de {s['ticker']} a R$ {prc_ia:.2f} **ainda não foi executada**.")
                                 elif tipo_ord_ia == "venda":
                                     if not ativo_cart_ia or qtd_ia > qtd_cart_ia:
-                                        st.error(f"⚠️ Você só tem {qtd_cart_ia} papéis!")
+                                        st.error(f"Você só tem {qtd_cart_ia} papéis!")
                                     else:
                                         nq = qtd_cart_ia - qtd_ia
                                         if nq <= 0: deletar_ativo(ativo_cart_ia["id"])
@@ -1041,7 +1050,7 @@ with tab4:
                                         st.rerun()
                                 else:
                                     if vt_ia > caixa_ia:
-                                        st.warning(f"⚠️ Caixa insuficiente! Esta compra causará saldo negativo. Clique de novo para confirmar.")
+                                        st.warning(f"Caixa insuficiente! Esta compra causará saldo negativo. Clique de novo para confirmar.")
                                         if not st.session_state.get(f"conf_op_ia_{idx_ia}_{s['ticker']}", False):
                                             st.session_state[f"conf_op_ia_{idx_ia}_{s['ticker']}"] = True
                                             st.stop()
@@ -1059,14 +1068,14 @@ with tab4:
                                     st.rerun()
 
         if st.session_state.get("ia_resumo_mov"):
-            st.success(f"🔄 **Análise Geral da IA:** {st.session_state['ia_resumo_mov']}")
-            st.caption("💡 Use esta análise junto com as sugestões técnicas acima para tomar decisões informadas.")
+            st.success(f"**Análise Geral da IA:** {st.session_state['ia_resumo_mov']}")
+            st.caption("Use esta análise junto com as sugestões técnicas acima para tomar decisões informadas.")
 
 st.markdown("---")
 
 # --- ORDENS PENDENTES ---
 with tab_ordens:
-    st.subheader("📋 Ordens Pendentes")
+    st.subheader("Ordens Pendentes")
     ordens = listar_ordens_pendentes(portfolio_id)
     
     if ordens:
@@ -1074,8 +1083,8 @@ with tab_ordens:
             with st.container(border=True):
                 c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
                 with c1:
-                    tipo_emoji = "🟢" if o["tipo"] == "compra" else "🔴"
-                    st.markdown(f"{tipo_emoji} **{o['ticker']}** — {o['tipo'].upper()}")
+                    tipo_emoji = "C" if o["tipo"] == "compra" else "V"
+                    st.markdown(f"**{o['ticker']}** — {o['tipo'].upper()}")
                     st.caption(f"Criada em: {formatar_data_br(o['created_at'].split(' ')[0]) if o.get('created_at') else ''}")
                 with c2:
                     st.markdown(f"**Preço Alvo:** R\\$ {o['preco_alvo']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
@@ -1090,19 +1099,19 @@ with tab_ordens:
                 with c4:
                     cb1, cb2 = st.columns(2)
                     with cb1:
-                        if st.button("✏️", key=f"edit_ord_{o['id']}", help="Editar ordem", use_container_width=True):
+                        if st.button("Editar", key=f"edit_ord_{o['id']}", help="Editar ordem", use_container_width=True, type="tertiary"):
                             st.session_state[f"editing_order_{o['id']}"] = not st.session_state.get(f"editing_order_{o['id']}", False)
                             st.rerun()
                     with cb2:
-                        if st.button("❌", key=f"del_ord_{o['id']}", help="Cancelar ordem", use_container_width=True):
+                        if st.button("Cancelar", key=f"del_ord_{o['id']}", help="Cancelar ordem", use_container_width=True, type="tertiary"):
                             cancelar_ordem(o["id"])
-                            st.toast(f"Ordem de {o['tipo']} de {o['ticker']} cancelada.", icon="❌")
+                            st.toast(f"Ordem de {o['tipo']} de {o['ticker']} cancelada.")
                             st.rerun()
     
                 # Painel de edição inline
                 if st.session_state.get(f"editing_order_{o['id']}", False):
                     with st.container(border=True):
-                        st.markdown("**✏️ Editar Ordem**")
+                        st.markdown("**Editar Ordem**")
                         e1, e2, e3, e4 = st.columns(4)
                         with e1:
                             edit_tipo = st.selectbox("Tipo", ["compra", "venda"], index=0 if o["tipo"] == "compra" else 1, key=f"edit_tipo_{o['id']}")
@@ -1112,7 +1121,7 @@ with tab_ordens:
                             edit_preco = st.number_input("Preço Alvo (R$)", min_value=0.01, value=float(o["preco_alvo"]), step=0.1, key=f"edit_prc_{o['id']}")
                         with e4:
                             st.markdown(f"**Total:** R\\$ {(edit_qtd * edit_preco):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-                            if st.button("💾 Salvar", key=f"save_ord_{o['id']}", type="primary", use_container_width=True):
+                            if st.button("Salvar", key=f"save_ord_{o['id']}", type="primary", use_container_width=True):
                                 from database.crud import atualizar_ordem_pendente
                                 atualizar_ordem_pendente(o["id"], tipo=edit_tipo, quantidade=edit_qtd, preco_alvo=edit_preco)
                                 # Verificar se a ordem editada deve ser executada imediatamente
@@ -1121,11 +1130,11 @@ with tab_ordens:
                                 if _p_check_val > 0 and deve_executar_ordem(edit_tipo, edit_preco, _p_check_val):
                                     resultado_exec = executar_ordem_pendente(o["id"])
                                     if resultado_exec:
-                                        st.toast(f"✅ Ordem de {o['ticker']} executada imediatamente a R$ {edit_preco:.2f}!", icon="🔔")
+                                        st.toast(f"Ordem de {o['ticker']} executada imediatamente a R$ {edit_preco:.2f}!")
                                     else:
-                                        st.toast(f"Ordem de {o['ticker']} atualizada! ✅", icon="✅")
+                                        st.toast(f"Ordem de {o['ticker']} atualizada!")
                                 else:
-                                    st.toast(f"Ordem de {o['ticker']} atualizada! ✅", icon="✅")
+                                    st.toast(f"Ordem de {o['ticker']} atualizada!")
                                 st.session_state[f"editing_order_{o['id']}"] = False
                                 st.rerun()
     else:
@@ -1135,7 +1144,7 @@ with tab_ordens:
 st.markdown("---")
 
 # --- MOVIMENTAÇÕES AGENDADAS ---
-st.subheader("📅 Movimentações Agendadas")
+st.subheader("Movimentações Agendadas")
 acoes_pendentes = listar_acoes_portfolio(portfolio_id, status="planejado")
 
 if acoes_pendentes:
@@ -1151,12 +1160,12 @@ if acoes_pendentes:
             with c3:
                 sc1, sc2 = st.columns(2)
                 with sc1:
-                    if st.button("✅ Executar", key=f"exec_{acao['id']}", use_container_width=True):
+                    if st.button("Executar", key=f"exec_{acao['id']}", use_container_width=True, type="primary"):
                         atualizar_status_acao(acao['id'], "executado")
                         st.toast(f"Movimento {acao['asset_ticker']} marcado como executado! Registre a transação na aba Meus Ativos se necessário.")
                         st.rerun()
                 with sc2:
-                    if st.button("🗑️ Ignorar", key=f"ign_{acao['id']}", use_container_width=True):
+                    if st.button("Ignorar", key=f"ign_{acao['id']}", use_container_width=True, type="tertiary"):
                         atualizar_status_acao(acao['id'], "ignorado")
                         st.rerun()
 else:
@@ -1165,8 +1174,8 @@ else:
 st.markdown("---")
 
 
-if st.button("⚠️ Excluir Carteira Inteira", type="primary"):
+if st.button("Excluir Carteira Inteira", type="primary"):
     deletar_portfolio(portfolio_id)
     st.session_state.view_portfolio_id = None
-    st.switch_page("pages/3_💼_Carteiras.py")
+    st.switch_page("pages/3_Carteiras.py")
 

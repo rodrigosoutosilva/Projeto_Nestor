@@ -33,8 +33,8 @@ from utils.helpers import formatar_data_br, formatar_moeda, formatar_moeda_md, n
 # CONFIGURAÇÃO DA PÁGINA (Apenas UMA vez e no início do script)
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="🏠 Início",
-    page_icon="🏠",
+    page_title="Início",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -62,13 +62,13 @@ st.markdown("""
         display: none !important;
     }
     
-    /* Renomear "app" para "🏠 Início" no sidebar */
+    /* Renomear "app" para "Início" no sidebar */
     [data-testid="stSidebarNav"] > ul > li:first-child a span {
         visibility: hidden;
         position: relative;
     }
     [data-testid="stSidebarNav"] > ul > li:first-child a span::after {
-        content: "🏠 Início";
+        content: "Início";
         visibility: visible;
         position: absolute;
         left: 0;
@@ -494,10 +494,10 @@ def setup():
         full_tb = traceback.format_exc()
         print(f"[setup] ERRO COMPLETO DE CONEXÃO:\n{full_tb}")
         # Mostra o erro real na UI do Streamlit (não redactado)
-        st.error(f"❌ **Erro ao conectar ao banco de dados:**\n\n`{error_msg}`")
+        st.error(f"Erro ao conectar ao banco de dados:\n\n`{error_msg}`")
         st.code(full_tb, language="text")
         st.info(
-            "💡 **Possíveis causas:**\n"
+            "Possíveis causas:\n"
             "- DATABASE_URL incorreta nos Secrets\n"
             "- Banco de dados pausado (Supabase free tier)\n"
             "- Senha ou host incorretos\n"
@@ -512,6 +512,14 @@ gemini_configurado = setup()
 
 @st.cache_resource
 def iniciar_scheduler_juros():
+    # Cobrar juros pendentes imediatamente na inicialização
+    try:
+        from database.crud import cobrar_juros_cheque_especial
+        cobrar_juros_cheque_especial()
+    except Exception as e:
+        print(f"Erro ao cobrar juros na inicialização: {e}")
+    
+    # Manter scheduler noturno como backup
     import threading
     import time
     from datetime import datetime
@@ -519,13 +527,13 @@ def iniciar_scheduler_juros():
     def _run_scheduler():
         while True:
             agora = datetime.now()
-            if agora.hour == 23 and agora.minute == 59:
+            if agora.hour == 0 and agora.minute < 5:
                 try:
                     from database.crud import cobrar_juros_cheque_especial
                     cobrar_juros_cheque_especial()
                 except Exception as e:
                     print(f"Erro no auto-pagamento de juros: {e}")
-                time.sleep(60) # Evita multíplas chamadas dentro do mesmo minuto
+                time.sleep(300)  # Espera 5min para não repetir
             time.sleep(30)
             
     t = threading.Thread(target=_run_scheduler, daemon=True)
@@ -547,30 +555,30 @@ if "page" not in st.session_state:
 def sidebar_info():
     """Mostra informações na sidebar."""
     with st.sidebar:
-        st.markdown("### 🧪 EgoLab")
+        st.markdown("### EgoLab")
         st.caption("_Teste versões. Invista melhor._")
         st.markdown("---")
 
         if st.session_state.user:
             user = st.session_state.user
-            st.markdown(f"👤 **{user['nome']}**")
-            st.markdown(f"📧 {user['email']}")
+            st.markdown(f"**{user['nome']}**")
+            st.markdown(f"{user['email']}")
             st.markdown("---")
 
             # Status da API
             if gemini_configurado:
-                st.success("🧠 Gemini IA: Conectado", icon="✅")
+                st.success("Gemini IA: Conectado")
             else:
-                st.warning("🧠 Gemini IA: Sem chave API", icon="⚠️")
+                st.warning("Gemini IA: Sem chave API")
 
             st.markdown("---")
-            st.markdown("### 📌 Navegação")
+            st.markdown("### Navegação")
             st.markdown("""
-            - 📊 **Dashboard** - Visão geral
-            - 🧑 **Personas** - Perfis
-            - 💼 **Carteiras** - Ativos
-            - 🧠 **Recomendações** - IA
-            - 📜 **Extrato** - Movimentações
+            - **Dashboard** - Visão geral
+            - **Personas** - Perfis
+            - **Carteiras** - Ativos
+            - **Recomendações** - IA
+            - **Extrato** - Movimentações
             """)
 
             # Mini-resumo de patrimônio
@@ -584,14 +592,14 @@ def sidebar_info():
                         total_ativos += len(ativos)
                 if total_ativos > 0 or total_caixa > 0:
                     st.markdown("---")
-                    st.markdown("### 💰 Resumo")
-                    st.markdown(f"📊 **{total_ativos}** ativos")
-                    st.markdown(f"💵 Caixa: **{formatar_moeda_md(total_caixa)}**", unsafe_allow_html=True)
+                    st.markdown("### Resumo")
+                    st.markdown(f"**{total_ativos}** ativos")
+                    st.markdown(f"Caixa: **{formatar_moeda_md(total_caixa)}**", unsafe_allow_html=True)
             except Exception:
                 pass
 
             st.markdown("---")
-            if st.button("🚪 Trocar Usuário", use_container_width=True):
+            if st.button("Trocar Usuário", use_container_width=True, type="tertiary"):
                 st.session_state.user = None
                 st.session_state.page = "home"
                 st.rerun()
@@ -608,7 +616,6 @@ def tela_homepage():
     # --- Hero Section ---
     st.markdown("""
     <div class="hero-section">
-        <div class="hero-logo">🧪</div>
         <div class="hero-title">EgoLab</div>
         <div class="hero-slogan">Teste versões. Invista melhor.</div>
         <div class="hero-description">
@@ -623,11 +630,11 @@ def tela_homepage():
     # --- CTA Buttons ---
     col_spacer1, col_cta1, col_cta2, col_spacer2 = st.columns([1, 1.2, 1.2, 1])
     with col_cta1:
-        if st.button("🚀 Começar Agora — Grátis", use_container_width=True, key="cta_start"):
+        if st.button("Começar Agora", use_container_width=True, key="cta_start", type="primary"):
             st.session_state.page = "login"
             st.rerun()
     with col_cta2:
-        if st.button("🔑 Já tenho conta", use_container_width=True, key="cta_login"):
+        if st.button("Já tenho conta", use_container_width=True, key="cta_login", type="tertiary"):
             st.session_state.page = "login"
             st.rerun()
 
@@ -637,19 +644,19 @@ def tela_homepage():
     st.markdown("""
     <div class="stats-bar">
         <div class="stat-item">
-            <span class="stat-value">🧑 ∞</span>
+            <span class="stat-value">∞</span>
             <span class="stat-label">Personas ilimitadas</span>
         </div>
         <div class="stat-item">
-            <span class="stat-value">🤖 IA</span>
+            <span class="stat-value">IA</span>
             <span class="stat-label">Gemini integrado</span>
         </div>
         <div class="stat-item">
-            <span class="stat-value">📊 B3</span>
+            <span class="stat-value">B3</span>
             <span class="stat-label">Dados em tempo real</span>
         </div>
         <div class="stat-item">
-            <span class="stat-value">🔒 100%</span>
+            <span class="stat-value">100%</span>
             <span class="stat-label">Seus dados, seu controle</span>
         </div>
     </div>
@@ -670,7 +677,6 @@ def tela_homepage():
     with f1:
         st.markdown("""
         <div class="feature-card">
-            <span class="feature-icon">🧑</span>
             <h3>Personas de Investimento</h3>
             <p>Crie perfis diferentes — conservador, moderado, arrojado — e teste estratégias em paralelo sem risco.</p>
         </div>
@@ -679,7 +685,6 @@ def tela_homepage():
     with f2:
         st.markdown("""
         <div class="feature-card">
-            <span class="feature-icon">💼</span>
             <h3>Carteiras Inteligentes</h3>
             <p>Monte carteiras com ações e FIIs da B3. Configure setores, prazo e meta de dividendos.</p>
         </div>
@@ -688,7 +693,6 @@ def tela_homepage():
     with f3:
         st.markdown("""
         <div class="feature-card">
-            <span class="feature-icon">🧠</span>
             <h3>Recomendações com IA</h3>
             <p>O Gemini analisa cada ativo com indicadores técnicos e fundamentalistas, gerando ações com score 0-100.</p>
         </div>
@@ -697,7 +701,6 @@ def tela_homepage():
     with f4:
         st.markdown("""
         <div class="feature-card">
-            <span class="feature-icon">📊</span>
             <h3>Dashboard em Tempo Real</h3>
             <p>Veja patrimônio, lucro/prejuízo, gráficos de distribuição e histórico de preços ao vivo.</p>
         </div>
@@ -757,7 +760,6 @@ def tela_homepage():
     with d1:
         st.markdown("""
         <div class="diff-card">
-            <span class="diff-icon">⚡</span>
             <h4>Setup Inteligente</h4>
             <p>Crie personas e carteiras em minutos com ajuda da IA.</p>
         </div>
@@ -766,7 +768,6 @@ def tela_homepage():
     with d2:
         st.markdown("""
         <div class="diff-card">
-            <span class="diff-icon">📜</span>
             <h4>Extrato Completo</h4>
             <p>Rastreie cada movimentação: aportes, compras, vendas e dividendos recebidos.</p>
         </div>
@@ -775,7 +776,6 @@ def tela_homepage():
     with d3:
         st.markdown("""
         <div class="diff-card">
-            <span class="diff-icon">🔄</span>
             <h4>Máquina de Estados</h4>
             <p>Ações planejadas passam por estados (planejado → executado) com alertas de atraso.</p>
         </div>
@@ -784,7 +784,6 @@ def tela_homepage():
     with d4:
         st.markdown("""
         <div class="diff-card">
-            <span class="diff-icon">📰</span>
             <h4>Notícias do Mercado</h4>
             <p>Monitoramento de notícias relevantes para seus ativos, integrado às recomendações.</p>
         </div>
@@ -802,15 +801,15 @@ def tela_homepage():
             <div class="section-subtitle">Crie sua conta gratuita e comece agora</div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("🚀 Criar Minha Conta Gratuita", use_container_width=True, key="cta_bottom"):
+        if st.button("Criar Minha Conta Gratuita", use_container_width=True, key="cta_bottom", type="primary"):
             st.session_state.page = "login"
             st.rerun()
 
     # --- Footer ---
     st.markdown("""
     <div class="footer">
-        <p>🧪 <strong>EgoLab</strong> — Teste versões. Invista melhor.</p>
-        <p>Feito com ❤️ usando Streamlit, Gemini IA e dados da B3</p>
+        <p><strong>EgoLab</strong> — Teste versões. Invista melhor.</p>
+        <p>Feito com Streamlit, Gemini IA e dados da B3</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -820,14 +819,14 @@ def tela_homepage():
 # ---------------------------------------------------------------------------
 def tela_login():
     """Tela inicial: login ou criação de conta com senha."""
-    st.markdown('<p class="main-header">🧪 EgoLab</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">EgoLab</p>', unsafe_allow_html=True)
     st.markdown(
         '<p class="sub-header">Teste versões. Invista melhor.</p>',
         unsafe_allow_html=True
     )
 
     # Botão voltar para homepage
-    if st.button("← Voltar para a Homepage", key="btn_back_home"):
+    if st.button("← Voltar para a Homepage", key="btn_back_home", type="tertiary"):
         st.session_state.page = "home"
         st.rerun()
 
@@ -836,11 +835,11 @@ def tela_login():
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("### 🔑 Entrar")
+        st.markdown("### Entrar")
         email_login = st.text_input("Email:", key="login_email", placeholder="seu@email.com")
         senha_login = st.text_input("Senha:", key="login_senha", type="password")
 
-        if st.button("▶️ Entrar", use_container_width=True, key="btn_login"):
+        if st.button("Entrar", use_container_width=True, key="btn_login", type="primary"):
             if not email_login or not senha_login:
                 st.error("Preencha email e senha!")
             else:
@@ -853,20 +852,20 @@ def tela_login():
                         st.session_state.user = user
                         st.rerun()
                     else:
-                        st.error("Senha incorreta! ❌")
+                        st.error("Senha incorreta!")
 
     with col2:
-        st.markdown("### ✨ Criar Conta")
+        st.markdown("### Criar Conta")
         nome = st.text_input("Nome completo:", key="reg_nome")
         email = st.text_input("Email:", key="reg_email")
         senha = st.text_input("Senha:", key="reg_senha", type="password")
         senha_confirma = st.text_input("Confirmar senha:", key="reg_senha2", type="password")
 
-        if st.button("🚀 Criar Conta", use_container_width=True, key="btn_register"):
+        if st.button("Criar Conta", use_container_width=True, key="btn_register", type="primary"):
             if not nome or not email or not senha:
                 st.error("Preencha todos os campos!")
             elif senha != senha_confirma:
-                st.error("As senhas não coincidem! ❌")
+                st.error("As senhas não coincidem!")
             elif len(senha) < 4:
                 st.error("Senha deve ter no mínimo 4 caracteres!")
             elif buscar_usuario_por_email(email):
@@ -874,7 +873,7 @@ def tela_login():
             else:
                 user = criar_usuario(nome, email, senha)
                 st.session_state.user = user
-                st.success(f"Conta criada com sucesso! Bem-vindo, {nome}! 🎉")
+                st.success(f"Conta criada com sucesso! Bem-vindo, {nome}!")
                 st.rerun()
 
 
@@ -885,7 +884,7 @@ def tela_principal():
     """Tela principal com resumo rápido após login."""
     user = st.session_state.user
 
-    st.markdown(f'<p class="main-header">Olá, {user["nome"]}! 👋</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="main-header">Olá, {user["nome"]}</p>', unsafe_allow_html=True)
     st.markdown(
         '<p class="sub-header">Bem-vindo ao EgoLab — seu laboratório de estratégias de investimento</p>',
         unsafe_allow_html=True
@@ -896,15 +895,15 @@ def tela_principal():
 
     if not personas:
         st.markdown("---")
-        st.markdown("### 🚀 Primeiros Passos")
+        st.markdown("### Primeiros Passos")
         st.info(
             "Você ainda não configurou nenhuma **Persona** de investimento. "
-            "Crie uma Persona na página **🧑 Personas** no menu lateral para começar."
+            "Crie uma Persona na página **Personas** no menu lateral para começar."
         )
         st.markdown("---")
 
-        if st.button("🧑 Criar Persona", use_container_width=True):
-            st.switch_page("pages/2_🧑_Personas.py")
+        if st.button("Criar Persona", use_container_width=True, type="primary"):
+            st.switch_page("pages/2_Personas.py")
     else:
         # Métricas rápidas
         total_personas = len(personas)
@@ -932,7 +931,7 @@ def tela_principal():
         col1, col2 = st.columns(2)
         with col1:
             with st.container(border=True):
-                st.markdown(f"#### 🧑 Personas ({total_personas})")
+                st.markdown(f"#### Personas ({total_personas})")
                 for p in personas:
                     n_ports = len(listar_portfolios_persona(p["id"]))
                     c_pn, c_pb = st.columns([4, 2])
@@ -941,10 +940,10 @@ def tela_principal():
                     with c_pb:
                         if st.button("Ver detalhes →", key=f"hp_p_{p['id']}"):
                             st.session_state.view_persona_id = p["id"]
-                            st.switch_page("pages/_9_🧑_Persona_Detalhe.py")
+                            st.switch_page("pages/_9_Persona_Detalhe.py")
         with col2:
             with st.container(border=True):
-                st.markdown(f"#### 💼 Carteiras ({total_portfolios})")
+                st.markdown(f"#### Carteiras ({total_portfolios})")
                 for p in personas:
                     for port in listar_portfolios_persona(p["id"]):
                         n_ats = len(listar_ativos_portfolio(port["id"]))
@@ -954,14 +953,14 @@ def tela_principal():
                         with c_cb:
                             if st.button("Ver detalhes →", key=f"hp_c_{port['id']}"):
                                 st.session_state.view_portfolio_id = port["id"]
-                                st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+                                st.switch_page("pages/_7_Carteira_Detalhe.py")
 
     st.markdown("---")
 
     # -----------------------------------------------------------------------
     # 🔍 Pesquisa de Ativos
     # -----------------------------------------------------------------------
-    st.markdown("### 🔍 Pesquisar Ativos")
+    st.markdown("### Pesquisar Ativos")
     st.caption("Busque por código (PETR4) ou nome (Petrobras, Itaú, Vale...)")
     
     col_search, col_btn = st.columns([5, 1])
@@ -972,27 +971,27 @@ def tela_principal():
             label_visibility="collapsed"
         ).strip()
     with col_btn:
-        buscar_direto = st.button("Buscar 🔎", use_container_width=True, type="primary")
+        buscar_direto = st.button("Buscar", use_container_width=True, type="primary")
     
     if buscar_direto and ticker_busca:
         from utils.helpers import buscar_ativos_por_nome
         resultados = buscar_ativos_por_nome(ticker_busca)
         
         if resultados:
-            st.caption(f"📋 {len(resultados)} resultado(s) encontrado(s):")
+            st.caption(f"{len(resultados)} resultado(s) encontrado(s):")
             cols_res = st.columns(min(len(resultados), 4))
             for i, r in enumerate(resultados[:4]):
                 with cols_res[i]:
-                    if st.button(f"📄 {r['ticker']}\n{r['nome']}", key=f"sr_{r['ticker']}", use_container_width=True):
+                    if st.button(f"{r['ticker']}\n{r['nome']}", key=f"sr_{r['ticker']}", use_container_width=True):
                         st.session_state.view_asset_ticker = r['ticker']
-                        st.switch_page("pages/_8_📄_Ativo.py")
+                        st.switch_page("pages/_8_Ativo.py")
         else:
             # Tentar buscar diretamente como ticker se não obteve resultado fuzzy
             st.session_state.view_asset_ticker = ticker_busca.upper()
-            st.switch_page("pages/_8_📄_Ativo.py")
+            st.switch_page("pages/_8_Ativo.py")
             
     elif buscar_direto:
-        st.toast("Digite um código ou nome válido primeiro", icon="⚠️")
+        st.toast("Digite um código ou nome válido primeiro")
                 
     st.markdown("---")
 
@@ -1004,14 +1003,14 @@ def tela_principal():
 
     c_tit1, c_tit2 = st.columns([5, 1])
     with c_tit1:
-        st.markdown("### 📈 Destaques do Mercado")
+        st.markdown("### Destaques do Mercado")
         st.caption("Rankings de ações populares da B3")
     with c_tit2:
-        if st.button("🔄 Atualizar Painel", use_container_width=True, key="btn_refresh_destaques", help="Puxa cotações em tempo real da B3"):
+        if st.button("Atualizar", use_container_width=True, key="btn_refresh_destaques", help="Puxa cotações em tempo real da B3"):
             buscar_highlights_mercado.clear()
             st.rerun()
 
-    with st.spinner("🔄 Carregando destaques do mercado..."):
+    with st.spinner("Carregando destaques do mercado..."):
         highlights = buscar_highlights_mercado(_cache_buster=1)
 
     if highlights:
@@ -1019,7 +1018,7 @@ def tela_principal():
         for key in list(st.session_state.keys()):
             if key.startswith("_wl_added_") and st.session_state[key]:
                 ticker_added = key.replace("_wl_added_", "")
-                st.toast(f"✅ {ticker_added} adicionado à watchlist!", icon="👀")
+                st.toast(f"{ticker_added} adicionado à watchlist!")
                 del st.session_state[key]
         
         # Pre-load user portfolios mappings for the quick actions
@@ -1057,11 +1056,11 @@ def tela_principal():
                         unsafe_allow_html=True
                     )
                 with col_info:
-                    if st.button("ℹ️", key=f"hi_info_{prefix}_{item['ticker']}", help="Ver detalhes do ativo"):
+                    if st.button("Info", key=f"hi_info_{prefix}_{item['ticker']}", help="Ver detalhes do ativo", type="tertiary"):
                         st.session_state.view_asset_ticker = item['ticker']
-                        st.switch_page("pages/_8_📄_Ativo.py")
+                        st.switch_page("pages/_8_Ativo.py")
                 with col_acao:
-                    with st.popover("⚙️"):
+                    with st.popover("Opções"):
                         if not todas_carteiras:
                             st.warning("Crie carteira.")
                         else:
@@ -1071,14 +1070,14 @@ def tela_principal():
                             
                             c_w, c_o = st.columns(2)
                             with c_w:
-                                if st.button("👀 Monitorar", key=f"btn_w_{prefix}_{item['ticker']}"):
+                                if st.button("Monitorar", key=f"btn_w_{prefix}_{item['ticker']}", type="tertiary"):
                                     adicionar_watchlist(sel_port, item['ticker'], manual=True)
                                     st.session_state[f"_wl_added_{item['ticker']}"] = True
                                     st.rerun()
                             with c_o:
-                                if st.button("🛒 Operar", key=f"btn_op_{prefix}_{item['ticker']}"):
+                                if st.button("Operar", key=f"btn_op_{prefix}_{item['ticker']}", type="tertiary"):
                                     st.session_state.view_portfolio_id = sel_port
-                                    st.switch_page("pages/_7_📂_Carteira_Detalhe.py")
+                                    st.switch_page("pages/_7_Carteira_Detalhe.py")
 
         # Refazendo o ranking no frontend (para permitir filtros ricos sobre toda a base cacheada)
         base_ativos = filtrar_lista(highlights.get("todos_ativos", []))
@@ -1091,7 +1090,7 @@ def tela_principal():
         m_pl = sorted(com_pl, key=lambda x: x["pl"])[:5]
 
         with h1:
-            st.markdown("#### 🟢 Maiores Altas")
+            st.markdown("#### Maiores Altas")
             for item in m_altas:
                 cor = "#00C851" if item["variacao"] >= 0 else "#FF4444"
                 _renderizar_card_destaque(item, cor, "hi")
@@ -1099,7 +1098,7 @@ def tela_principal():
                 st.caption(f"Sem dados para {filtro_destaques}")
 
         with h2:
-            st.markdown("#### 🔴 Maiores Quedas")
+            st.markdown("#### Maiores Quedas")
             for item in m_quedas:
                 cor = "#00C851" if item["variacao"] >= 0 else "#FF4444"
                 _renderizar_card_destaque(item, cor, "lo")
@@ -1107,7 +1106,7 @@ def tela_principal():
                 st.caption(f"Sem dados para {filtro_destaques}")
 
         with h3:
-            st.markdown("#### 💰 Melhores DY")
+            st.markdown("#### Melhores DY")
             for item in m_dy:
                 extra = f"<span style='color:#667eea;font-size:0.85em'>DY {item['dy']:.2f}%</span>"
                 _renderizar_card_destaque(item, "#333", "dy", extra)
@@ -1115,16 +1114,16 @@ def tela_principal():
                 st.caption(f"Sem dados para {filtro_destaques}")
 
         with h4:
-            st.markdown("#### 📊 Menor P/L")
+            st.markdown("#### Menor P/L")
             for item in m_pl:
                 extra = f"<span style='color:#764ba2;font-size:0.85em'>P/L {item['pl']:.1f}</span>"
                 _renderizar_card_destaque(item, "#333", "pl", extra)
             if not m_pl:
                 st.caption(f"Sem dados para {filtro_destaques}")
 
-        st.caption(f"📊 {len(base_ativos)} ativos filtrados de um total de {highlights['total_analisados']}")
+        st.caption(f"{len(base_ativos)} ativos filtrados de um total de {highlights['total_analisados']}")
     else:
-        st.info("⏳ Não foi possível carregar os destaques do mercado. Tente novamente em instantes.")
+        st.info("Não foi possível carregar os destaques do mercado. Tente novamente em instantes.")
 
     st.markdown("---")
 
@@ -1133,15 +1132,15 @@ def tela_principal():
     atrasadas = verificar_acoes_atrasadas()
 
     if atrasadas:
-        st.markdown("### ⚠️ Ações Atrasadas")
+        st.markdown("### Ações Atrasadas")
         st.warning(
             f"Você tem **{len(atrasadas)} ação(ões) planejada(s) atrasada(s)**! "
-            "Vá até a página **🧠 Recomendações** para revisar."
+            "Vá até a página **Recomendações** para revisar."
         )
         for a in atrasadas[:3]:
             st.markdown(
                 f'<div class="alert-delay">'
-                f'⚠️ <b>{a["asset_ticker"]}</b> - {a["tipo_acao"].upper()} '
+                f'<b>{a["asset_ticker"]}</b> - {a["tipo_acao"].upper()} '
                 f'planejado para {formatar_data_br(a["data_planejada"])} ({a["dias_atraso"]} dias de atraso)'
                 f'</div>',
                 unsafe_allow_html=True
@@ -1150,9 +1149,9 @@ def tela_principal():
     st.markdown("---")
 
     # -----------------------------------------------------------------------
-    # 👁️ Ativos Monitorados (Global Watchlist)
+    # Ativos Monitorados (Global Watchlist)
     # -----------------------------------------------------------------------
-    st.markdown("### 👁️ Ativos Monitorados")
+    st.markdown("### Ativos Monitorados")
     
     watchlist_global = listar_watchlist_usuario(user["id"])
     
@@ -1184,9 +1183,9 @@ def tela_principal():
                         preco_val = p.get("preco_atual", 0) if isinstance(p, dict) else 0
                         st.markdown(f"**Preço Atual:** {formatar_moeda_md(preco_val)}", unsafe_allow_html=True)
                     with c3:
-                        if st.button("📄 Info", key=f"global_w_{w['id']}", use_container_width=True):
+                        if st.button("Info", key=f"global_w_{w['id']}", use_container_width=True, type="tertiary"):
                             st.session_state.view_asset_ticker = w['ticker']
-                            st.switch_page("pages/_8_📄_Ativo.py")
+                            st.switch_page("pages/_8_Ativo.py")
         else:
             st.info("Nenhum ativo corresponde aos filtros selecionados.")
     else:
@@ -1195,14 +1194,14 @@ def tela_principal():
     st.markdown("---")
 
     # Lista de Personas
-    st.markdown("### 🧑 Suas Personas")
+    st.markdown("### Suas Personas")
     for p in personas:
         with st.expander(f"**{p['nome']}** (Risco: {p['tolerancia_risco']}/10 | Estilo: {p['estilo'].capitalize()})"):
             portfolios = listar_portfolios_persona(p["id"])
             if portfolios:
                 for port in portfolios:
                     montante_txt = f" | Caixa: {formatar_moeda_md(port['montante_disponivel'])}" if port.get('montante_disponivel') else ""
-                    st.markdown(f"💼 **{port['nome']}** — Prazo: {port['objetivo_prazo']} | Meta DY: {port['meta_dividendos']}%{montante_txt}", unsafe_allow_html=True)
+                    st.markdown(f"**{port['nome']}** — Prazo: {port['objetivo_prazo']} | Meta DY: {port['meta_dividendos']}%{montante_txt}", unsafe_allow_html=True)
             else:
                 st.info("Nenhuma carteira nesta persona.")
 
