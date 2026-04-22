@@ -242,7 +242,7 @@ PERFIL DO INVESTIDOR:
 - Frequência de Revisão: {persona_info.get('frequencia_acao', 'semanal')}
 - Objetivo de Prazo: {portfolio_info.get('objetivo_prazo', 'longo')}
 - Meta de Dividendos: {portfolio_info.get('meta_dividendos', 6.0)}% ao ano
-- Tipo de Ativo: {portfolio_info.get('tipo_ativo', 'misto')}
+- Tipo de Ativo: {portfolio_info.get('tipo_ativo', 'acoes')}
 - Montante Disponível no Caixa Lívre: {montante:.2f} BRL
 - Setores Preferidos: {setores if setores else 'Sem preferência específica'}
 
@@ -363,7 +363,7 @@ PERFIL DO INVESTIDOR:
 - Estilo: {persona_info.get('estilo', 'dividendos')}
 - Tolerância a Risco: {persona_info.get('tolerancia_risco', 5)}/10
 - Objetivo de Prazo: {portfolio_info.get('objetivo_prazo', 'longo')}
-- Tipo de Ativo: {portfolio_info.get('tipo_ativo', 'misto')}
+- Tipo de Ativo: {portfolio_info.get('tipo_ativo', 'acoes')}
 - Setores Preferidos: {setores if setores else 'Sem preferência específica'}
 
 MONTANTE DISPONÍVEL PARA COMPRAS: R$ {montante:,.2f}
@@ -374,7 +374,7 @@ A soma de todos os percentuais DEVE ser exatamente 100%.
 
 IMPORTANTE:
 - Sugira ativos que complementem a carteira (diversificação) ou reforcem posições existentes.
-- Todos os ativos devem ser negociados na B3 (ações terminando em 3/4 ou FIIs terminando em 11).
+- Todos os ativos devem ser negociados na B3 (ações terminando em 3/4/11).
 
 Responda EXATAMENTE no formato (uma sugestão por linha):
 TICKER: [código] | TIPO: [Novo/Reforço] | ALOCACAO: [percentual inteiro, ex: 30] | MOTIVO: [explicação curta de 1 frase]
@@ -504,14 +504,14 @@ Um novo investidor respondeu um questionário com as seguintes respostas:
 - Estilo preferido: {respostas.get('estilo', 'dividendos')}
 - Objetivo de Prazo: {respostas.get('objetivo_prazo', 'longo')}
 - Valor disponível: R$ {respostas.get('valor_disponivel', 1000)}
-- Tipo de ativo preferido: {respostas.get('tipo_ativo', 'misto')}
+- Tipo de ativo preferido: {respostas.get('tipo_ativo', 'acoes')}
 - Meta de dividendos: {respostas.get('meta_dividendos', 6.0)}% ao ano
 
-Sugira de 3 a 6 ativos (ações ou FIIs da B3) para uma carteira inicial diversificada.
+Sugira de 3 a 6 ações da B3 para uma carteira inicial diversificada.
 O valor total das sugestões NÃO deve ultrapassar R$ {respostas.get('valor_disponivel', 1000)}.
 
 Responda EXATAMENTE no formato (um ativo por linha, sem extras):
-TICKER: [código] | TIPO: [Ação/FII] | ALOCACAO: [percentual do total] | MOTIVO: [Explicação curta de 1 frase]
+TICKER: [código] | TIPO: [Ação] | ALOCACAO: [percentual do total] | MOTIVO: [Explicação curta de 1 frase]
 
 No final, adicione:
 RESUMO: [Explicação geral de 2-3 frases sobre a carteira sugerida]
@@ -564,8 +564,8 @@ RESUMO: [Explicação geral de 2-3 frases sobre a carteira sugerida]
                 {"ticker": "PETR4", "tipo": "Ação", "alocacao": 20, "motivo": "Blue chip, dividendos consistentes"},
                 {"ticker": "VALE3", "tipo": "Ação", "alocacao": 20, "motivo": "Mineração, exposição global"},
                 {"ticker": "ITUB4", "tipo": "Ação", "alocacao": 20, "motivo": "Banco sólido, dividendos regulares"},
-                {"ticker": "HGLG11", "tipo": "FII", "alocacao": 20, "motivo": "FII logístico, renda mensal"},
-                {"ticker": "MXRF11", "tipo": "FII", "alocacao": 20, "motivo": "FII de papel, yield atrativo"},
+                {"ticker": "WEGE3", "tipo": "Ação", "alocacao": 20, "motivo": "Crescimento consistente, líder industrial"},
+                {"ticker": "TAEE11", "tipo": "Ação", "alocacao": 20, "motivo": "Energia, dividendos elevados"},
             ],
             "resumo": "⚠️ Carteira padrão diversificada (IA temporariamente indisponível).",
             "sucesso": True

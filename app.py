@@ -505,6 +505,12 @@ def setup():
         )
         st.stop()
     gemini_ok = configurar_gemini()
+    # Migração: remover FIIs existentes do banco
+    try:
+        from database.migrate_remove_fiis import migrar_remover_fiis
+        migrar_remover_fiis()
+    except Exception as e:
+        print(f"[setup] Erro na migração de FIIs: {e}")
     return gemini_ok
 
 
@@ -686,7 +692,7 @@ def tela_homepage():
         st.markdown("""
         <div class="feature-card">
             <h3>Carteiras Inteligentes</h3>
-            <p>Monte carteiras com ações e FIIs da B3. Configure setores, prazo e meta de dividendos.</p>
+            <p>Monte carteiras com ações da B3. Configure setores, prazo e meta de dividendos.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -732,7 +738,7 @@ def tela_homepage():
         <div class="step-card">
             <div class="step-number">2</div>
             <h4>Monte Carteiras</h4>
-            <p>Adicione ações e FIIs da B3. Escolha setores, horizonte de investimento e aporte inicial. O sistema calcula metas automaticamente.</p>
+            <p>Adicione ações da B3. Escolha setores, horizonte de investimento e aporte inicial. O sistema calcula metas automaticamente.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1031,7 +1037,7 @@ def tela_principal():
         # Filtro de Ações ou FIIs
         filtro_destaques = st.radio(
             "Filtrar rankigs por tipo:",
-            ["Todos", "Ações", "FIIs"],
+            ["Todos"],
             horizontal=True,
             key="filtro_destaques"
         )

@@ -52,7 +52,7 @@ class FrequenciaAcao(str, enum.Enum):
 class EstiloInvestimento(str, enum.Enum):
     """
     Conceito de Finanças:
-    - Dividendos: foco em receber renda passiva (FIIs, TAEE11, BBAS3...)
+    - Dividendos: foco em receber renda passiva (TAEE11, BBAS3...)
     - Crescimento: foco em valorização do preço (WEGE3, MGLU3...)
     - Equilibrado: mix de renda passiva e valorização
     """
@@ -73,8 +73,6 @@ class FrequenciaAporte(str, enum.Enum):
 class TipoAtivo(str, enum.Enum):
     """Tipo de ativo que a carteira aceita."""
     ACOES = "acoes"
-    FIIS = "fiis"
-    MISTO = "misto"
 
 
 class TipoAcao(str, enum.Enum):
@@ -172,8 +170,8 @@ class Persona(Base):
     Ex: "Aposentadoria" (conservador, dividendos) e "Especulação" (arrojado, crescimento).
     
     Tolerância a risco (0-10):
-    - 0-3: Conservador (prefere renda fixa, FIIs de tijolo)
-    - 4-6: Moderado (mix de ações e FIIs)
+    - 0-3: Conservador (prefere renda fixa, ações de dividendos)
+    - 4-6: Moderado (mix diversificado de ações)
     - 7-10: Arrojado (ações de crescimento, small caps)
     """
     __tablename__ = "personas"
@@ -210,7 +208,7 @@ class Portfolio(Base):
     Conceito de Finanças:
     - objetivo_prazo: "curto" (<1 ano), "medio" (1-5 anos), "longo" (>5 anos)
     - meta_dividendos: calculado automaticamente com base no perfil
-    - tipo_ativo: se a carteira aceita ações, FIIs ou ambos
+    - tipo_ativo: tipo de ativos aceitos na carteira
     - setores_preferidos: setores de interesse (bancos, petróleo, etc.)
     - montante_disponivel: caixa disponível para investimento
     - aporte_periodico: valor do aporte periódico automático
@@ -226,7 +224,7 @@ class Portfolio(Base):
     meta_dividendos = Column(Float, default=6.0)  # % ao ano (auto-calculado)
     tipo_ativo = Column(
         SAEnum(TipoAtivo),
-        default=TipoAtivo.MISTO
+        default=TipoAtivo.ACOES
     )
     setores_preferidos = Column(String(500), default="")  # Ex: "bancos,petroleo,logistica"
     montante_disponivel = Column(Float, default=0.0)  # Caixa em R$ disponível

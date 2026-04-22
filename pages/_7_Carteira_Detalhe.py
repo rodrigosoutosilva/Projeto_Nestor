@@ -62,7 +62,7 @@ with btn_col2:
         st.switch_page("pages/3_Carteiras.py")
 
 # --- CABEÇALHO ---
-tipo_emoji = {"acoes": "Ações", "fiis": "FIIs", "misto": "Misto"}.get(port["tipo_ativo"], "")
+tipo_emoji = "Ações"
 st.markdown(f"""
 <style>.big-name {{ font-size: 1.76rem !important; font-weight: 700 !important; margin-bottom: 0.3rem; }}</style>
 <div class='big-name'>{port['nome']} ({tipo_emoji})</div>

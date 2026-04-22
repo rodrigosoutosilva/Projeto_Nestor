@@ -25,7 +25,7 @@ from database.crud import (
 from utils.helpers import (
     parsear_csv_ativos, formatar_moeda, formatar_moeda_md, formatar_data_br,
     calcular_meta_dividendos_auto, injetar_css_global,
-    SETORES_ACOES, SETORES_FIIS
+    SETORES_ACOES
 )
 from services.market_data import buscar_preco_atual
 from datetime import date
@@ -105,7 +105,7 @@ with st.expander("Criar Nova Carteira", expanded=False):
         with col1:
             nome_cart = st.text_input(
                 "Nome da Carteira",
-                placeholder="Ex: Ações Blue Chip, FIIs Renda, Long & Short...",
+                placeholder="Ex: Ações Blue Chip, Long & Short...",
                 disabled=_criando,
                 key="nome_cart_input"
             )
@@ -122,17 +122,8 @@ with st.expander("Criar Nova Carteira", expanded=False):
             )
 
         with col2:
-            tipo = st.selectbox(
-                "Tipo de Ativo",
-                options=["acoes", "fiis", "misto"],
-                format_func=lambda x: {
-                    "acoes": "Ações",
-                    "fiis": "FIIs",
-                    "misto": "Misto (Ações + FIIs)"
-                }[x],
-                index=2,
-                disabled=_criando
-            )
+            tipo = "acoes"
+            st.text_input("Tipo de Ativo", value="Ações", disabled=True)
             montante = st.number_input(
                 "Aporte Inicial (R$)",
                 min_value=0.0, max_value=10_000_000.0, value=1000.0, step=100.0,
@@ -212,22 +203,6 @@ with st.expander("Criar Nova Carteira", expanded=False):
             else:
                 setores_selecionados.extend(sel_a_list)
 
-        if tipo in ("fiis", "misto"):
-            st.markdown("**FIIs (Selecione os tipos desejados):**")
-            cols_f = st.columns(3)
-            with cols_f[0]:
-                todos_f = st.checkbox("Selecionar Todos (FIIs)", value=True, key="todos_f", help="Se marcar esta opção, todos os setores serão incluídos de forma automática.", disabled=_criando)
-            
-            sel_f_list = []
-            for i, (chave, label) in enumerate(SETORES_FIIS):
-                with cols_f[(i + 1) % 3]:
-                    if st.checkbox(label, value=todos_f, disabled=(todos_f or _criando), key=f"setor_f_{chave}"):
-                        sel_f_list.append(chave)
-            
-            if todos_f or not sel_f_list:
-                setores_selecionados.extend([k for k, _ in SETORES_FIIS])
-            else:
-                setores_selecionados.extend(sel_f_list)
 
         # Meta DY automática
         meta_dy_auto = calcular_meta_dividendos_auto(
@@ -319,7 +294,7 @@ else:
         cols = st.columns(2)
         for i, port in enumerate(portfolios):
             with cols[i % 2]:
-                tipo_emoji = {"acoes": "Ações", "fiis": "FIIs", "misto": "Misto"}.get(port["tipo_ativo"], "")
+                tipo_emoji = "Ações"
                 with st.container(border=True):
                     st.markdown(f"#### {port['nome']} ({tipo_emoji})")
                     persona_da_carteira = next((p["nome"] for p in personas if p["id"] == port["persona_id"]), "Desconhecida")
@@ -391,7 +366,7 @@ else:
     else:
         # Modo Lista expandível
         for port in portfolios:
-            tipo_emoji = {"acoes": "Ações", "fiis": "FIIs", "misto": "Misto"}.get(port["tipo_ativo"], "")
+            tipo_emoji = "Ações"
             montante_txt = f" | {formatar_moeda(port.get('montante_disponivel', 0))}"
             
             with st.expander(f"**{port['nome']}** {tipo_emoji} — Tipo: {port['tipo_ativo'].capitalize()}{montante_txt}"):

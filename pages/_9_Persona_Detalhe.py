@@ -324,8 +324,8 @@ with st.expander("Criar Nova Carteira para esta Persona"):
         col1, col2 = st.columns(2)
         with col1:
             port_nome = st.text_input("Nome da Carteira", placeholder="Ex: Mix Ações")
-            tipo_ativo = st.selectbox("Tipo de Ativo", ["acoes", "fiis", "misto"],
-                                       format_func=lambda x: {"acoes":"Ações","fiis":"FIIs","misto":"Misto"}[x])
+            tipo_ativo = "acoes"
+            st.text_input("Tipo de Ativo", value="Ações", disabled=True)
             montante = st.number_input(
                 "Aporte Inicial (R$)",
                 min_value=0.0, max_value=10_000_000.0, value=1000.0, step=100.0,
@@ -337,7 +337,7 @@ with st.expander("Criar Nova Carteira para esta Persona"):
             meta_dy = st.number_input("Meta DY (%)", min_value=0.0, value=6.0, step=0.5)
         
         # Importar as constantes de setores
-        from utils.helpers import SETORES_ACOES, SETORES_FIIS
+        from utils.helpers import SETORES_ACOES
         
         st.markdown("**Setores preferidos** *(opcional)*")
         setores_selecionados = []
@@ -357,20 +357,7 @@ with st.expander("Criar Nova Carteira para esta Persona"):
             else:
                 setores_selecionados.extend(sel_a_list)
 
-        if tipo_ativo in ("fiis", "misto"):
-            st.markdown("**FIIs:**")
-            cols_f = st.columns(3)
-            with cols_f[0]:
-                todos_f = st.checkbox("Selecionar Todos (FIIs)", value=True, key="todos_f_pd", help="Se marcar esta opção, todos os setores serão incluídos de forma automática.")
-            sel_f_list = []
-            for i, (chave, label) in enumerate(SETORES_FIIS):
-                with cols_f[(i + 1) % 3]:
-                    if st.checkbox(label, value=todos_f, disabled=todos_f, key=f"setor_f_pd_{chave}"):
-                        sel_f_list.append(chave)
-            if todos_f or not sel_f_list:
-                setores_selecionados.extend([k for k, _ in SETORES_FIIS])
-            else:
-                setores_selecionados.extend(sel_f_list)
+
                 
         col_ap1, col_ap2, col_ap3 = st.columns(3)
         with col_ap1:

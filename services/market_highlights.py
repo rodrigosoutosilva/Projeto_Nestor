@@ -23,8 +23,6 @@ TICKERS_POPULARES = [
     "ABEV3", "B3SA3", "RENT3", "SUZB3", "JBSS3", "GGBR4",
     "CSNA3", "MGLU3", "LREN3", "RADL3", "HAPV3", "TOTS3",
     "ENEV3", "PRIO3", "CPLE6", "TAEE11", "ELET3", "VIVT3",
-    # FIIs populares
-    "HGLG11", "XPLG11", "MXRF11", "KNRI11", "VISC11"
 ]
 
 
@@ -126,10 +124,6 @@ def buscar_highlights_mercado(_cache_buster: int = 0) -> Optional[dict]:
 
                 # Tipo de ativo
                 tipo_ativo = "Ações"
-                if ticker in ["HGLG11", "XPLG11", "MXRF11", "KNRI11", "VISC11"]:
-                    tipo_ativo = "FIIs"
-                elif len(ticker) == 6 and ticker.endswith("11") and ticker not in ["TAEE11", "KLBN11", "ENGI11", "SANB11", "ALUP11"]:
-                    tipo_ativo = "FIIs"
 
                 resultados.append({
                     "ticker": ticker,

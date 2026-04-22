@@ -348,10 +348,6 @@ _SETOR_PEERS = {
     "Healthcare": ["HAPV3", "RDOR3", "FLRY3", "QUAL3", "HYPE3"],
     "Real Estate": ["CYRE3", "MRVE3", "EZTC3", "MULT3", "IGTI11"],
     "Communication Services": ["VIVT3", "TIMS3", "OIBR3"],
-    # FIIs por tipo
-    "Tijolo": ["HGLG11", "XPML11", "VISC11", "BTLG11", "KNRI11"],
-    "Papel": ["KNCR11", "KNIP11", "MXRF11", "CPTS11", "IRDM11"],
-    "Híbrido": ["HGLG11", "KNRI11", "MXRF11", "XPML11", "VISC11"],
 }
 
 

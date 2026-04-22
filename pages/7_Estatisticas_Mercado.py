@@ -39,7 +39,7 @@ def gerar_estatisticas_setoriais():
     status_text = st.empty()
     
     # Filtrar chaves reais
-    setores_ativos = {k: v for k, v in TICKERS_POR_SETOR.items() if k not in ["acoes", "fiis"]}
+    setores_ativos = {k: v for k, v in TICKERS_POR_SETOR.items() if k not in ["acoes"]}
     total_setores = len(setores_ativos)
     
     for i, (setor, tickers) in enumerate(setores_ativos.items()):

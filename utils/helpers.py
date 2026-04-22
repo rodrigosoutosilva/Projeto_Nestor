@@ -34,15 +34,6 @@ NOMES_ATIVOS = {
     "SBSP3": "Sabesp ON", "ITSA4": "Itaúsa PN",
     "EMBR3": "Embraer ON", "COGN3": "Cogna ON",
     "AZUL4": "Azul PN", "GOLL4": "GOL PN",
-    # FIIs — Principais
-    "HGLG11": "CSHG Logística FII", "MXRF11": "Maxi Renda FII",
-    "XPML11": "XP Malls FII", "VISC11": "Vinci Shopping Centers FII",
-    "KNCR11": "Kinea Rendimentos FII", "HGCR11": "CSHG Recebíveis FII",
-    "KNRI11": "Kinea Renda Imob. FII", "HGBS11": "Hedge Brasil Shopping FII",
-    "XPLG11": "XP Log FII", "BCFF11": "BTG Fundo de Fundos FII",
-    "VILG11": "Vinci Logística FII", "BTLG11": "BTG Logística FII",
-    "PVBI11": "VBI Prime Properties FII", "IRDM11": "Iridium Recebíveis FII",
-    "VGIP11": "Valora IP FII",
 }
 
 
@@ -402,12 +393,6 @@ SETORES_ACOES = [
     ("seguros", "Seguros (BBSE3, IRBR3, PSSA3...)"),
 ]
 
-SETORES_FIIS = [
-    ("tijolo", "FIIs de Tijolo (shoppings, galpões, escritórios)"),
-    ("papel", "FIIs de Papel (CRI, CRA, LCI)"),
-    ("hibrido", "FIIs Híbridos (tijolo + papel)"),
-    ("fof", "Fundos de Fundos (FoFs)"),
-]
 
 
 def injetar_css_global():

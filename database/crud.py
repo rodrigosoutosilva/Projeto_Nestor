@@ -169,7 +169,7 @@ def criar_portfolio(
     nome: str,
     objetivo_prazo: str = "longo",
     meta_dividendos: float = 6.0,
-    tipo_ativo: str = "misto",
+    tipo_ativo: str = "acoes",
     setores_preferidos: str = "",
     montante_disponivel: float = 0.0,
     aporte_periodico: float = 0.0,
@@ -233,7 +233,7 @@ def listar_portfolios_persona(persona_id: int) -> list[dict]:
             "nome": p.nome,
             "objetivo_prazo": p.objetivo_prazo,
             "meta_dividendos": p.meta_dividendos,
-            "tipo_ativo": p.tipo_ativo.value if p.tipo_ativo else "misto",
+            "tipo_ativo": p.tipo_ativo.value if p.tipo_ativo else "acoes",
             "setores_preferidos": p.setores_preferidos or "",
             "montante_disponivel": p.montante_disponivel or 0.0,
             "aporte_periodico": p.aporte_periodico or 0.0,
@@ -255,7 +255,7 @@ def buscar_portfolio_por_id(portfolio_id: int) -> Optional[dict]:
                 "nome": p.nome,
                 "objetivo_prazo": p.objetivo_prazo,
                 "meta_dividendos": p.meta_dividendos,
-                "tipo_ativo": p.tipo_ativo.value if p.tipo_ativo else "misto",
+                "tipo_ativo": p.tipo_ativo.value if p.tipo_ativo else "acoes",
                 "setores_preferidos": p.setores_preferidos or "",
                 "montante_disponivel": p.montante_disponivel or 0.0,
                 "aporte_periodico": p.aporte_periodico or 0.0,
@@ -307,8 +307,7 @@ def adicionar_ativo(
     Adiciona um ativo a uma carteira.
     
     Conceito de Finanças:
-    - ticker: código na B3. Ações têm 4 letras + número (PETR4).
-      FIIs têm 4 letras + "11" (HGLG11).
+    - ticker: código na B3. Ações têm 4 letras + número (PETR4, TAEE11).
     - preco_medio: se comprou em diferentes momentos, é a média ponderada.
     """
     with get_session() as session:

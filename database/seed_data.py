@@ -3,8 +3,8 @@ seed_data.py - Dados Iniciais de Teste
 ========================================
 
 Cria o usuário "teste" (senha "teste") com 2 personas pré-configuradas:
-- Thiaguinho: Arrojado, semanal, 2 carteiras (Mix Ações + Mix FIIs)
-- Palmito: Conservador, manual, 2 carteiras (Ações + Fundos Imobiliários)
+- Thiaguinho: Arrojado, semanal, 1 carteira (Mix Ações)
+- Palmito: Conservador, manual, 1 carteira (Ações)
 
 Todas as carteiras: R$500 caixa, R$100 aporte mensal, sem ativos.
 
@@ -50,19 +50,6 @@ def seed_usuario_teste():
         descricao="Aporte inicial", data_transacao=date.today()
     )
 
-    # Carteira 2: Mix FIIs (apenas FIIs, médio prazo, dividendos)
-    c2 = criar_portfolio(
-        persona_id=thiaguinho["id"], nome="Mix FIIS",
-        objetivo_prazo="medio", meta_dividendos=8.0,
-        tipo_ativo="fiis", setores_preferidos="logistica,shoppings,recebiveis,lajes",
-        montante_disponivel=0,
-        aporte_periodico=100.0, frequencia_aporte="mensal"
-    )
-    registrar_transacao(
-        portfolio_id=c2["id"], tipo="aporte", valor=500.0,
-        descricao="Aporte inicial", data_transacao=date.today()
-    )
-
     # ===================================================================
     # PERSONA 2: Palmito — Conservador, Manual (mensal)
     # ===================================================================
@@ -84,17 +71,4 @@ def seed_usuario_teste():
         descricao="Aporte inicial", data_transacao=date.today()
     )
 
-    # Carteira 2: Fundos Imobiliários (tijolo, longo prazo)
-    c4 = criar_portfolio(
-        persona_id=palmito["id"], nome="Fundos Imobiliários",
-        objetivo_prazo="longo", meta_dividendos=8.0,
-        tipo_ativo="fiis", setores_preferidos="logistica,shoppings,lajes",
-        montante_disponivel=0,
-        aporte_periodico=100.0, frequencia_aporte="mensal"
-    )
-    registrar_transacao(
-        portfolio_id=c4["id"], tipo="aporte", valor=500.0,
-        descricao="Aporte inicial", data_transacao=date.today()
-    )
-
-    print("[seed_data] Usuário 'teste' criado com 2 personas (Thiaguinho + Palmito) e 4 carteiras vazias!")
+    print("[seed_data] Usuário 'teste' criado com 2 personas (Thiaguinho + Palmito) e 2 carteiras vazias!")

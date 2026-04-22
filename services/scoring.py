@@ -351,15 +351,8 @@ TICKERS_POR_SETOR = {
     "construcao": ["MRV3", "CYRE3", "EZTC3"],
     "saneamento": ["SBSP3", "SAPR11"],
     "seguros": ["BBSE3", "IRBR3", "PSSA3"],
-    # FIIs
-    "logistica": ["HGLG11", "XPLG11", "BTLG11", "VILG11"],
-    "shoppings": ["XPML11", "VISC11", "HGBS11"],
-    "recebiveis": ["KNCR11", "HGCR11", "IRDM11", "MXRF11"],
-    "lajes": ["PVBI11", "KNRI11"],
-    "fof": ["BCFF11"],
     # Genéricos
     "acoes": ["PETR4", "VALE3", "ITUB4", "BBAS3", "WEGE3", "ABEV3", "EMBR3", "SUZB3"],
-    "fiis": ["MXRF11", "HGLG11", "XPML11", "KNCR11", "KNRI11", "BTLG11", "VISC11"],
 }
 
 
