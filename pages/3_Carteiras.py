@@ -132,37 +132,37 @@ with st.expander("Criar Nova Carteira", expanded=False):
                 disabled=_criando
             )
 
-        # --- Aportes periódicos e taxa ---
-        st.markdown("**Aportes Periódicos e Taxa Mensal** *(opcional)*")
-        col_ap1, col_ap2, col_ap3 = st.columns([1, 1, 1])
-        with col_ap1:
-            aporte_valor = st.number_input(
-                "Valor do aporte periódico (R$)",
-                min_value=0.0, max_value=1_000_000.0, value=0.0, step=50.0,
-                help="Valor em reais que você pretende aportar recorrentemente.",
-                disabled=_criando
-            )
-        with col_ap2:
-            freq_aporte_opcoes = ["", "semanal", "quinzenal", "mensal"]
-            freq_aporte_labels = {
-                "": "— Sem aporte periódico —",
-                "semanal": "Semanal",
-                "quinzenal": "Quinzenal",
-                "mensal": "Mensal"
-            }
-            freq_aporte = st.selectbox(
-                "Frequência do aporte",
-                options=freq_aporte_opcoes,
-                format_func=lambda x: freq_aporte_labels[x],
-                disabled=_criando
-            )
-        with col_ap3:
-            taxa_sn = st.number_input(
-                "Taxa Saldo Negativo (% a.m.)",
-                min_value=0.0, value=10.0, step=1.0,
-                help="Taxa fixa mensal sobre saldo negativo.",
-                disabled=_criando
-            )
+        # --- Aportes periódicos (com toggle) ---
+        st.markdown("**Aporte Periódico** *(opcional)*")
+        habilitar_aporte = st.checkbox("Habilitar Aporte Periódico", value=False, key="habilitar_aporte_cart", disabled=_criando)
+        if habilitar_aporte:
+            col_ap1, col_ap2 = st.columns(2)
+            with col_ap1:
+                aporte_valor = st.number_input(
+                    "Valor do aporte (R$)",
+                    min_value=0.01, max_value=1_000_000.0, value=100.0, step=50.0,
+                    help="Valor em reais que você pretende aportar recorrentemente.",
+                    disabled=_criando
+                )
+            with col_ap2:
+                freq_aporte = st.selectbox(
+                    "Frequência do aporte",
+                    options=["mensal", "quinzenal", "semanal"],
+                    disabled=_criando
+                )
+        else:
+            aporte_valor = 0.0
+            freq_aporte = ""
+
+        # --- Taxa de Saldo Negativo (separada) ---
+        st.markdown("**Configuração de Saldo Negativo**")
+        st.caption("Taxa cobrada mensalmente quando o saldo em caixa ficar negativo (cheque especial).")
+        taxa_sn = st.number_input(
+            "Taxa Saldo Negativo (% a.m.)",
+            min_value=0.0, value=10.0, step=1.0,
+            help="Taxa fixa mensal sobre saldo negativo.",
+            disabled=_criando
+        )
 
         # --- Frequência de manuseio ---
         st.markdown("**Frequência de manuseio** *(com que frequência você revisa esta carteira)*")
@@ -373,7 +373,7 @@ else:
                 c1, c2 = st.columns([3, 1])
                 with c1:
                     persona_da_carteira = next((p["nome"] for p in personas if p["id"] == port["persona_id"]), "Desconhecida")
-                    st.markdown(f"**Persona:** {persona_da_carteira} | **Prazo:** {port['objetivo_prazo'].capitalize()} | **Meta DY:** {port['meta_dividendos']}%")
+                    st.markdown(f"**Persona:** {persona_da_carteira} | **Prazo:** {port['objetivo_prazo'].capitalize()}")
                     if port.get("setores_preferidos"):
                         setores_list = port["setores_preferidos"].split(",")
                         st.markdown(f"**Setores:** {', '.join(s.capitalize() for s in setores_list)}")

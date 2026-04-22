@@ -19,7 +19,7 @@ from database.crud import (
     adicionar_observacao, listar_observacoes, deletar_observacao
 )
 from services.market_data import buscar_preco_atual
-from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, injetar_css_global, render_metric
+from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, injetar_css_global, render_metric, calcular_meta_dividendos_auto
 
 st.set_page_config(page_title="Persona Detalhe", layout="wide")
 injetar_css_global()
@@ -334,7 +334,18 @@ with st.expander("Criar Nova Carteira para esta Persona"):
         with col2:
             prazo = st.selectbox("Objetivo Prazo", ["curto", "medio", "longo"],
                                   format_func=lambda x: {"curto":"Curto","medio":"Médio","longo":"Longo"}[x])
-            meta_dy = st.number_input("Meta DY (%)", min_value=0.0, value=6.0, step=0.5)
+        
+        # Meta DY calculada automaticamente
+        meta_dy_auto = calcular_meta_dividendos_auto(
+            tolerancia_risco=persona["tolerancia_risco"],
+            estilo=persona.get("estilo", "equilibrado"),
+            objetivo_prazo=prazo
+        )
+        st.info(
+            f"**Meta de dividendos calculada automaticamente: {meta_dy_auto}% ao ano** "
+            f"— baseada no perfil ({persona.get('estilo', 'equilibrado').capitalize()}, "
+            f"risco {persona['tolerancia_risco']}/10, prazo {prazo})"
+        )
         
         # Importar as constantes de setores
         from utils.helpers import SETORES_ACOES
@@ -357,15 +368,23 @@ with st.expander("Criar Nova Carteira para esta Persona"):
             else:
                 setores_selecionados.extend(sel_a_list)
 
-
-                
-        col_ap1, col_ap2, col_ap3 = st.columns(3)
-        with col_ap1:
-            aporte = st.number_input("Aporte periódico (R$)", min_value=0.0, value=100.0, step=50.0)
-        with col_ap2:
-            freq_aporte = st.selectbox("Frequência aporte", ["mensal", "quinzenal", "semanal"])
-        with col_ap3:
-            taxa_sn = st.number_input("Taxa Saldo Negativo (% a.m.)", min_value=0.0, value=10.0, step=1.0)
+        # --- Aporte Periódico (com toggle) ---
+        st.markdown("**Aporte Periódico** *(opcional)*")
+        habilitar_aporte = st.checkbox("Habilitar Aporte Periódico", value=True, key="habilitar_aporte_pd")
+        if habilitar_aporte:
+            col_ap1, col_ap2 = st.columns(2)
+            with col_ap1:
+                aporte = st.number_input("Valor do aporte (R$)", min_value=0.01, value=100.0, step=50.0)
+            with col_ap2:
+                freq_aporte = st.selectbox("Frequência do aporte", ["mensal", "quinzenal", "semanal"])
+        else:
+            aporte = 0.0
+            freq_aporte = ""
+        
+        # --- Taxa de Saldo Negativo (separada) ---
+        st.markdown("**Configuração de Saldo Negativo**")
+        st.caption("Taxa cobrada mensalmente quando o saldo em caixa da carteira ficar negativo (cheque especial).")
+        taxa_sn = st.number_input("Taxa Saldo Negativo (% a.m.)", min_value=0.0, value=10.0, step=1.0)
         
         if st.button("Criar Carteira", key="btn_criar_carteira_px", type="primary", use_container_width=True):
             if not port_nome or not port_nome.strip():
@@ -374,7 +393,7 @@ with st.expander("Criar Nova Carteira para esta Persona"):
                 setores_str = ",".join(setores_selecionados)
                 result = criar_portfolio(
                     persona_id=persona_id, nome=port_nome,
-                    objetivo_prazo=prazo, meta_dividendos=meta_dy,
+                    objetivo_prazo=prazo, meta_dividendos=meta_dy_auto,
                     tipo_ativo=tipo_ativo, setores_preferidos=setores_str,
                     montante_disponivel=0,
                     aporte_periodico=aporte, frequencia_aporte=freq_aporte,

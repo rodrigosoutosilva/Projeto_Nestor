@@ -54,6 +54,37 @@ if fundamentos.get("setor"):
 if fundamentos.get("industria") and fundamentos["industria"] != fundamentos.get("setor"):
     col_p3.metric("Indústria", fundamentos["industria"][:25])
 
+# --- SOBRE A EMPRESA ---
+_nome_empresa = fundamentos.get("nome_empresa")
+_descricao = fundamentos.get("descricao_empresa")
+_funcionarios = fundamentos.get("num_funcionarios")
+_website = fundamentos.get("website")
+
+if _nome_empresa or _descricao:
+    st.markdown("---")
+    st.markdown("#### Sobre a Empresa")
+    
+    if _nome_empresa:
+        _info_extra = []
+        if _funcionarios:
+            _info_extra.append(f"{_funcionarios:,} funcionários".replace(",", "."))
+        if _website:
+            _info_extra.append(f"[{_website}]({_website})")
+        _extra_txt = " — ".join(_info_extra)
+        if _extra_txt:
+            st.markdown(f"**{_nome_empresa}** | {_extra_txt}")
+        else:
+            st.markdown(f"**{_nome_empresa}**")
+    
+    if _descricao:
+        # Limitar a ~500 chars com expander para o texto completo
+        if len(_descricao) > 500:
+            st.markdown(_descricao[:500] + "...")
+            with st.expander("Ver descrição completa"):
+                st.markdown(_descricao)
+        else:
+            st.markdown(_descricao)
+
 # --- TABELA DE INDICADORES FUNDAMENTALISTAS E REFERÊNCIA DO SETOR ---
 st.markdown("---")
 st.markdown("#### Indicadores e Referência do Setor")

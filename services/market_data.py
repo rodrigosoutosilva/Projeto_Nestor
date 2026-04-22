@@ -236,6 +236,8 @@ def buscar_dados_fundamentalistas(ticker: str) -> dict:
         "preco_alvo_max": None, "peg_ratio": None, "var_52_semanas": None,
         "dy_medio_5_anos": None, "dividend_rate": None, "industria": None,
         "preco_sobre_vendas": None, "num_analistas": None,
+        "descricao_empresa": None, "nome_empresa": None,
+        "num_funcionarios": None, "website": None,
     }
     try:
         ticker_sa = _formatar_ticker_br(ticker)
@@ -326,6 +328,12 @@ def buscar_dados_fundamentalistas(ticker: str) -> dict:
             # Setor
             "setor": setor,
             "industria": industria,
+            
+            # Empresa
+            "descricao_empresa": info.get("longBusinessSummary"),
+            "nome_empresa": info.get("longName"),
+            "num_funcionarios": info.get("fullTimeEmployees"),
+            "website": info.get("website"),
         }
     except Exception as e:
         print(f"[market_data] Erro ao buscar fundamentalistas de {ticker}: {e}")

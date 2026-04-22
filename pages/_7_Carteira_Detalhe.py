@@ -67,7 +67,7 @@ st.markdown(f"""
 <style>.big-name {{ font-size: 1.76rem !important; font-weight: 700 !important; margin-bottom: 0.3rem; }}</style>
 <div class='big-name'>{port['nome']} ({tipo_emoji})</div>
 """, unsafe_allow_html=True)
-st.caption(f"Persona: **{persona['nome'] if persona else 'N/A'}** | Prazo: {port['objetivo_prazo'].capitalize()} | Meta DY: {port['meta_dividendos']}%")
+st.caption(f"Persona: **{persona['nome'] if persona else 'N/A'}** | Prazo: {port['objetivo_prazo'].capitalize()}")
 
 # CSS para métricas
 st.markdown("""<style>
@@ -203,15 +203,31 @@ if st.session_state.get("show_edit_port"):
     with st.container(border=True):
         with st.form("form_edit_port"):
             e_nome = st.text_input("Nome", value=port["nome"])
-            c_fix, c_ap, c_taxa = st.columns([1, 1, 1])
-            with c_fix:
-                st.metric("Caixa Atual Registrado", formatar_moeda(port.get("montante_disponivel", 0)))
-                st.caption("Para inserir mais caixa, registre um **Aporte**.")
-            with c_ap:
-                e_aporte = st.number_input("Aporte Periódico (R$)", value=float(port.get("aporte_periodico", 0)), step=50.0)
-                e_freq = st.selectbox("Frequência Aporte", ["", "semanal", "quinzenal", "mensal"], index=["", "semanal", "quinzenal", "mensal"].index(port.get("frequencia_aporte", "")))
-            with c_taxa:
-                e_taxa = st.number_input("Taxa Saldo Negativo (% a.m.)", value=float(port.get("taxa_saldo_negativo", 10.0)), step=1.0)
+            
+            # --- Caixa ---
+            st.metric("Caixa Atual Registrado", formatar_moeda(port.get("montante_disponivel", 0)))
+            st.caption("Para inserir mais caixa, registre um **Aporte**.")
+            
+            # --- Aporte Periódico (com toggle) ---
+            st.markdown("**Aporte Periódico**")
+            _aporte_atual = float(port.get("aporte_periodico", 0))
+            e_habilitar_aporte = st.checkbox("Habilitar Aporte Periódico", value=_aporte_atual > 0, key="edit_habilitar_aporte")
+            if e_habilitar_aporte:
+                c_ap1, c_ap2 = st.columns(2)
+                with c_ap1:
+                    e_aporte = st.number_input("Valor do aporte (R$)", value=max(_aporte_atual, 50.0), min_value=0.01, step=50.0)
+                with c_ap2:
+                    e_freq = st.selectbox("Frequência do aporte", ["", "semanal", "quinzenal", "mensal"], index=["", "semanal", "quinzenal", "mensal"].index(port.get("frequencia_aporte", "")))
+            else:
+                e_aporte = 0.0
+                e_freq = ""
+            
+            # --- Taxa de Saldo Negativo (separada) ---
+            st.markdown("---")
+            st.markdown("**Configuração de Saldo Negativo**")
+            st.caption("Taxa cobrada mensalmente quando o saldo em caixa ficar negativo (cheque especial).")
+            e_taxa = st.number_input("Taxa Saldo Negativo (% a.m.)", value=float(port.get("taxa_saldo_negativo", 10.0)), step=1.0)
+            
             if st.form_submit_button("Salvar Edição", type="primary"):
                 atualizar_portfolio(port["id"], nome=e_nome, aporte_periodico=e_aporte, frequencia_aporte=e_freq, taxa_saldo_negativo=e_taxa)
                 st.session_state["show_edit_port"] = False
