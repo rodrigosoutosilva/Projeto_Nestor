@@ -1024,7 +1024,7 @@ def tela_principal():
         for key in list(st.session_state.keys()):
             if key.startswith("_wl_added_") and st.session_state[key]:
                 ticker_added = key.replace("_wl_added_", "")
-                st.toast(f"{ticker_added} adicionado à watchlist!")
+                st.toast(f"{ticker_added} adicionado à lista de monitoramento!")
                 del st.session_state[key]
         
         # Pre-load user portfolios mappings for the quick actions
@@ -1062,7 +1062,7 @@ def tela_principal():
                         unsafe_allow_html=True
                     )
                 with col_info:
-                    if st.button("Info", key=f"hi_info_{prefix}_{item['ticker']}", help="Ver detalhes do ativo", type="tertiary"):
+                    if st.button("Ver", key=f"hi_info_{prefix}_{item['ticker']}", help="Ver detalhes do ativo", type="tertiary"):
                         st.session_state.view_asset_ticker = item['ticker']
                         st.switch_page("pages/_8_Ativo.py")
                 with col_acao:
@@ -1189,7 +1189,7 @@ def tela_principal():
                         preco_val = p.get("preco_atual", 0) if isinstance(p, dict) else 0
                         st.markdown(f"**Preço Atual:** {formatar_moeda_md(preco_val)}", unsafe_allow_html=True)
                     with c3:
-                        if st.button("Info", key=f"global_w_{w['id']}", use_container_width=True, type="tertiary"):
+                        if st.button("Ver", key=f"global_w_{w['id']}", use_container_width=True, type="tertiary"):
                             st.session_state.view_asset_ticker = w['ticker']
                             st.switch_page("pages/_8_Ativo.py")
         else:

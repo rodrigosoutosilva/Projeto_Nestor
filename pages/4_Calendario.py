@@ -65,7 +65,7 @@ for pid in portfolios_filtrados:
             "Operação": a["tipo_acao"].upper(),
             "Valor": formatar_moeda(a.get("caixa_necessario") or 0),
             "Carteira": port_nome,
-            "Info": a["explicacao"]
+            "Detalhes": a["explicacao"]
         })
         
     # Executadas
@@ -78,7 +78,7 @@ for pid in portfolios_filtrados:
             "Operação": t["tipo"].upper(),
             "Valor": formatar_moeda(t["valor"]),
             "Carteira": port_nome,
-            "Info": t["descricao"]
+            "Detalhes": t["descricao"]
         })
 
 # --- APLICAR FILTROS DE TEMPO E ORDENAR ---
@@ -110,7 +110,7 @@ if not df.empty:
             "Ativo": st.column_config.TextColumn("Ativo"),
             "Valor": st.column_config.TextColumn("Valor Estimado/Real"),
             "Carteira": st.column_config.TextColumn("Carteira"),
-            "Info": st.column_config.TextColumn("Detalhes", width="large"),
+            "Detalhes": st.column_config.TextColumn("Detalhes", width="large"),
         },
         use_container_width=True,
         hide_index=True

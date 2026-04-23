@@ -388,14 +388,14 @@ with tab1:
                 with c_btns:
                     col_bi, col_bw = st.columns(2)
                     with col_bi:
-                        if st.button("Info", key=f"info_{a['id']}", use_container_width=True, type="tertiary"):
+                        if st.button("Ver", key=f"info_{a['id']}", use_container_width=True, type="tertiary"):
                             st.session_state.view_asset_ticker = a["ticker"]
                             st.session_state.voltar_para_pagina = "pages/_7_Carteira_Detalhe.py"
                             st.switch_page("pages/_8_Ativo.py")
                     with col_bw:
-                        if st.button("Watch", key=f"watch_{a['id']}", use_container_width=True, help="Adicionar à Watchlist", type="tertiary"):
+                        if st.button("Monitorar", key=f"watch_{a['id']}", use_container_width=True, help="Adicionar à lista de monitoramento", type="tertiary"):
                             adicionar_watchlist(portfolio_id, a["ticker"])
-                            st.toast(f"{a['ticker']} adicionado à watchlist!")
+                            st.toast(f"{a['ticker']} adicionado à lista de monitoramento!")
                             st.rerun()
                 
                 # Linha 2: Métricas financeiras
@@ -512,7 +512,7 @@ with tab2:
     
     with st.form("add_watchlist"):
         c1, c2 = st.columns([3, 1])
-        with c1: novo_watch = st.text_input("Adicionar Ticker à Watchlist", placeholder="VALE3")
+        with c1: novo_watch = st.text_input("Adicionar Ticker ao Monitoramento", placeholder="VALE3")
         with c2: 
             st.markdown("<br>", unsafe_allow_html=True)
             if st.form_submit_button("Adicionar", use_container_width=True, type="primary") and novo_watch:
@@ -538,7 +538,7 @@ with tab2:
                 with c_acoes_w:
                     bc1, bc2 = st.columns(2)
                     with bc1:
-                        if st.button("Info", key=f"w_info_{w['id']}", use_container_width=True, type="tertiary"):
+                        if st.button("Ver", key=f"w_info_{w['id']}", use_container_width=True, type="tertiary"):
                             st.session_state.view_asset_ticker = ticker_w
                             st.session_state.voltar_para_pagina = "pages/_7_Carteira_Detalhe.py"
                             st.switch_page("pages/_8_Ativo.py")
@@ -583,7 +583,7 @@ with tab2:
                                         atualizar_ativo(ativo_ext["id"], quantidade=q_ant + qtd_w, preco_medio=((q_ant * p_ant) + vt_w) / (q_ant + qtd_w))
                                     else:
                                         adicionar_ativo(port["id"], ticker_w, prc_w, qtd_w, date.today())
-                                     registrar_transacao(port["id"], "compra", vt_w, ticker_w, qtd_w, prc_w, "Compra (Watch)", date.today())
+                                    registrar_transacao(port["id"], "compra", vt_w, ticker_w, qtd_w, prc_w, "Compra (Monit.)", date.today())
                                     atualizar_portfolio(port["id"], montante_disponivel=caixa_w - vt_w)
                                     st.toast(f"{ticker_w} comprado!")
                                     st.rerun()
@@ -595,7 +595,7 @@ with tab2:
                                         nq = ativo_ext["quantidade"] - qtd_w
                                         if nq <= 0: deletar_ativo(ativo_ext["id"])
                                         else: atualizar_ativo(ativo_ext["id"], quantidade=nq, preco_medio=ativo_ext["preco_medio"])
-                                        registrar_transacao(port["id"], "venda", vt_w, ticker_w, qtd_w, prc_w, "Venda (Watch)", date.today())
+                                        registrar_transacao(port["id"], "venda", vt_w, ticker_w, qtd_w, prc_w, "Venda (Monit.)", date.today())
                                         atualizar_portfolio(port["id"], montante_disponivel=caixa_w + vt_w)
                                         st.toast(f"{ticker_w} vendido!"); st.rerun()
 
@@ -651,14 +651,14 @@ with tab3:
                     with c_btns_s:
                         sb1, sb2 = st.columns(2)
                         with sb1:
-                            if st.button("Info", key=f"info_sug_{i}_{ticker_sug}", use_container_width=True, type="tertiary"):
+                            if st.button("Ver", key=f"info_sug_{i}_{ticker_sug}", use_container_width=True, type="tertiary"):
                                 st.session_state.view_asset_ticker = ticker_sug
                                 st.session_state.voltar_para_pagina = "pages/_7_Carteira_Detalhe.py"
                                 st.switch_page("pages/_8_Ativo.py")
                         with sb2:
-                            if st.button("Watch", key=f"watch_sug_{i}_{ticker_sug}", use_container_width=True, type="tertiary"):
+                            if st.button("Monitorar", key=f"watch_sug_{i}_{ticker_sug}", use_container_width=True, type="tertiary"):
                                 adicionar_watchlist(portfolio_id, ticker_sug)
-                                st.toast(f"{ticker_sug} adicionado à watchlist!")
+                                st.toast(f"{ticker_sug} adicionado à lista de monitoramento!")
                                 st.rerun()
                     
                     # Pre-expanded negotiation
@@ -811,14 +811,14 @@ with tab3:
                     with c_btns_a:
                         ab1, ab2 = st.columns(2)
                         with ab1:
-                            if st.button("Info", key=f"alc_i_{idx_s}_{s['ticker']}", use_container_width=True, type="tertiary"):
+                            if st.button("Ver", key=f"alc_i_{idx_s}_{s['ticker']}", use_container_width=True, type="tertiary"):
                                 st.session_state.view_asset_ticker = s['ticker']
                                 st.session_state.voltar_para_pagina = "pages/_7_Carteira_Detalhe.py"
                                 st.switch_page("pages/_8_Ativo.py")
                         with ab2:
-                            if st.button("Watch", key=f"alc_watch_{idx_s}_{s['ticker']}", use_container_width=True, type="tertiary"):
+                            if st.button("Monitorar", key=f"alc_watch_{idx_s}_{s['ticker']}", use_container_width=True, type="tertiary"):
                                 adicionar_watchlist(portfolio_id, s['ticker'])
-                                st.toast(f"{s['ticker']} adicionado à watchlist!")
+                                st.toast(f"{s['ticker']} adicionado à lista de monitoramento!")
                                 st.rerun()
                     
                     st.info(s['texto'])
@@ -918,14 +918,14 @@ with tab4:
                     with c_bm:
                         bm1, bm2 = st.columns(2)
                         with bm1:
-                            if st.button("Info", key=f"mov_i_{idx_m}_{s['ticker']}", use_container_width=True, type="tertiary"):
+                            if st.button("Ver", key=f"mov_i_{idx_m}_{s['ticker']}", use_container_width=True, type="tertiary"):
                                 st.session_state.view_asset_ticker = s['ticker']
                                 st.session_state.voltar_para_pagina = "pages/_7_Carteira_Detalhe.py"
                                 st.switch_page("pages/_8_Ativo.py")
                         with bm2:
-                            if st.button("Watch", key=f"mov_watch_{idx_m}_{s['ticker']}", use_container_width=True, type="tertiary"):
+                            if st.button("Monitorar", key=f"mov_watch_{idx_m}_{s['ticker']}", use_container_width=True, type="tertiary"):
                                 adicionar_watchlist(portfolio_id, s['ticker'])
-                                st.toast(f"{s['ticker']} adicionado à watchlist!")
+                                st.toast(f"{s['ticker']} adicionado à lista de monitoramento!")
                                 st.rerun()
                     
                     st.info(s['texto'])

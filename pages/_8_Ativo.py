@@ -129,8 +129,8 @@ indicadores_config = {
         ("preco_sobre_vendas","P/Vendas",           "Preço/Receita: quanto se paga por cada R$1 de receita. Útil para empresas sem lucro.",           lambda v: _fmt_num(v)),
     ],
     "Rentabilidade": [
-        ("roe",               "ROE",                "Return on Equity: retorno sobre o patrimônio líquido. Mede eficiência do capital próprio. Acima de 15% é considerado bom.",   lambda v: _fmt_pct(v)),
-        ("roa",               "ROA",                "Return on Assets: retorno sobre ativos totais. Mede eficiência do uso dos ativos da empresa.",   lambda v: _fmt_pct(v)),
+        ("roe",               "ROE",                "Retorno sobre Patrimônio Líquido: mede a eficiência do capital próprio. Acima de 15% é considerado bom.",   lambda v: _fmt_pct(v)),
+        ("roa",               "ROA",                "Retorno sobre Ativos Totais: mede a eficiência do uso dos ativos da empresa.",   lambda v: _fmt_pct(v)),
     ],
     "Endividamento": [
         ("divida_pl",         "Dívida/PL",          "Dívida Líquida / Patrimônio Líquido: quanto de dívida para cada R$1 de patrimônio. Acima de 100% merece atenção.",      lambda v: _fmt_num(v)),
@@ -154,7 +154,7 @@ indicadores_config = {
     "Mercado": [
         ("market_cap",        "Valor de Mercado",   "Capitalização de mercado: preço da ação × total de ações emitidas.",                        _fmt_moeda_compacta),
         ("ebitda",            "EBITDA",             "Lucro antes de juros, impostos, depreciação e amortização. Proxy de geração de caixa operacional.",  _fmt_moeda_compacta),
-        ("fluxo_caixa_livre", "Fluxo Cx. Livre",   "Free Cash Flow: caixa gerado disponível após investimentos. Indica capacidade de pagar dividendos e reduzir dívida.",     _fmt_moeda_compacta),
+        ("fluxo_caixa_livre", "Fluxo Cx. Livre",   "Fluxo de Caixa Livre: caixa gerado disponível após investimentos. Indica capacidade de pagar dividendos e reduzir dívida.",     _fmt_moeda_compacta),
         ("beta",              "Beta",               "Volatilidade em relação ao mercado. Beta 1 = igual ao mercado. > 1 = mais volátil. < 1 = menos volátil.",  lambda v: _fmt_num(v, 3)),
         ("var_52_semanas",    "Var. 52 Semanas",    "Variação percentual do preço nos últimos 12 meses.",                                        lambda v: _fmt_pct(v)),
     ],
@@ -284,9 +284,9 @@ with st.expander("Ações Rápidas (Operações e Monitoramento)", expanded=True
             
             c1, c2 = st.columns(2)
             with c1:
-                if st.button("Adicionar à Watchlist", use_container_width=True, type="tertiary"):
+                if st.button("Adicionar ao Monitoramento", use_container_width=True, type="tertiary"):
                     adicionar_watchlist(port_id, ticker, manual=True)
-                    st.success(f"{ticker} adicionado à watchlist da carteira '{opcoes_port[port_id]}'!")
+                    st.success(f"{ticker} adicionado à lista de monitoramento da carteira '{opcoes_port[port_id]}'!")
             with c2:
                 if st.button("Ir para Carteira", use_container_width=True, type="tertiary"):
                     st.session_state.view_portfolio_id = port_id
@@ -388,7 +388,7 @@ with st.expander("Ações Rápidas (Operações e Monitoramento)", expanded=True
                         with st.spinner("Analisando com IA..."):
                             rec = gerar_recomendacao_completa(ticker, pid, port_id)
                             if rec.get("sucesso"):
-                                st.success(f"**[IA - {rec['recomendacao'].get('confianca', 0)}% Trust]**\n\n{rec['recomendacao']['explicacao']}")
+                                st.success(f"**[IA - {rec['recomendacao'].get('confianca', 0)}% Confiança]**\n\n{rec['recomendacao']['explicacao']}")
                             else:
                                 st.error(rec.get("erro", "Falha na IA"))
         else:
@@ -397,7 +397,7 @@ with st.expander("Ações Rápidas (Operações e Monitoramento)", expanded=True
         st.warning("Você não tem personas cadastradas.")
 
 # --- GRÁFICO COM SELETORES ---
-st.subheader("Gráfico de Candlestick")
+st.subheader("Gráfico de Velas")
 
 gc1, gc2 = st.columns(2)
 with gc1:
@@ -407,7 +407,7 @@ with gc1:
 
 with gc2:
     intervalo_opcoes = {"Diário": "1d", "Semanal": "1wk", "Mensal": "1mo"}
-    intervalo_label = st.selectbox("Intervalo das Velas", list(intervalo_opcoes.keys()), index=0)
+    intervalo_label = st.selectbox("Intervalo", list(intervalo_opcoes.keys()), index=0)
     intervalo_val = intervalo_opcoes[intervalo_label]
 
 with st.spinner("Carregando gráfico..."):

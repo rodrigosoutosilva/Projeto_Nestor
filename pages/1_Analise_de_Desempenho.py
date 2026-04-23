@@ -336,12 +336,14 @@ ticker_selecionado = st.selectbox(
 
 col_p1, col_p2 = st.columns([3, 1])
 with col_p2:
-    periodo = st.selectbox(
+    periodo_opcoes = {"1 Mês": "1mo", "3 Meses": "3mo", "6 Meses": "6mo", "1 Ano": "1y", "2 Anos": "2y"}
+    periodo_label = st.selectbox(
         "Período:",
-        ["1mo", "3mo", "6mo", "1y", "2y"],
+        list(periodo_opcoes.keys()),
         index=2,
         key="hist_periodo"
     )
+    periodo = periodo_opcoes[periodo_label]
 
 with st.spinner(f"Buscando histórico de {ticker_selecionado}..."):
     hist = buscar_historico(ticker_selecionado, periodo)

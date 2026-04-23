@@ -1,6 +1,6 @@
-# 📈 InvestBR - Plataforma de Investimentos
+# 🧪 EgoLab — Teste versões. Invista melhor.
 
-Plataforma inteligente de monitoramento e recomendação de investimentos brasileiros (Ações e FIIs) com IA via Google Gemini.
+Plataforma inteligente de monitoramento e recomendação de investimentos brasileiros (Ações da B3) com IA via Google Gemini.
 
 ## 🚀 Instalação
 
@@ -32,7 +32,7 @@ streamlit run app.py
 
 ```
 invest_platform/
-├── app.py                  # Entrada principal
+├── app.py                  # Entrada principal + Homepage
 ├── .env                    # Chaves de API (não commitar!)
 ├── database/
 │   ├── models.py           # Modelos SQLAlchemy
@@ -42,14 +42,21 @@ invest_platform/
 │   ├── market_data.py      # yfinance (preços e indicadores)
 │   ├── news_scraper.py     # Google News RSS
 │   ├── ai_brain.py         # Gemini API
-│   ├── recommendation.py   # Motor de pontuação
-│   └── state_machine.py    # Máquina de estados
+│   ├── scoring.py          # Motor de pontuação
+│   ├── recommendation.py   # Recomendações com IA
+│   ├── state_machine.py    # Máquina de estados
+│   ├── order_checker.py    # Verificador de ordens
+│   └── excel_export.py     # Exportação de relatórios
 ├── pages/                  # Páginas Streamlit
-│   ├── 1_📊_Dashboard.py
-│   ├── 2_🧑_Personas.py
-│   ├── 3_💼_Carteiras.py
-│   ├── 4_🧠_Recomendacoes.py
-│   └── 5_📥_Onboarding.py
+│   ├── 1_Analise_de_Desempenho.py
+│   ├── 2_Personas.py
+│   ├── 3_Carteiras.py
+│   ├── 4_Calendario.py
+│   ├── 6_Gestao_Financeira.py
+│   ├── 7_Estatisticas_Mercado.py
+│   ├── _7_Carteira_Detalhe.py
+│   ├── _8_Ativo.py
+│   └── _9_Persona_Detalhe.py
 └── utils/
     └── helpers.py          # Funções auxiliares
 ```
@@ -69,8 +76,8 @@ PLANEJADO → IGNORADO (usuário descarta)
 ```
 
 ## 📦 Tecnologias
-- **Frontend:** Streamlit + Plotly
-- **Banco:** SQLite via SQLAlchemy
+- **Interface:** Streamlit + Plotly
+- **Banco:** SQLite / PostgreSQL via SQLAlchemy
 - **Dados:** yfinance (gratuito)
 - **IA:** Google Gemini API (gratuito)
 - **Notícias:** Google News RSS
