@@ -47,7 +47,7 @@ def frequencias_permitidas(freq_persona: str) -> list:
     nivel_persona = FREQ_ORDEM.get(freq_persona, 2)
     return [f for f, n in FREQ_ORDEM.items() if n >= nivel_persona]
 
-st.set_page_config(page_title="Carteiras", page_icon="▪️", layout="wide")
+st.set_page_config(page_title="Carteiras", page_icon="💼", layout="wide")
 injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:

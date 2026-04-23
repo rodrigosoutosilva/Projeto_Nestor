@@ -22,7 +22,7 @@ from database.crud import (
 from utils.helpers import formatar_moeda, formatar_data_br, formatar_moeda_md, injetar_css_global, render_metric
 from datetime import date
 
-st.set_page_config(page_title="Gestão Financeira", page_icon="▪️", layout="wide")
+st.set_page_config(page_title="Gestão Financeira", page_icon="💰", layout="wide")
 injetar_css_global()
 
 # Verificar login

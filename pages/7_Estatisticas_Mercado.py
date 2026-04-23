@@ -14,7 +14,7 @@ from services.market_data import buscar_dados_fundamentalistas
 from services.scoring import TICKERS_POR_SETOR
 from utils.helpers import injetar_css_global
 
-st.set_page_config(page_title="Estatísticas de Mercado", page_icon="▪️", layout="wide")
+st.set_page_config(page_title="Estatísticas de Mercado", page_icon="📈", layout="wide")
 injetar_css_global()
 
 st.markdown("### Estatísticas de Mercado")

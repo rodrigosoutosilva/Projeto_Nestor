@@ -34,7 +34,7 @@ from utils.helpers import formatar_data_br, formatar_moeda, formatar_moeda_md, n
 # ---------------------------------------------------------------------------
 st.set_page_config(
     page_title="Início",
-    page_icon="",
+    page_icon="🧪",
     layout="wide",
     initial_sidebar_state="expanded"
 )

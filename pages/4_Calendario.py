@@ -7,7 +7,7 @@ from database.crud import (
 )
 from utils.helpers import formatar_moeda, nome_ativo, injetar_css_global
 
-st.set_page_config(page_title="Calendário de Movimentos", page_icon="▪️", layout="wide")
+st.set_page_config(page_title="Calendário de Movimentos", page_icon="📅", layout="wide")
 injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:

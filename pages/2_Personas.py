@@ -18,7 +18,7 @@ from database.crud import (
 from services.market_data import buscar_preco_atual
 from utils.helpers import formatar_moeda, formatar_moeda_md, injetar_css_global
 
-st.set_page_config(page_title="Personas", page_icon="▪️", layout="wide")
+st.set_page_config(page_title="Personas", page_icon="🧑‍🔬", layout="wide")
 injetar_css_global()
 
 # Verificar login

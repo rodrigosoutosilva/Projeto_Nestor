@@ -27,7 +27,7 @@ try:
 except Exception:
     pass
 
-st.set_page_config(page_title="Detalhes da Carteira", page_icon="▪️", layout="wide")
+st.set_page_config(page_title="Detalhes da Carteira", page_icon="💼", layout="wide")
 injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:
