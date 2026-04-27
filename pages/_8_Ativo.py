@@ -29,7 +29,7 @@ if not ticker:
     st.stop()
 
 voltar_para = st.session_state.get("voltar_para_pagina", "app.py")
-if st.button("Voltar", type="tertiary"):
+if st.button("← Voltar", type="tertiary"):
     st.switch_page(voltar_para)
 
 st.header(f"{ticker} — {nome_ativo(ticker)}")

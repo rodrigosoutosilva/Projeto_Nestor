@@ -117,11 +117,11 @@ else:
         with cols[i % 2]:
             # Cores por tolerância
             if persona["tolerancia_risco"] <= 3:
-                cor, perfil = "▪️", "Conservador"
+                cor, perfil = "🛡️", "Conservador"
             elif persona["tolerancia_risco"] <= 6:
-                cor, perfil = "▪️", "Moderado"
+                cor, perfil = "⚖️", "Moderado"
             else:
-                cor, perfil = "▪️", "Arrojado"
+                cor, perfil = "🚀", "Arrojado"
 
             freq_label = {
                 "diario": "Diário", "semanal": "Semanal", "mensal": "Mensal"

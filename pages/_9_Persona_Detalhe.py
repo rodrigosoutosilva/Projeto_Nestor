@@ -31,7 +31,7 @@ if "user" not in st.session_state or st.session_state.user is None:
 persona_id = st.session_state.get("view_persona_id", None)
 if not persona_id:
     st.error("Nenhuma persona selecionada.")
-    if st.button("Voltar para Personas", type="tertiary"):
+    if st.button("← Voltar para Personas", type="tertiary"):
         st.switch_page("pages/2_Personas.py")
     st.stop()
 
@@ -40,16 +40,16 @@ if not persona:
     st.error("Persona não encontrada.")
     st.stop()
 
-if st.button("Voltar para Personas", key="btn_voltar_personas_top", type="tertiary"):
+if st.button("← Voltar para Personas", key="btn_voltar_personas_top", type="tertiary"):
     st.switch_page("pages/2_Personas.py")
 
 # --- CABEÇALHO ---
 if persona["tolerancia_risco"] <= 3:
-    cor, perfil = "", "Conservador"
+    cor, perfil = "🛡️", "Conservador"
 elif persona["tolerancia_risco"] <= 6:
-    cor, perfil = "", "Moderado"
+    cor, perfil = "⚖️", "Moderado"
 else:
-    cor, perfil = "", "Arrojado"
+    cor, perfil = "🚀", "Arrojado"
 
 freq_label = {"diario": "Diário", "semanal": "Semanal", "mensal": "Mensal"}.get(persona.get("frequencia_acao", ""), "")
 estilo_label = {"dividendos": "Dividendos", "crescimento": "Crescimento", "equilibrado": "Equilibrado"}.get(persona.get("estilo", ""), "")

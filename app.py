@@ -622,6 +622,7 @@ def tela_homepage():
     # --- Hero Section ---
     st.markdown("""
     <div class="hero-section">
+        <div class="hero-logo">🧪</div>
         <div class="hero-title">EgoLab</div>
         <div class="hero-slogan">Teste versões. Invista melhor.</div>
         <div class="hero-description">
@@ -683,6 +684,7 @@ def tela_homepage():
     with f1:
         st.markdown("""
         <div class="feature-card">
+            <span class="feature-icon">🧑‍🔬</span>
             <h3>Personas de Investimento</h3>
             <p>Crie perfis diferentes — conservador, moderado, arrojado — e teste estratégias em paralelo sem risco.</p>
         </div>
@@ -691,6 +693,7 @@ def tela_homepage():
     with f2:
         st.markdown("""
         <div class="feature-card">
+            <span class="feature-icon">💼</span>
             <h3>Carteiras Inteligentes</h3>
             <p>Monte carteiras com ações da B3. Configure setores, prazo e meta de dividendos.</p>
         </div>
@@ -699,6 +702,7 @@ def tela_homepage():
     with f3:
         st.markdown("""
         <div class="feature-card">
+            <span class="feature-icon">🤖</span>
             <h3>Recomendações com IA</h3>
             <p>O Gemini analisa cada ativo com indicadores técnicos e fundamentalistas, gerando ações com score 0-100.</p>
         </div>
@@ -707,6 +711,7 @@ def tela_homepage():
     with f4:
         st.markdown("""
         <div class="feature-card">
+            <span class="feature-icon">📊</span>
             <h3>Dashboard em Tempo Real</h3>
             <p>Veja patrimônio, lucro/prejuízo, gráficos de distribuição e histórico de preços ao vivo.</p>
         </div>
@@ -766,6 +771,7 @@ def tela_homepage():
     with d1:
         st.markdown("""
         <div class="diff-card">
+            <span class="diff-icon">⚡</span>
             <h4>Setup Inteligente</h4>
             <p>Crie personas e carteiras em minutos com ajuda da IA.</p>
         </div>
@@ -774,6 +780,7 @@ def tela_homepage():
     with d2:
         st.markdown("""
         <div class="diff-card">
+            <span class="diff-icon">📋</span>
             <h4>Extrato Completo</h4>
             <p>Rastreie cada movimentação: aportes, compras, vendas e dividendos recebidos.</p>
         </div>
@@ -782,6 +789,7 @@ def tela_homepage():
     with d3:
         st.markdown("""
         <div class="diff-card">
+            <span class="diff-icon">⚙️</span>
             <h4>Máquina de Estados</h4>
             <p>Ações planejadas passam por estados (planejado → executado) com alertas de atraso.</p>
         </div>
@@ -790,6 +798,7 @@ def tela_homepage():
     with d4:
         st.markdown("""
         <div class="diff-card">
+            <span class="diff-icon">📰</span>
             <h4>Notícias do Mercado</h4>
             <p>Monitoramento de notícias relevantes para seus ativos, integrado às recomendações.</p>
         </div>

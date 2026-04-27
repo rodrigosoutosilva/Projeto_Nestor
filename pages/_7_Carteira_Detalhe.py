@@ -38,7 +38,7 @@ if "user" not in st.session_state or st.session_state.user is None:
 portfolio_id = st.session_state.get("view_portfolio_id", None)
 if not portfolio_id:
     st.error("Nenhuma carteira selecionada. Volte e selecione uma na página 'Carteiras'.")
-    if st.button("Voltar para Carteiras", key="btn_volt_err", type="tertiary"):
+    if st.button("← Voltar para Carteiras", key="btn_volt_err", type="tertiary"):
         st.switch_page("pages/3_Carteiras.py")
     st.stop()
 
@@ -54,11 +54,11 @@ watchlist = listar_watchlist_portfolio(portfolio_id)
 btn_col1, btn_col2 = st.columns([1, 1])
 with btn_col1:
     persona_nome = persona['nome'] if persona else 'Persona'
-    if st.button(f"Voltar para {persona_nome}", key="btn_volt_persona", use_container_width=True, type="tertiary"):
+    if st.button(f"← Voltar para {persona_nome}", key="btn_volt_persona", use_container_width=True, type="tertiary"):
         st.session_state.view_persona_id = port["persona_id"]
         st.switch_page("pages/_9_Persona_Detalhe.py")
 with btn_col2:
-    if st.button("Voltar para Carteiras", key="btn_volt_carteiras", use_container_width=True, type="tertiary"):
+    if st.button("← Voltar para Carteiras", key="btn_volt_carteiras", use_container_width=True, type="tertiary"):
         st.switch_page("pages/3_Carteiras.py")
 
 # --- CABEÇALHO ---
