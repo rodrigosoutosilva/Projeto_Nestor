@@ -1216,7 +1216,7 @@ def tela_principal():
             if portfolios:
                 for port in portfolios:
                     montante_txt = f" | Caixa: {formatar_moeda_md(port['montante_disponivel'])}" if port.get('montante_disponivel') else ""
-                    st.markdown(f"**{port['nome']}** — Prazo: {port['objetivo_prazo']} | Meta DY: {port['meta_dividendos']}%{montante_txt}", unsafe_allow_html=True)
+                    st.markdown(f"**{port['nome']}** — Prazo: {port['objetivo_prazo']}{montante_txt}", unsafe_allow_html=True)
             else:
                 st.info("Nenhuma carteira nesta persona.")
 

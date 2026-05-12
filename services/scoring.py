@@ -1,445 +1,460 @@
 """
-scoring.py - Motor de Scoring sem IA (v2 — Fundamentalista + Técnico)
-======================================================================
-Calcula pontuações para ativos com base em indicadores técnicos,
-dados fundamentalistas (P/L, P/VP, DY) e perfil do investidor.
+scoring.py - Motor de Pontuação e Sugestões (Refatorado)
+========================================================
 
-Score Final = (Técnico * 0.35) + (Fundamentalista * 0.35) + (Perfil * 0.30)
-
-Parâmetros neutros nos limites técnicos para configuração futura.
+Sistema reestruturado com dois algoritmos:
+- Algoritmo 1 (Criação): Sugere novos ativos com foco em fundamentos e otimização de entrada.
+- Algoritmo 2 (Manutenção): Sugere movimentações em carteira existente, com regras estritas de venda.
 """
-from services.market_data import (
-    buscar_historico, calcular_indicadores_tecnicos,
-    buscar_dados_fundamentalistas
-)
-from database.crud import buscar_persona_por_id, buscar_portfolio_por_id, listar_ativos_portfolio
-from utils.helpers import formatar_moeda
 
+from typing import List, Dict, Any
+from services.market_data import buscar_dados_completos, buscar_preco_atual
 
-# =====================================================================
-# LIMITES CONFIGURÁVEIS (posição neutra — ajustáveis no futuro)
-# =====================================================================
-LIMITES = {
-    "rsi_sobrevendido": 30,
-    "rsi_sobrecomprado": 70,
-    "pl_barato": 10,
-    "pl_caro": 25,
-    "pvp_barato": 1.0,
-    "pvp_caro": 3.0,
-    "dy_bom": 6.0,       # % ao ano
-    "dy_otimo": 10.0,     # % ao ano
-    "volume_alto": 1.5,   # ratio vs média 20d
-}
+# ==============================================================================
+# ALGORITMO 1 - CRIAÇÃO (SELEÇÃO DE NOVOS ATIVOS)
+# ==============================================================================
 
+def _calcular_score_fundamental_criacao(ind: dict) -> float:
+    # ROE (50%)
+    roe = ind.get("roe")
+    score_roe = 50
+    if roe is not None:
+        if roe > 20: score_roe = 90
+        elif roe > 15: score_roe = 75
+        elif roe > 10: score_roe = 55
+        elif roe > 5: score_roe = 35
+        else: score_roe = 15
 
-def calcular_score_tecnico(indicadores: dict) -> float:
-    """
-    Score técnico (0–100) baseado em RSI, SMA, MACD e Volume.
-    """
-    rsi = indicadores.get("rsi", 50)
-    preco = indicadores.get("preco_atual", 0)
-    sma_20 = indicadores.get("sma_20", preco)
-    macd = indicadores.get("macd", 0)
-    macd_signal = indicadores.get("macd_signal", 0)
-    volume_ratio = indicadores.get("volume_ratio", 1.0)
+    # Dívida/EBITDA (50%)
+    divida_ebitda = ind.get("divida_liquida_ebitda")
+    score_div = 50
+    if divida_ebitda is not None:
+        if divida_ebitda < 1: score_div = 90
+        elif divida_ebitda < 2: score_div = 70
+        elif divida_ebitda < 3: score_div = 50
+        elif divida_ebitda < 4: score_div = 30
+        else: score_div = 10
 
-    # --- Score RSI (0–100) ---
-    if rsi <= LIMITES["rsi_sobrevendido"]:
-        score_rsi = 80 + (LIMITES["rsi_sobrevendido"] - rsi)
-    elif rsi >= LIMITES["rsi_sobrecomprado"]:
-        score_rsi = max(0, 30 - (rsi - LIMITES["rsi_sobrecomprado"]))
-    else:
-        score_rsi = 50 + (50 - rsi) * 0.75
-    score_rsi = max(0, min(100, score_rsi))
+    return (score_roe * 0.5) + (score_div * 0.5)
 
-    # --- Score SMA (0–100) ---
-    if sma_20 > 0:
-        desvio = ((preco - sma_20) / sma_20) * 100
-        score_sma = 50 + desvio * 5
-        score_sma = max(0, min(100, score_sma))
-    else:
-        score_sma = 50
-
-    # --- Score MACD (0–100) ---
-    if macd > macd_signal:
-        score_macd = 60 + min(40, abs(macd - macd_signal) * 1000)
-    else:
-        score_macd = 40 - min(40, abs(macd - macd_signal) * 1000)
-    score_macd = max(0, min(100, score_macd))
-
-    # --- Score Volume (0–100) — volume alto confirma tendência ---
-    if volume_ratio > LIMITES["volume_alto"]:
-        score_vol = 70
-    elif volume_ratio > 1.0:
-        score_vol = 55
-    elif volume_ratio > 0.5:
-        score_vol = 40
-    else:
-        score_vol = 25
-
-    # Média ponderada: RSI(35%) + SMA(25%) + MACD(25%) + Volume(15%)
-    score_final = (score_rsi * 0.35) + (score_sma * 0.25) + (score_macd * 0.25) + (score_vol * 0.15)
-    return round(max(0, min(100, score_final)), 2)
-
-
-def calcular_score_fundamentalista(fundamentos: dict, portfolio: dict) -> float:
-    """
-    Score fundamentalista (0–100) baseado em P/L, P/VP e DY.
-    Posição neutra quando os dados não estão disponíveis.
-    """
-    pl = fundamentos.get("pl")
-    pvp = fundamentos.get("pvp")
-    dy = fundamentos.get("dy")
-    estilo = portfolio.get("objetivo_prazo", "medio")
-
-    scores = []
-    pesos = []
-
-    # --- Score P/L ---
+def _calcular_score_valuation_criacao(ind: dict) -> float:
+    # P/L (35%)
+    pl = ind.get("pl")
+    score_pl = 50
     if pl is not None and pl > 0:
-        if pl < LIMITES["pl_barato"]:
-            score_pl = 85   # Potencialmente barato
-        elif pl < LIMITES["pl_caro"]:
-            score_pl = 55   # Faixa razoável
-        else:
-            score_pl = 25   # Caro
-        scores.append(score_pl)
-        pesos.append(0.35)
+        if pl < 8: score_pl = 90
+        elif pl < 12: score_pl = 75
+        elif pl < 18: score_pl = 55
+        elif pl < 25: score_pl = 35
+        else: score_pl = 15
 
-    # --- Score P/VP ---
+    # P/VP (30%)
+    pvp = ind.get("pvp")
+    score_pvp = 50
     if pvp is not None and pvp > 0:
-        if pvp < LIMITES["pvp_barato"]:
-            score_pvp = 85  # Abaixo do patrimônio — potencial de valor
-        elif pvp < LIMITES["pvp_caro"]:
-            score_pvp = 55  # Faixa neutra
-        else:
-            score_pvp = 25  # Premium alto
-        scores.append(score_pvp)
-        pesos.append(0.35)
+        if pvp < 1: score_pvp = 90
+        elif pvp < 1.5: score_pvp = 70
+        elif pvp < 3: score_pvp = 50
+        else: score_pvp = 25
 
-    # --- Score DY ---
-    if dy is not None and dy > 0:
-        if dy >= LIMITES["dy_otimo"]:
-            score_dy = 90
-        elif dy >= LIMITES["dy_bom"]:
-            score_dy = 70
-        elif dy >= 3.0:
-            score_dy = 50
-        else:
-            score_dy = 30
-        # Peso do DY aumenta se o portfólio foca em dividendos
-        peso_dy = 0.40 if estilo == "longo" else 0.30
-        scores.append(score_dy)
-        pesos.append(peso_dy)
+    # EV/EBITDA (35%)
+    ev_ebitda = ind.get("ev_ebitda")
+    score_ev = 50
+    if ev_ebitda is not None and ev_ebitda > 0:
+        if ev_ebitda < 6: score_ev = 90
+        elif ev_ebitda < 8: score_ev = 70
+        elif ev_ebitda < 12: score_ev = 50
+        elif ev_ebitda < 16: score_ev = 30
+        else: score_ev = 10
 
-    if not scores:
-        return 50.0  # Posição neutra quando dados indisponíveis
+    return (score_pl * 0.35) + (score_pvp * 0.30) + (score_ev * 0.35)
 
-    # Normalizar pesos
-    soma_pesos = sum(pesos)
-    score_final = sum(s * (p / soma_pesos) for s, p in zip(scores, pesos))
-    return round(max(0, min(100, score_final)), 2)
+def _calcular_score_dividendos_criacao(ind: dict) -> float:
+    # DY (50%)
+    dy = ind.get("dy")
+    score_dy = 50
+    if dy is not None:
+        if dy > 10: score_dy = 95
+        elif dy > 6: score_dy = 75
+        elif dy > 3: score_dy = 55
+        elif dy > 1: score_dy = 35
+        else: score_dy = 15
 
+    # Payout (50%)
+    payout = ind.get("payout")
+    score_payout = 50
+    if payout is not None and payout > 0:
+        if payout < 30: score_payout = 50
+        elif payout <= 60: score_payout = 90
+        elif payout <= 80: score_payout = 65
+        elif payout <= 100: score_payout = 30
+        else: score_payout = 10
 
-def calcular_score_perfil(persona: dict, portfolio: dict, indicadores: dict, fundamentos: dict = None) -> float:
-    """Mede o alinhamento entre o ativo e o perfil do investidor."""
-    tolerancia = persona.get("tolerancia_risco", 5)
-    estilo = persona.get("estilo", "dividendos")
-    prazo = portfolio.get("objetivo_prazo", "longo")
-    tendencia = indicadores.get("tendencia", "neutra")
+    return (score_dy * 0.5) + (score_payout * 0.5)
 
-    score = 50  # Base neutra
-
-    # --- Tendência vs tolerância ---
-    if tendencia == "alta":
-        score += 15
-    elif tendencia == "baixa":
-        if tolerancia >= 7:
-            score += 5   # Arrojado vê oportunidade na queda
-        else:
-            score -= 15  # Conservador prefere estabilidade
-
-    # --- RSI vs estilo ---
-    rsi = indicadores.get("rsi", 50)
-    if estilo == "dividendos":
-        if 40 <= rsi <= 60:
-            score += 15   # Estável é bom para renda passiva
-    else:  # crescimento
-        if 50 <= rsi <= 70:
-            score += 15   # Momento positivo
-
-    # --- Prazo ---
-    if prazo == "longo":
-        score += 10  # Longo prazo tolera mais volatilidade
-    elif prazo == "curto":
-        if tendencia == "baixa":
-            score -= 10
-
-    # --- Tolerância ao risco ---
-    score += (tolerancia - 5) * 2
-
-    # --- DY vs objetivo de dividendos ---
-    if fundamentos:
-        dy = fundamentos.get("dy")
-        meta_dy = portfolio.get("meta_dividendos", 6.0)
-        if dy is not None and dy > 0:
-            if dy >= meta_dy:
-                score += 10
-            elif dy < meta_dy * 0.5:
-                score -= 5
-
-    return round(max(0, min(100, score)), 2)
-
-
-def pontuar_ativo(ticker: str, persona: dict, portfolio: dict, pm_atual: float = 0.0, usar_preco_futuro: bool = False) -> dict:
-    """
-    Calcula a pontuação de um ativo (0–100) sem usar IA.
-    Score = (Técnico * 0.35) + (Fundamentalista * 0.35) + (Perfil * 0.30)
-    Se usar_preco_futuro for True, ajusta o score baseado no preço alvo e margem de ganho.
-    """
-    historico = buscar_historico(ticker, "6mo")
-    if historico is None or historico.empty:
-        return {"sucesso": False, "erro": "Dados históricos indisponíveis", "ticker": ticker}
-
-    indicadores = calcular_indicadores_tecnicos(historico)
-    fundamentos = buscar_dados_fundamentalistas(ticker)
-
-    score_tecnico = calcular_score_tecnico(indicadores)
-    score_fundament = calcular_score_fundamentalista(fundamentos, portfolio)
-    score_perfil = calcular_score_perfil(persona, portfolio, indicadores, fundamentos)
-
-    score_final = (score_tecnico * 0.35) + (score_fundament * 0.35) + (score_perfil * 0.30)
-
-    # --- Lógica de Preço Futuro ---
-    texto_futuro = ""
-    preco_atual = indicadores.get("preco_atual", 0)
-    preco_alvo = fundamentos.get("preco_alvo_medio") or fundamentos.get("preco_alvo_max")
-    freq = persona.get("frequencia_acao", "semanal")
-
-    if preco_atual > 0 and preco_alvo and preco_alvo > 0:
-        upside = ((preco_alvo - preco_atual) / preco_atual) * 100
+def _calcular_score_tecnico_criacao(ind: dict) -> float:
+    # RSI (40%)
+    rsi = ind.get("rsi")
+    score_rsi = 50
+    if rsi is not None:
+        if rsi < 30: score_rsi = 90
+        elif rsi < 40: score_rsi = 70
+        elif rsi < 60: score_rsi = 50
+        elif rsi < 70: score_rsi = 35
+        else: score_rsi = 15
         
-        # Threshold de venda adaptável conforme a frequência de giro da carteira
-        # day traders aceitam sair um pouco antes do alvo; buy and hold espera até passar do alvo.
-        threshold_venda = 0.0
-        if freq == "diario": threshold_venda = 2.0
-        elif freq == "semanal": threshold_venda = 0.0
-        else: threshold_venda = -5.0
+    # SMA 20 (30%)
+    sma20 = ind.get("sma_20")
+    preco = ind.get("preco_atual")
+    score_sma = 50
+    if sma20 and preco:
+        if preco < sma20: score_sma = 80
+        else: score_sma = 40
 
-        if pm_atual > 0:
-            lucro_pct = ((preco_atual - pm_atual) / pm_atual) * 100
-            if upside <= threshold_venda and lucro_pct > 0:
-                # Atingiu o alvo e está com lucro -> força VENDA (reduz drastically o score)
-                score_final = min(score_final, 35.0)
-                texto_futuro = f" O preço (R\\$ {preco_atual:.2f}) atingiu a região do preço-alvo médio (R\\$ {preco_alvo:.2f}) com lucro de {lucro_pct:.1f}%. Pela sua frequência de revisão ({freq}), sugere-se realizar lucro."
-            elif upside > 15.0 and lucro_pct < -5.0:
-                # Caiu, mas o alvo continua indicando alta forte -> força COMPRA para baixar PM
-                score_final = max(score_final, 75.0)
-                texto_futuro = f" O ativo caiu e está com prejuízo de {abs(lucro_pct):.1f}%, mas o preço-alvo (R\\$ {preco_alvo:.2f}) indica potencial de {upside:.1f}%. Oportunidade para reduzir seu preço médio."
-        else:
-            if upside > 20.0:
-                score_final = max(score_final, 75.0)
-                texto_futuro = f" O preço-alvo (R\\$ {preco_alvo:.2f}) indica um excelente potencial de alta de {upside:.1f}% frente à cotação atual."
-            elif upside <= 5.0:
-                score_final = min(score_final, 45.0)
-                texto_futuro = f" Cotação (R\\$ {preco_atual:.2f}) muito próxima ao preço-alvo (R\\$ {preco_alvo:.2f}). Margem de segurança baixa para novas compras."
+    # MACD (20%)
+    macd = ind.get("macd")
+    macd_signal = ind.get("macd_signal")
+    score_macd = 50
+    if macd is not None and macd_signal is not None:
+        if macd > macd_signal: score_macd = 70
+        else: score_macd = 30
 
-    score_final = round(score_final, 2)
+    # Volume (10%)
+    volume_ratio = ind.get("volume_ratio")
+    score_vol = 50
+    if volume_ratio is not None:
+        if volume_ratio > 1.5: score_vol = 70
+        elif volume_ratio < 0.5: score_vol = 30
 
-    # Mesclar fundamentos nos indicadores para exibição
-    indicadores_completos = {**indicadores, **fundamentos}
-    indicadores_completos["texto_futuro"] = texto_futuro
+    return (score_rsi * 0.40) + (score_sma * 0.30) + (score_macd * 0.20) + (score_vol * 0.10)
+
+def pontuar_ativo_criacao(ticker: str, persona: dict, portfolio: dict, usar_preco_futuro: bool = False) -> dict:
+    """Algoritmo 1: Seleção de novos ativos."""
+    dados = buscar_dados_completos(ticker)
+    ind = dados.get("indicadores", {})
+    if not ind:
+        return {"score": 0, "acao": "N/D", "texto": "Dados indisponíveis."}
+
+    estilo = persona.get("estilo", "dividendos")
+    if estilo == "dividendos":
+        w_fund, w_val, w_div, w_tec = 0.40, 0.25, 0.25, 0.10
+    elif estilo == "crescimento":
+        w_fund, w_val, w_div, w_tec = 0.30, 0.35, 0.05, 0.30
+    else: # equilibrado
+        w_fund, w_val, w_div, w_tec = 0.35, 0.30, 0.15, 0.20
+
+    s_fund = _calcular_score_fundamental_criacao(ind)
+    s_val = _calcular_score_valuation_criacao(ind)
+    s_div = _calcular_score_dividendos_criacao(ind)
+    s_tec = _calcular_score_tecnico_criacao(ind)
+
+    score_base = (s_fund * w_fund) + (s_val * w_val) + (s_div * w_div) + (s_tec * w_tec)
+
+    # Ajuste Multiplicador
+    ajuste = 1.0
+    risco = persona.get("tolerancia_risco", 5)
+    ajuste += (risco - 5) * 0.015
+    
+    prazo = portfolio.get("objetivo_prazo", "longo")
+    if prazo == "curto" and ind.get("dy", 0) > 6:
+        ajuste += 0.05
+    if prazo == "longo" and ind.get("roe", 0) > 15:
+        ajuste += 0.05
+        
+    preco = ind.get("preco_atual", 0)
+    alvo = ind.get("preco_alvo_medio", 0)
+    if preco > 0 and alvo > 0:
+        upside = (alvo - preco) / preco
+        if upside > 0.20:
+            ajuste += 0.05
+        elif upside < 0.05:
+            ajuste -= 0.05
+
+    score_final = max(0, min(100, score_base * ajuste))
+
+    if score_final >= 70:
+        acao = "compra"
+    elif score_final >= 55:
+        acao = "observar"
+    else:
+        acao = "ignorar"
+        
+    texto = gerar_texto_resumo_criacao(ticker, score_final, acao, ind)
 
     return {
-        "sucesso": True,
         "ticker": ticker,
-        "score": score_final,
-        "score_tecnico": score_tecnico,
-        "score_fundamentalista": score_fundament,
-        "score_perfil": score_perfil,
-        "indicadores": indicadores_completos,
+        "score": int(score_final),
+        "acao": acao,
+        "texto": texto,
+        "indicadores": ind,
+        "scores_detalhados": {
+            "fundamental": int(s_fund),
+            "valuation": int(s_val),
+            "dividendos": int(s_div),
+            "tecnico": int(s_tec)
+        }
+    }
+
+def gerar_texto_resumo_criacao(ticker: str, score: float, acao: str, ind: dict) -> str:
+    partes = []
+    
+    # Valuation / Target
+    preco = ind.get("preco_atual", 0)
+    alvo = ind.get("preco_alvo_medio", 0)
+    if preco > 0 and alvo > 0:
+        upside = ((alvo - preco) / preco) * 100
+        if upside > 10:
+            partes.append(f"Potencial de valorização (Upside de {upside:.1f}% vs Preço-Alvo dos analistas).")
+        elif upside < 0:
+            partes.append(f"Preço atual acima do consenso dos analistas ({upside:.1f}%).")
+            
+    # Fundamentos
+    roe = ind.get("roe")
+    if roe and roe > 15:
+        partes.append(f"ROE muito saudável ({roe:.1f}%), indicando eficiência.")
+        
+    div_ebitda = ind.get("divida_liquida_ebitda")
+    if div_ebitda is not None:
+        if div_ebitda < 2:
+            partes.append(f"Dívida controlada (Dívida L./EBITDA = {div_ebitda:.1f}x).")
+        elif div_ebitda > 3:
+            partes.append(f"⚠️ Alerta de alavancagem alta (Dívida L./EBITDA = {div_ebitda:.1f}x).")
+
+    # Dividendos
+    dy = ind.get("dy")
+    payout = ind.get("payout")
+    if dy and dy > 6:
+        msg_div = f"Ótimo DY ({dy:.1f}%)."
+        if payout and payout <= 80:
+            msg_div += f" Payout sustentável ({payout:.1f}%)."
+        elif payout and payout > 100:
+            msg_div += f" ⚠️ Payout insustentável ({payout:.1f}%)."
+        partes.append(msg_div)
+
+    # Timing Técnico
+    rsi = ind.get("rsi")
+    if rsi:
+        if rsi < 35:
+            partes.append("Preço descontado no curto prazo (RSI sobrevendido), indicando possível ponto de entrada ideal.")
+        elif rsi > 70:
+            partes.append("Preço esticado no curto prazo (RSI sobrecomprado).")
+
+    resumo = " ".join(partes)
+    if not resumo:
+        resumo = f"Ativo em radar com Score {int(score)}. Verifique dados completos na análise detalhada."
+
+    return resumo
+
+# ==============================================================================
+# ALGORITMO 2 - MANUTENÇÃO (CARTEIRA EXISTENTE)
+# ==============================================================================
+
+def pontuar_ativo_manutencao(ticker: str, persona: dict, portfolio: dict, pm_atual: float, usar_preco_futuro: bool = False) -> dict:
+    """Algoritmo 2: Manutenção. Regras estritas de venda. Sem técnicos."""
+    dados = buscar_dados_completos(ticker)
+    ind = dados.get("indicadores", {})
+    if not ind:
+        return {"score": 50, "acao": "manter", "texto": "Dados indisponíveis."}
+
+    # -- 1. Score de Saúde Fundamental (Monitora Deterioração) --
+    s_saude = 50
+    roe = ind.get("roe")
+    div_ebitda = ind.get("divida_liquida_ebitda")
+    margem = ind.get("margem_liquida")
+    
+    score_roe_m = 50
+    if roe is not None:
+        if roe >= 10: score_roe_m = 80
+        elif roe < 5: score_roe_m = 15
+        
+    score_div_m = 50
+    if div_ebitda is not None:
+        if div_ebitda > 4: score_div_m = 10
+        elif div_ebitda <= 2: score_div_m = 80
+        
+    score_margem = 50
+    if margem is not None:
+        if margem < 0: score_margem = 10
+        elif margem > 10: score_margem = 70
+        
+    s_saude = (score_roe_m * 0.4) + (score_div_m * 0.4) + (score_margem * 0.2)
+
+    # -- 2. Score de Valuation (Esticada de preço) --
+    s_val = 50
+    pl = ind.get("pl")
+    score_pl_m = 50
+    if pl is not None and pl > 0:
+        if pl > 25: score_pl_m = 15 # Genérico, o ideal seria vs setor
+        elif pl < 12: score_pl_m = 80
+
+    preco = ind.get("preco_atual", 0)
+    alvo = ind.get("preco_alvo_medio", 0)
+    score_alvo = 50
+    if preco > 0 and alvo > 0:
+        razao = preco / alvo
+        if razao > 1.2: score_alvo = 10
+        elif razao > 1.0: score_alvo = 30
+        elif razao < 0.8: score_alvo = 80
+        
+    s_val = (score_pl_m * 0.5) + (score_alvo * 0.5)
+
+    # -- 3. Sustentabilidade de Proventos --
+    s_prov = 50
+    payout = ind.get("payout")
+    dy = ind.get("dy")
+    dy_medio = ind.get("dy_medio_5_anos")
+    
+    score_payout_m = 50
+    if payout is not None and payout > 0:
+        if payout > 120: score_payout_m = 10
+        elif payout <= 80: score_payout_m = 80
+        
+    score_dy_hist = 50
+    if dy is not None and dy_medio is not None and dy_medio > 0:
+        if dy < (dy_medio * 0.5): score_dy_hist = 25
+        else: score_dy_hist = 70
+        
+    s_prov = (score_payout_m * 0.6) + (score_dy_hist * 0.4)
+    
+    # Pesos do Algoritmo 2
+    estilo = persona.get("estilo", "dividendos")
+    if estilo == "dividendos":
+        w_saude, w_val, w_prov = 0.45, 0.25, 0.30
+    elif estilo == "crescimento":
+        w_saude, w_val, w_prov = 0.35, 0.35, 0.30
+    else:
+        w_saude, w_val, w_prov = 0.40, 0.30, 0.30
+
+    score_final = (s_saude * w_saude) + (s_val * w_val) + (s_prov * w_prov)
+
+    # =====================================================
+    # CIRCUITO-BREAKER (REGRAS DE VENDA)
+    # =====================================================
+    condicoes_venda = 0
+    alerta_textos = []
+
+    # 1. Valuation Extremo
+    if pl is not None and pl > 25 and preco > (alvo * 1.2):
+        condicoes_venda += 1
+        alerta_textos.append("Preço esticou muito além do valor intrínseco e histórico.")
+
+    # 2. Explosão de Dívida
+    if div_ebitda is not None and div_ebitda > 4:
+        condicoes_venda += 1
+        alerta_textos.append("Alerta grave de aumento de endividamento (Dívida/EBITDA > 4x).")
+
+    # 3. Colapso de Fundamentos
+    if roe is not None and roe < 5 and margem is not None and margem < 0:
+        condicoes_venda += 1
+        alerta_textos.append("Colapso de rentabilidade (Margem negativa e ROE muito baixo).")
+
+    # 4. Payout Insustentável
+    if payout is not None and payout > 120 and dy is not None and dy_medio is not None and dy < (dy_medio * 0.5):
+        condicoes_venda += 1
+        alerta_textos.append("Política de dividendos insustentável, comprometendo o caixa.")
+
+    # Ações:
+    acao = "manter"
+    if condicoes_venda >= 2:
+        acao = "venda"
+    elif condicoes_venda == 1:
+        acao = "observar"
+    else:
+        # Reforço de posição?
+        if s_saude >= 70:
+            if alvo > 0 and preco < (alvo * 0.8):
+                acao = "compra" # Reforçar
+            elif preco > 0 and pm_atual > 0 and preco < pm_atual:
+                acao = "compra" # Oportunidade de baixar PM
+
+    # Geração de texto para manutenção
+    texto = "Fundamentos sólidos, manter posição."
+    if acao == "venda":
+        texto = "⚠️ ALERTA DE VENDA: " + " ".join(alerta_textos)
+    elif acao == "observar":
+        texto = "Atenção necessária: " + alerta_textos[0]
+    elif acao == "compra":
+        if preco < pm_atual:
+            texto = f"Oportunidade de reforçar posição e baixar Preço Médio (Atual: R${preco:.2f} | PM: R${pm_atual:.2f})."
+        else:
+            texto = "Ativo com bons fundamentos descontado vs Preço-Alvo."
+
+    return {
+        "ticker": ticker,
+        "score": int(score_final),
+        "acao": acao,
+        "texto": texto,
+        "indicadores": ind,
+        "scores_detalhados": {
+            "saude": int(s_saude),
+            "valuation": int(s_val),
+            "proventos": int(s_prov)
+        }
     }
 
 
-def gerar_texto_resumo(ticker: str, indicadores: dict, score: float) -> str:
-    """Gera um texto breve explicativo sobre o score e indicadores sem usar IA."""
-    tendencia = indicadores.get("tendencia", "neutra")
-    rsi = indicadores.get("rsi", 50)
-    pl = indicadores.get("pl")
-    pvp = indicadores.get("pvp")
-    dy = indicadores.get("dy")
-    volume_ratio = indicadores.get("volume_ratio", 1.0)
+# ==============================================================================
+# FACADES PARA O FRONTEND
+# ==============================================================================
 
-    texto = f"O ativo **{ticker}** possui um **Score de {score:.1f}/100** "
-    texto += "*(nota de 0 a 100 que avalia o momento de mercado, fundamentos e alinhamento ao seu perfil)*. "
+def gerar_sugestoes_novos_ativos(portfolio_id: int) -> list[dict]:
+    """Retorna sugestões de COMPRA de ativos que não estão na carteira."""
+    from database.crud import buscar_portfolio_por_id, listar_ativos_portfolio
+    portfolio, persona = buscar_portfolio_por_id(portfolio_id)
+    if not portfolio or not persona: return []
 
-    # Tendência
-    if tendencia == "alta":
-        texto += "O gráfico indica **Tendência de ALTA** no curto prazo "
-        texto += "*(preço acima da média dos últimos 20 dias, com MACD confirmando)*. "
-    elif tendencia == "baixa":
-        texto += "O gráfico indica **Tendência de BAIXA** no curto prazo "
-        texto += "*(preço inferior à média de 20 dias)*. "
-    else:
-        texto += "Encontra-se sem tendência clara no momento. "
-
-    # RSI
-    if rsi < LIMITES["rsi_sobrevendido"]:
-        texto += f"O **RSI ({rsi:.0f})** aponta **SOBREVENDIDO** "
-        texto += "*(o mercado vendeu muito, pode ser oportunidade de compra)*. "
-    elif rsi > LIMITES["rsi_sobrecomprado"]:
-        texto += f"O **RSI ({rsi:.0f})** aponta **SOBRECOMPRADO** "
-        texto += "*(o mercado comprou rápido demais, risco de correção)*. "
-    else:
-        texto += f'O **RSI ({rsi:.0f})** está em patamar **Neutro** *(sem pressão excessiva de compra ou venda)*. '
-
-    # P/L
-    if pl is not None and pl > 0:
-        if pl < LIMITES["pl_barato"]:
-            texto += f"O **P/L ({pl:.1f})** indica que o ativo está **barato** em relação ao lucro que gera. "
-        elif pl > LIMITES["pl_caro"]:
-            texto += f"O **P/L ({pl:.1f})** indica um preço **elevado** em relação ao lucro. "
-        else:
-            texto += f"O **P/L ({pl:.1f})** está em faixa **razoável**. "
-
-    # P/VP
-    if pvp is not None and pvp > 0:
-        if pvp < LIMITES["pvp_barato"]:
-            texto += f"O **P/VP ({pvp:.2f})** mostra que o ativo negocia **abaixo do patrimônio** — potencial de valor. "
-        elif pvp > LIMITES["pvp_caro"]:
-            texto += f"O **P/VP ({pvp:.2f})** está **acima do patrimônio** — o mercado paga um prêmio alto. "
-        else:
-            texto += f"O **P/VP ({pvp:.2f})** está em faixa normal. "
-
-    # Dividend Yield
-    if dy is not None and dy > 0:
-        if dy >= LIMITES["dy_otimo"]:
-            texto += f"Distribui excelentes dividendos (**DY {dy:.2f}%** ao ano). "
-        elif dy >= LIMITES["dy_bom"]:
-            texto += f"Paga bons dividendos (**DY {dy:.2f}%** ao ano). "
-        else:
-            texto += f"Paga dividendos modestos (**DY {dy:.2f}%** ao ano). "
-
-    # Volume
-    if volume_ratio > LIMITES["volume_alto"]:
-        texto += "O **volume** está acima da média, confirmando o movimento atual. "
-
-    # Conclusão
-    if score >= 70:
-        texto += "**Conclusão:** Excelente alinhamento com a sua carteira e momento favorável."
-    elif score >= 50:
-        texto += "**Conclusão:** Momento neutro — acompanhe os próximos movimentos."
-    elif score <= 40:
-        texto += "**Conclusão:** Momento desfavorável ou baixo alinhamento com o perfil da carteira."
-
-    texto_futuro = indicadores.get("texto_futuro", "")
-    if texto_futuro:
-        texto += f"\n\n**Análise de Preço Futuro:**{texto_futuro}"
-
-    return texto
-
-
-# Tickers populares organizados por setor (para sugestão de novos ativos)
-TICKERS_POR_SETOR = {
-    "bancos": ["ITUB4", "BBAS3", "BBDC4", "ITSA4", "B3SA3", "BBSE3"],
-    "energia": ["TAEE11", "ELET3", "CPLE6", "EQTL3", "ENGI11", "SBSP3"],
-    "mineracao": ["VALE3", "CMIN3", "CSNA3", "GGBR4"],
-    "petroleo": ["PETR4", "PETR3", "PRIO3"],
-    "varejo": ["MGLU3", "LREN3", "VIIA3"],
-    "tecnologia": ["TOTS3", "LWSA3", "POSI3"],
-    "saude": ["HAPV3", "RDOR3", "FLRY3"],
-    "construcao": ["MRV3", "CYRE3", "EZTC3"],
-    "saneamento": ["SBSP3", "SAPR11"],
-    "seguros": ["BBSE3", "IRBR3", "PSSA3"],
-    # Genéricos
-    "acoes": ["PETR4", "VALE3", "ITUB4", "BBAS3", "WEGE3", "ABEV3", "EMBR3", "SUZB3"],
-}
-
-
-def gerar_sugestoes_carteira(portfolio_id: int, usar_preco_futuro: bool = False) -> list[dict]:
-    """
-    Gera sugestões de movimento usando scoring completo (técnico + fundamentalista + perfil).
-    Inclui tanto ativos já possuídos quanto novos ativos relevantes para o perfil.
-    """
-    portfolio = buscar_portfolio_por_id(portfolio_id)
-    if not portfolio: return []
-    persona = buscar_persona_por_id(portfolio["persona_id"])
-    if not persona: return []
-
-    ativos = listar_ativos_portfolio(portfolio_id)
-    tickers_possuidos = {a["ticker"].upper() for a in ativos}
+    ativos_atuais = listar_ativos_portfolio(portfolio_id)
+    tickers_atuais = {a["ticker"] for a in ativos_atuais}
+    
+    # Exemplo de Universo Fixo (na vida real, isso viria de um filtro mais amplo)
+    universo = ["VALE3", "PETR4", "ITUB4", "BBDC4", "BBAS3", "WEGE3", "EGIE3", "TAEE11", "MGLU3", "B3SA3"]
+    
     sugestoes = []
+    for ticker in universo:
+        if ticker not in tickers_atuais:
+            res = pontuar_ativo_criacao(ticker, persona, portfolio)
+            if res["acao"] in ["compra", "observar"]:
+                res["novo"] = True
+                sugestoes.append(res)
+                
+    return sorted(sugestoes, key=lambda x: x["score"], reverse=True)
 
-    # --- 1) Analisar ativos já possuídos ---
-    for ativo in ativos:
-        resultado = pontuar_ativo(ativo["ticker"], persona, portfolio, pm_atual=ativo["preco_medio"], usar_preco_futuro=usar_preco_futuro)
-        if resultado.get("sucesso"):
-            score = resultado["score"]
-            if score >= 75:
-                acao_sugerida = "compra"
-            elif score >= 60:
-                acao_sugerida = "observar"
-            elif score <= 40:
-                acao_sugerida = "venda"
-            else:
-                acao_sugerida = "manter"
 
-            texto = gerar_texto_resumo(ativo["ticker"], resultado["indicadores"], score)
-            
-            if acao_sugerida == "observar":
-                texto = texto.replace("Momento neutro — acompanhe os próximos movimentos.", "Ativo forte e pontuação alta, mas **aguarde melhor ponto de entrada**.")
-                texto = texto.replace("Excelente alinhamento com a sua carteira e momento favorável.", "Excelente alinhamento, mas **aguarde melhor ponto de entrada** devido à saturação do preço atual.")
+def gerar_sugestoes_manutencao(portfolio_id: int, usar_preco_futuro: bool = False) -> list[dict]:
+    """Retorna sugestões de MANUTENÇÃO (Compra, Venda, Manter) para quem JÁ está na carteira."""
+    from database.crud import buscar_portfolio_por_id, listar_ativos_portfolio
+    portfolio, persona = buscar_portfolio_por_id(portfolio_id)
+    if not portfolio or not persona: return []
 
-            sugestoes.append({
-                "ticker": ativo["ticker"],
-                "score": score,
-                "score_tecnico": resultado.get("score_tecnico", 0),
-                "score_fundamentalista": resultado.get("score_fundamentalista", 0),
-                "score_perfil": resultado.get("score_perfil", 0),
-                "acao": acao_sugerida,
-                "texto": texto,
-                "preco_atual": resultado["indicadores"].get("preco_atual", 0),
-                "indicadores": resultado["indicadores"],
-                "novo": False
-            })
+    ativos_atuais = listar_ativos_portfolio(portfolio_id)
+    sugestoes = []
+    
+    for ativo in ativos_atuais:
+        res = pontuar_ativo_manutencao(ativo["ticker"], persona, portfolio, pm_atual=ativo["preco_medio"], usar_preco_futuro=usar_preco_futuro)
+        res["novo"] = False
+        sugestoes.append(res)
+        
+    # Ordena: Vendas primeiro, Compras depois, Manter por último
+    def peso_acao(acao):
+        if acao == "venda": return 0
+        if acao == "compra": return 1
+        if acao == "observar": return 2
+        return 3
+        
+    return sorted(sugestoes, key=lambda x: peso_acao(x["acao"]))
 
-    # --- 2) Sugerir ativos NOVOS baseados nos setores da carteira ---
-    setores_pref = portfolio.get("setores_preferidos", "") or ""
-    tipo_ativo = portfolio.get("tipo_ativo", "acoes")
-    
-    tickers_candidatos = set()
-    
-    if setores_pref:
-        for setor in setores_pref.split(","):
-            setor = setor.strip().lower()
-            if setor in TICKERS_POR_SETOR:
-                tickers_candidatos.update(TICKERS_POR_SETOR[setor])
-    
-    # Se não há setores preferidos, usar os genéricos do tipo de ativo
-    if not tickers_candidatos:
-        tickers_candidatos.update(TICKERS_POR_SETOR.get(tipo_ativo, []))
-    
-    # Remover ativos já possuídos
-    tickers_novos = tickers_candidatos - tickers_possuidos
-    
-    # Limitar a 5 para não fazer muitas chamadas de API
-    for ticker in list(tickers_novos)[:5]:
-        resultado = pontuar_ativo(ticker, persona, portfolio, usar_preco_futuro=usar_preco_futuro)
-        if resultado.get("sucesso") and resultado["score"] >= 50:
-            texto = gerar_texto_resumo(ticker, resultado["indicadores"], resultado["score"])
-            sugestoes.append({
-                "ticker": ticker,
-                "score": resultado["score"],
-                "score_tecnico": resultado.get("score_tecnico", 0),
-                "score_fundamentalista": resultado.get("score_fundamentalista", 0),
-                "score_perfil": resultado.get("score_perfil", 0),
-                "acao": "compra",
-                "texto": texto,
-                "preco_atual": resultado["indicadores"].get("preco_atual", 0),
-                "indicadores": resultado["indicadores"],
-                "novo": True
-            })
+# ==============================================================================
+# UTILITÁRIO MANTIDO PARA COMPATIBILIDADE (Se usado isoladamente noutro lugar)
+# ==============================================================================
+def calcular_score_tecnico(indicadores: dict) -> float:
+    return _calcular_score_tecnico_criacao(indicadores)
 
-    # sort by score desc
-    sugestoes.sort(key=lambda x: x["score"], reverse=True)
-    return sugestoes
+def calcular_score_fundamental(indicadores: dict) -> float:
+    return _calcular_score_fundamental_criacao(indicadores)
+
+def pontuar_ativo(ticker: str, persona: dict, portfolio: dict, pm_atual: float = 0.0, usar_preco_futuro: bool = False) -> dict:
+    """Fallback antigo que redireciona conforme PM para não quebrar outras áreas."""
+    if pm_atual > 0:
+        return pontuar_ativo_manutencao(ticker, persona, portfolio, pm_atual, usar_preco_futuro)
+    else:
+        return pontuar_ativo_criacao(ticker, persona, portfolio, usar_preco_futuro)

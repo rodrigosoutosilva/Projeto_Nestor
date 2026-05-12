@@ -19,7 +19,7 @@ from database.crud import (
     adicionar_observacao, listar_observacoes, deletar_observacao
 )
 from services.market_data import buscar_preco_atual
-from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, injetar_css_global, render_metric, calcular_meta_dividendos_auto
+from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, injetar_css_global, render_metric
 
 st.set_page_config(page_title="Persona Detalhe", page_icon="🧑‍🔬", layout="wide")
 injetar_css_global()
@@ -335,18 +335,8 @@ with st.expander("Criar Nova Carteira para esta Persona"):
             prazo = st.selectbox("Objetivo Prazo", ["curto", "medio", "longo"],
                                   format_func=lambda x: {"curto":"Curto","medio":"Médio","longo":"Longo"}[x])
         
-        # Meta DY calculada automaticamente
-        meta_dy_auto = calcular_meta_dividendos_auto(
-            tolerancia_risco=persona["tolerancia_risco"],
-            estilo=persona.get("estilo", "equilibrado"),
-            objetivo_prazo=prazo
-        )
-        st.info(
-            f"**Meta de dividendos calculada automaticamente: {meta_dy_auto}% ao ano** "
-            f"— baseada no perfil ({persona.get('estilo', 'equilibrado').capitalize()}, "
-            f"risco {persona['tolerancia_risco']}/10, prazo {prazo})"
-        )
-        
+        # Meta DY automática foi removida conforme a nova filosofia Value Investing
+
         # Importar as constantes de setores
         from utils.helpers import SETORES_ACOES
         
@@ -393,7 +383,7 @@ with st.expander("Criar Nova Carteira para esta Persona"):
                 setores_str = ",".join(setores_selecionados)
                 result = criar_portfolio(
                     persona_id=persona_id, nome=port_nome,
-                    objetivo_prazo=prazo, meta_dividendos=meta_dy_auto,
+                    objetivo_prazo=prazo,
                     tipo_ativo=tipo_ativo, setores_preferidos=setores_str,
                     montante_disponivel=0,
                     aporte_periodico=aporte, frequencia_aporte=freq_aporte,

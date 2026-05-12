@@ -223,14 +223,15 @@ def gerar_recomendacao_ia(
 
 ATIVO: {ticker}
 
-INDICADORES TÉCNICOS:
+FUNDAMENTOS E INDICADORES:
 - Preço Atual: R$ {preco_atual}
-- RSI (14): {indicadores.get('rsi', 'N/A')} (>70 = sobrecomprado, <30 = sobrevendido)
-- SMA 20: R$ {indicadores.get('sma_20', 'N/A')}
-- SMA 50: R$ {indicadores.get('sma_50', 'N/A')}
-- MACD: {indicadores.get('macd', 'N/A')}
-- Signal: {indicadores.get('macd_signal', 'N/A')}
-- Tendência Geral: {indicadores.get('tendencia', 'N/A')}
+- ROE: {indicadores.get('roe', 'N/A')}%
+- Dívida Líquida / EBITDA: {indicadores.get('divida_liquida_ebitda', 'N/A')}x
+- P/L: {indicadores.get('pl', 'N/A')}
+- EV/EBITDA: {indicadores.get('ev_ebitda', 'N/A')}
+- Dividend Yield: {indicadores.get('dy', 'N/A')}%
+- Payout: {indicadores.get('payout', 'N/A')}%
+- RSI (14): {indicadores.get('rsi', 'N/A')}
 
 SENTIMENTO DAS NOTÍCIAS:
 - Score: {sentimento.get('score', 0)} (-1 a 1)
@@ -239,27 +240,26 @@ SENTIMENTO DAS NOTÍCIAS:
 PERFIL DO INVESTIDOR:
 - Estilo: {persona_info.get('estilo', 'dividendos')}
 - Tolerância a Risco: {persona_info.get('tolerancia_risco', 5)}/10
-- Frequência de Revisão: {persona_info.get('frequencia_acao', 'semanal')}
 - Objetivo de Prazo: {portfolio_info.get('objetivo_prazo', 'longo')}
-- Meta de Dividendos: {portfolio_info.get('meta_dividendos', 6.0)}% ao ano
-- Tipo de Ativo: {portfolio_info.get('tipo_ativo', 'acoes')}
 - Montante Disponível no Caixa Lívre: {montante:.2f} BRL
-- Setores Preferidos: {setores if setores else 'Sem preferência específica'}
 
-IMPORTANTE: O investidor tem exatamente {montante:.2f} de capital livre. NÃO recomende compras se o montante de dinheiro livre disponível na carteira for menor do que o preço atual de 1 única ação. Nesses casos de caixa vazio, recomende expressamente 'MANTER'. E SEMPRE escreva os valores com a moeda na frente da formatação correta do Brasil (Ex: R$ 5,00).
+FILOSOFIA (VALUE INVESTING / BUY & HOLD):
+- Foco em empresas descontadas e de qualidade.
+- EVITE sugerir VENDA a menos que haja deterioração GRAVE dos fundamentos (ex: dívida explodindo, prejuízos constantes, P/L extremamente esticado).
+- Ruídos técnicos de curto prazo NÃO justificam venda.
 
-PREÇOS-ALVO: Defina preços gatilho realistas para compra e venda deste ativo, considerando:
-- As bandas devem estar entre 5% e 15% do preço atual (não muito distantes)
-- O preço de compra deve ser ABAIXO do preço atual (oportunidade de entrada)
-- O preço de venda deve ser ACIMA do preço atual (realização de lucro)
-- Considere a tolerância a risco da persona e o prazo do portfólio
+IMPORTANTE: O investidor tem exatamente {montante:.2f} de capital livre. NÃO recomende compras se o montante de dinheiro livre disponível for menor do que o preço atual de 1 ação. Nesses casos, recomende expressamente 'MANTER'.
 
-Com base em TODOS esses dados, responda EXATAMENTE no formato:
+PREÇOS-ALVO: Defina preços gatilho realistas para compra e venda deste ativo:
+- Compra: Oportunidade de entrada abaixo do preço atual.
+- Venda: Ponto de realização APENAS se o preço esticar muito além do valor intrínseco.
+
+Responda EXATAMENTE no formato:
 ACAO: [COMPRA ou VENDA ou MANTER]
-CONFIANCA: [número de 0 a 100 indicando sua confiança na recomendação]
-PRECO_ALVO_COMPRA: [preço em reais abaixo do atual para gatilho de compra, apenas o número]
-PRECO_ALVO_VENDA: [preço em reais acima do atual para gatilho de venda, apenas o número]
-EXPLICACAO: [Explicação detalhada em 3-5 frases justificando a decisão, citando indicadores específicos e como se alinham ao perfil do investidor. Use linguagem acessível e SEMPRE inclua "R$" em cada citação monetária.]
+CONFIANCA: [número de 0 a 100]
+PRECO_ALVO_COMPRA: [apenas o número]
+PRECO_ALVO_VENDA: [apenas o número]
+EXPLICACAO: [Explicação em 3-5 frases justificando, focando nos fundamentos e citando R$ onde aplicável.]
 """
 
     try:
@@ -368,19 +368,18 @@ PERFIL DO INVESTIDOR:
 
 MONTANTE DISPONÍVEL PARA COMPRAS: R$ {montante:,.2f}
 
+FILOSOFIA (VALUE INVESTING):
+Foque em empresas com bons fundamentos (ex: bom ROE, dívida controlada, P/L descontado).
+
 Com base no perfil, na carteira atual e no montante disponível, sugira de 3 a 6 ativos para investir.
 Para CADA ativo, informe que PERCENTUAL do montante disponível deve ser alocado nele.
 A soma de todos os percentuais DEVE ser exatamente 100%.
 
-IMPORTANTE:
-- Sugira ativos que complementem a carteira (diversificação) ou reforcem posições existentes.
-- Todos os ativos devem ser negociados na B3 (ações terminando em 3/4/11).
-
 Responda EXATAMENTE no formato (uma sugestão por linha):
-TICKER: [código] | TIPO: [Novo/Reforço] | ALOCACAO: [percentual inteiro, ex: 30] | MOTIVO: [explicação curta de 1 frase]
+TICKER: [código] | TIPO: [Novo/Reforço] | ALOCACAO: [percentual inteiro, ex: 30] | MOTIVO: [explicação focada em fundamentos]
 
 No final, adicione:
-RESUMO: [Explicação geral de 2-3 frases sobre a estratégia de alocação]
+RESUMO: [Explicação geral sobre a alocação sugerida]
 """
 
     try:
@@ -505,13 +504,14 @@ Um novo investidor respondeu um questionário com as seguintes respostas:
 - Objetivo de Prazo: {respostas.get('objetivo_prazo', 'longo')}
 - Valor disponível: R$ {respostas.get('valor_disponivel', 1000)}
 - Tipo de ativo preferido: {respostas.get('tipo_ativo', 'acoes')}
-- Meta de dividendos: {respostas.get('meta_dividendos', 6.0)}% ao ano
+
+Siga a filosofia de Value Investing: foque em empresas com bons fundamentos (ROE, Dívida controlada, Payout saudável).
 
 Sugira de 3 a 6 ações da B3 para uma carteira inicial diversificada.
 O valor total das sugestões NÃO deve ultrapassar R$ {respostas.get('valor_disponivel', 1000)}.
 
 Responda EXATAMENTE no formato (um ativo por linha, sem extras):
-TICKER: [código] | TIPO: [Ação] | ALOCACAO: [percentual do total] | MOTIVO: [Explicação curta de 1 frase]
+TICKER: [código] | TIPO: [Ação] | ALOCACAO: [percentual do total] | MOTIVO: [Explicação baseada em fundamentos]
 
 No final, adicione:
 RESUMO: [Explicação geral de 2-3 frases sobre a carteira sugerida]
@@ -704,9 +704,9 @@ def gerar_analise_rebalanceamento_ia(
     if not ativos_str:
         ativos_str = "Nenhum ativo na carteira no momento."
 
-    prompt = f"""Você é um gestor de portfólio especializado no mercado brasileiro.
+    prompt = f"""Você é um gestor de portfólio sênior focado em Value Investing e Buy & Hold.
 
-Sua tarefa é analisar a carteira atual do investidor e fornecer sugestões claras de rebalanceamento peça a peça (COMPRA, VENDA ou MANTER), considerando o dinheiro livre em caixa.
+Sua tarefa é analisar a carteira atual do investidor e fornecer sugestões de rebalanceamento peça a peça (COMPRA, VENDA ou MANTER), considerando o dinheiro livre em caixa.
 
 CAIXA ATUAL LIVRE: R$ {montante_disponivel:.2f}
 
@@ -716,26 +716,29 @@ CARTEIRA ATUAL DO INVESTIDOR:
 PERFIL DO INVESTIDOR:
 - Estilo: {persona_info.get('estilo', 'dividendos')}
 - Tolerância a Risco: {persona_info.get('tolerancia_risco', 5)}/10
-- Frequência de Ação: {persona_info.get('frequencia_acao', 'semanal')}
 - Objetivo de Prazo: {portfolio_info.get('objetivo_prazo', 'longo')}
 
-INSTRUÇÕES:
-1. Compare o Preço Atual com o Preço Alvo fornecido na lista de ativos (se disponível). 
-   - Se o Preço Atual estiver próximo ou acima do alvo, e a posição tiver lucro, sugira realização de lucro (VENDA). 
-   - Se estiver bem abaixo, sugira a retenção ou compra para diminuir o PM.
-   - Considere a 'Frequência de Ação': traders ativos realizam lucros mais rápido que holders.
-2. Responda EXATAMENTE no formato estruturado (uma sugestão por linha cobrindo TODOS os ativos avaliados e eventuais novos):
-Lembre-se que você DEVE analisar TODOS os ativos da carteira atual.
+FILOSOFIA (VALUE INVESTING / BUY & HOLD):
+- O foco é preservação de capital e crescimento sustentável.
+- VENDAS são eventos RAROS. NÃO recomende venda por oscilações de preço de curto prazo ou indicadores técnicos.
+- Sugira VENDA APENAS SE: (a) houver deterioração fundamental óbvia ou (b) o preço esticar EXTREMAMENTE além do valor intrínseco (Preço Alvo).
 
-TICKER: [código] | ACAO: [COMPRA/VENDA/MANTER] | PERCENTUAL: [0 a 100] | MOTIVO: [explicação curta]
+INSTRUÇÕES:
+1. Avalie CADA ativo da carteira:
+   - Recomende MANTER na esmagadora maioria dos casos de carteiras saudáveis.
+   - Recomende COMPRA se houver caixa disponível e o ativo estiver descontado (abaixo do PM ou do Preço Alvo).
+   - Recomende VENDA apenas em caso de perda de fundamentos ou overvaluation extremo.
+2. Responda EXATAMENTE no formato estruturado (uma sugestão por linha cobrindo TODOS os ativos avaliados):
+
+TICKER: [código] | ACAO: [COMPRA/VENDA/MANTER] | PERCENTUAL: [0 a 100] | MOTIVO: [explicação focada em fundamentos]
 
 REGRAS DE PERCENTUAL:
-- Para VENDA: PERCENTUAL é a % da QUANTIDADE ATUAL do ativo a ser vendida (ex: 100 para vender tudo, 50 para vender metade).
-- Para COMPRA: PERCENTUAL é a % do CAIXA TOTAL (Caixa Livre + Valor gerado pelas Vendas sugeridas) a ser utilizada para comprar esse ativo. (A soma dos percentuais de compra não pode exceder 100).
-- Para MANTER: PERCENTUAL é 0.
+- Para VENDA: % da QUANTIDADE ATUAL a ser vendida.
+- Para COMPRA: % do CAIXA TOTAL a ser utilizado na compra.
+- Para MANTER: 0.
 
 No final, adicione:
-RESUMO: [Explicação analítica unificada de 2 a 3 frases]
+RESUMO: [Explicação analítica unificada de 2 a 3 frases sobre a saúde da carteira]
 """
 
     try:

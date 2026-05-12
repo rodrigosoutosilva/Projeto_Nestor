@@ -11,7 +11,7 @@ import services.market_data as _md
 importlib.reload(_md)
 buscar_dados_fundamentalistas = _md.buscar_dados_fundamentalistas
 from services.news_scraper import buscar_noticias_ticker
-from services.scoring import pontuar_ativo, gerar_texto_resumo
+from services.scoring import pontuar_ativo
 from services.recommendation import gerar_recomendacao_completa
 from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_percentual, nome_ativo, injetar_css_global
 
@@ -378,10 +378,15 @@ with st.expander("Ações Rápidas (Operações e Monitoramento)", expanded=True
             st.markdown(f"**Insights Rápidos para {opcoes_port[port_id]}:**")
             
             if port_detalhe and persona_detalhe:
-                res = pontuar_ativo(ticker, persona_detalhe, port_detalhe)
-                if res.get("sucesso"):
-                    resumo = gerar_texto_resumo(ticker, res["indicadores"], res["score"])
-                    st.info(f"**Score ({res['score']}):** {resumo}")
+                # Obter PM se já tiver na carteira para usar o algoritmo correto
+                from database.crud import listar_ativos_portfolio
+                ativos_cart = listar_ativos_portfolio(port_id)
+                ativo_ext = next((x for x in ativos_cart if x["ticker"] == ticker), None)
+                pm_atual = ativo_ext["preco_medio"] if ativo_ext else 0.0
+
+                res = pontuar_ativo(ticker, persona_detalhe, port_detalhe, pm_atual=pm_atual)
+                if res:
+                    st.info(f"**Score ({res['score']}):** {res.get('texto', '')}")
                     
                     # Botão IA
                     if st.button("Análise Inteligente com IA", key=f"ia_btn_{ticker}", type="primary"):

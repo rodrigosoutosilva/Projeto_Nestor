@@ -24,8 +24,7 @@ from database.crud import (
 )
 from utils.helpers import (
     parsear_csv_ativos, formatar_moeda, formatar_moeda_md, formatar_data_br,
-    calcular_meta_dividendos_auto, injetar_css_global,
-    SETORES_ACOES
+    injetar_css_global, SETORES_ACOES
 )
 from services.market_data import buscar_preco_atual
 from datetime import date
@@ -204,17 +203,7 @@ with st.expander("Criar Nova Carteira", expanded=False):
                 setores_selecionados.extend(sel_a_list)
 
 
-        # Meta DY automática
-        meta_dy_auto = calcular_meta_dividendos_auto(
-            tolerancia_risco=persona_selecionada["tolerancia_risco"],
-            estilo=persona_selecionada["estilo"],
-            objetivo_prazo=objetivo
-        )
-        st.info(
-            f"**Meta de dividendos calculada automaticamente: {meta_dy_auto}% ao ano** "
-            f"— baseada no seu perfil ({persona_selecionada['estilo'].capitalize()}, "
-            f"risco {persona_selecionada['tolerancia_risco']}/10, prazo {objetivo})"
-        )
+        # Meta DY automática foi removida conforme a nova filosofia Value Investing
 
         submitted = st.button("Criar Carteira", key="btn_criar_carteira", type="primary", use_container_width=True, disabled=_criando)
         if submitted:
@@ -237,7 +226,6 @@ with st.expander("Criar Nova Carteira", expanded=False):
                             persona_id=persona_selecionada["id"],
                             nome=nome_cart,
                             objetivo_prazo=objetivo,
-                            meta_dividendos=meta_dy_auto,
                             tipo_ativo=tipo,
                             setores_preferidos=setores_str,
                             montante_disponivel=0.0,

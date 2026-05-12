@@ -12,7 +12,7 @@ from database.crud import (
     listar_transacoes_portfolio, executar_ordem_pendente
 )
 from services.order_checker import deve_executar_ordem
-from services.scoring import gerar_sugestoes_carteira
+from services.scoring import gerar_sugestoes_novos_ativos, gerar_sugestoes_manutencao
 from services.recommendation import gerar_recomendacao_completa
 from services.market_data import buscar_preco_atual, buscar_dados_fundamentalistas, buscar_historico, calcular_indicadores_tecnicos
 from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, nome_ativo, injetar_css_global
@@ -787,10 +787,10 @@ with tab3:
         
         st.markdown("---")
         
-    # 2. Sugestões técnicas — pré-carregadas
-    st.markdown("#### Sugestões do Algoritmo Técnico")
+    # 2. Sugestões de Fundamentos e Valuation — pré-carregadas
+    st.markdown("#### Sugestões do Algoritmo de Criação (Value Investing)")
     
-    sugestoes = gerar_sugestoes_carteira(portfolio_id)
+    sugestoes = gerar_sugestoes_novos_ativos(portfolio_id)
     
     if sugestoes:
         sugestoes_compra_obs = [s for s in sugestoes if s.get("acao") in ("compra", "observar")]
@@ -893,11 +893,11 @@ with tab4:
     # Tickers que já estão na carteira
     tickers_na_carteira = {a["ticker"] for a in ativos}
     
-    st.markdown("#### Algoritmo Técnico — Movimentações Sugeridas")
-    sugestoes_mov = gerar_sugestoes_carteira(portfolio_id, usar_preco_futuro=usar_preco_futuro)
+    st.markdown("#### Algoritmo de Manutenção — Movimentações Sugeridas")
+    sugestoes_mov = gerar_sugestoes_manutencao(portfolio_id, usar_preco_futuro=usar_preco_futuro)
     
     if sugestoes_mov:
-        sugestoes_existentes = [s for s in sugestoes_mov if s.get("acao") in ("venda", "compra", "observar") and s.get("ticker") in tickers_na_carteira]
+        sugestoes_existentes = [s for s in sugestoes_mov if s.get("acao") in ("venda", "compra", "observar")]
         if sugestoes_existentes:
             for idx_m, s in enumerate(sugestoes_existentes):
                 with st.container(border=True):

@@ -227,27 +227,6 @@ def calcular_lucro_prejuizo(preco_medio: float, preco_atual: float, quantidade: 
     }
 
 
-def calcular_meta_dividendos_auto(tolerancia_risco: int, estilo: str, objetivo_prazo: str) -> float:
-    """
-    Calcula automaticamente a meta de dividendos (% ao ano)
-    cruzando o perfil da persona e carteira.
-    
-    Conceito de Finanças:
-    - Conservador + dividendos + longo prazo → meta alta de DY (8-10%)
-    - Arrojado + crescimento + curto prazo → meta baixa de DY (2-4%)
-    - Equilibrado → faixa intermediária (5-7%)
-    """
-    # Base por estilo
-    base = {"dividendos": 8.0, "equilibrado": 6.0, "crescimento": 3.0}.get(estilo, 6.0)
-    
-    # Ajuste por prazo
-    ajuste_prazo = {"longo": 1.0, "medio": 0.0, "curto": -1.5}.get(objetivo_prazo, 0.0)
-    
-    # Ajuste por tolerância (0-10): conservador quer mais DY, arrojado menos
-    ajuste_risco = (5 - tolerancia_risco) * 0.3  # -1.5 a +1.5
-    
-    meta = base + ajuste_prazo + ajuste_risco
-    return round(max(1.0, min(15.0, meta)), 1)
 
 
 def parsear_csv_ativos(conteudo: str) -> list[dict]:

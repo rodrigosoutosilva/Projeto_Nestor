@@ -219,6 +219,24 @@ def calcular_indicadores_tecnicos(df: pd.DataFrame) -> dict:
     }
 
 
+def _calc_divida_liquida_ebitda(info: dict):
+    """
+    Calcula Dívida Líquida / EBITDA a partir dos dados do yfinance.
+    Dívida Líquida = totalDebt - totalCash.
+    Retorna float arredondado ou None se dados indisponíveis.
+    """
+    try:
+        total_debt = info.get("totalDebt")
+        total_cash = info.get("totalCash")
+        ebitda = info.get("ebitda")
+        if total_debt is not None and total_cash is not None and ebitda and ebitda > 0:
+            divida_liquida = float(total_debt) - float(total_cash)
+            return round(divida_liquida / float(ebitda), 2)
+    except (ValueError, TypeError, ZeroDivisionError):
+        pass
+    return None
+
+
 def buscar_dados_fundamentalistas(ticker: str) -> dict:
     """
     Busca dados fundamentalistas completos de um ativo via yfinance.
@@ -238,6 +256,7 @@ def buscar_dados_fundamentalistas(ticker: str) -> dict:
         "preco_sobre_vendas": None, "num_analistas": None,
         "descricao_empresa": None, "nome_empresa": None,
         "num_funcionarios": None, "website": None,
+        "divida_liquida_ebitda": None,
     }
     try:
         ticker_sa = _formatar_ticker_br(ticker)
@@ -310,6 +329,9 @@ def buscar_dados_fundamentalistas(ticker: str) -> dict:
             "payout": _safe_pct("payoutRatio"),
             "dividend_rate": round(_safe_float("dividendRate"), 2) if _safe_float("dividendRate") else None,
             "dy_medio_5_anos": round(_safe_float("fiveYearAvgDividendYield"), 2) if _safe_float("fiveYearAvgDividendYield") else None,
+            
+            # Dívida Líquida / EBITDA (calculado)
+            "divida_liquida_ebitda": _calc_divida_liquida_ebitda(info),
             
             # Mercado
             "market_cap": info.get("marketCap"),
