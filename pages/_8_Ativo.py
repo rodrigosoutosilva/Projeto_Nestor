@@ -99,16 +99,15 @@ else:
     st.caption("Sem dados de referência de setor suficientes para comparação.")
 
 def _fmt_moeda_compacta(val):
-    """Formata valores monetários grandes de forma compacta."""
     if val is None: return "—"
     try:
         val = float(val)
     except (ValueError, TypeError):
         return "—"
-    if abs(val) >= 1e12: return f"R$ {val/1e12:.2f} T"
-    if abs(val) >= 1e9: return f"R$ {val/1e9:.2f} B"
-    if abs(val) >= 1e6: return f"R$ {val/1e6:.1f} M"
-    return f"R$ {val:,.0f}".replace(",", ".")
+    if abs(val) >= 1e12: return f"R&#36; {val/1e12:.2f} T"
+    if abs(val) >= 1e9: return f"R&#36; {val/1e9:.2f} B"
+    if abs(val) >= 1e6: return f"R&#36; {val/1e6:.1f} M"
+    return f"R&#36; {val:,.0f}".replace(",", ".")
 
 def _fmt_pct(val):
     if val is None: return "—"
@@ -147,7 +146,7 @@ indicadores_config = {
     ],
     "Dividendos": [
         ("dy",                "Dividend Yield",     "Rendimento anual estimado de dividendos em relação ao preço atual.",                        lambda v: _fmt_pct(v)),
-        ("dividend_rate",     "Dividendo/Cota (R$)","Valor em reais dos dividendos pagos por ação/cota nos últimos 12 meses.",                    lambda v: f"R$ {v:.2f}" if v else "—"),
+        ("dividend_rate",     "Dividendo/Cota",     "Valor em reais dos dividendos pagos por ação/cota nos últimos 12 meses.",                    lambda v: f"R&#36; {v:.2f}" if v else "—"),
         ("payout",            "Payout",             "Percentual do lucro líquido distribuído como dividendos. Payout > 100% pode não ser sustentável.",   lambda v: _fmt_pct(v)),
         ("dy_medio_5_anos",   "DY Médio 5 Anos",   "Dividend Yield médio dos últimos 5 anos. Útil para comparar com o DY atual.",               lambda v: f"{v:.2f}%" if v else "—"),
     ],
@@ -160,9 +159,9 @@ indicadores_config = {
     ],
     "Analistas": [
         ("consenso_analistas","Consenso",           "Recomendação consensual dos analistas que cobrem o ativo (buy, hold, sell).",                lambda v: {"buy":"Compra","hold":"Neutro","sell":"Venda","strong_buy":"Compra Forte","underperform":"Abaixo","none":"—"}.get(v, v or "—")),
-        ("preco_alvo_medio",  "Preço-Alvo Médio",   "Média dos preços-alvo definidos pelos analistas para os próximos 12 meses.",                lambda v: f"R$ {v:.2f}" if v else "—"),
-        ("preco_alvo_min",    "Preço-Alvo Mín.",    "Preço-alvo mais pessimista entre os analistas.",                                            lambda v: f"R$ {v:.2f}" if v else "—"),
-        ("preco_alvo_max",    "Preço-Alvo Máx.",    "Preço-alvo mais otimista entre os analistas.",                                              lambda v: f"R$ {v:.2f}" if v else "—"),
+        ("preco_alvo_medio",  "Preço-Alvo Médio",   "Média dos preços-alvo definidos pelos analistas para os próximos 12 meses.",                lambda v: f"R&#36; {v:.2f}" if v else "—"),
+        ("preco_alvo_min",    "Preço-Alvo Mín.",    "Preço-alvo mais pessimista entre os analistas.",                                            lambda v: f"R&#36; {v:.2f}" if v else "—"),
+        ("preco_alvo_max",    "Preço-Alvo Máx.",    "Preço-alvo mais otimista entre os analistas.",                                              lambda v: f"R&#36; {v:.2f}" if v else "—"),
         ("num_analistas",     "Nº Analistas",       "Quantidade de analistas que cobrem este ativo.",                                            lambda v: str(v) if v else "—"),
     ],
 }

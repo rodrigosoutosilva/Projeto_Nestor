@@ -124,7 +124,7 @@ with st.expander("Criar Nova Carteira", expanded=False):
             tipo = "acoes"
             st.text_input("Tipo de Ativo", value="Ações", disabled=True)
             montante = st.number_input(
-                "Aporte Inicial (R$)",
+                "Aporte Inicial (R&#36;)",
                 min_value=0.0, max_value=10_000_000.0, value=1000.0, step=100.0,
                 help="Dinheiro inicial em reais que você está destinando para iniciar os investimentos desta carteira. "
                      "Este valor será seu de Caixa Livre na plataforma.",
@@ -138,7 +138,7 @@ with st.expander("Criar Nova Carteira", expanded=False):
             col_ap1, col_ap2 = st.columns(2)
             with col_ap1:
                 aporte_valor = st.number_input(
-                    "Valor do aporte (R$)",
+                    "Valor do aporte (R&#36;)",
                     min_value=0.01, max_value=1_000_000.0, value=100.0, step=50.0,
                     help="Valor em reais que você pretende aportar recorrentemente.",
                     disabled=_criando

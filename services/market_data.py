@@ -236,6 +236,19 @@ def _calc_divida_liquida_ebitda(info: dict):
         pass
     return None
 
+def buscar_dados_completos(ticker: str) -> dict:
+    """
+    Agrega dados fundamentalistas e técnicos de um ativo.
+    Utilizado primariamente pelos motores de scoring.
+    """
+    fundamentos = buscar_dados_fundamentalistas(ticker)
+    df = buscar_historico(ticker, periodo="6mo")
+    tecnicos = calcular_indicadores_tecnicos(df) if df is not None and not df.empty else {}
+    
+    return {
+        "indicadores": {**fundamentos, **tecnicos}
+    }
+
 
 def buscar_dados_fundamentalistas(ticker: str) -> dict:
     """

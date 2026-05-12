@@ -327,7 +327,7 @@ with st.expander("Criar Nova Carteira para esta Persona"):
             tipo_ativo = "acoes"
             st.text_input("Tipo de Ativo", value="Ações", disabled=True)
             montante = st.number_input(
-                "Aporte Inicial (R$)",
+                "Aporte Inicial (R&#36;)",
                 min_value=0.0, max_value=10_000_000.0, value=1000.0, step=100.0,
                 help="Dinheiro inicial em reais que você está destinando para iniciar os investimentos desta carteira."
             )
@@ -364,7 +364,7 @@ with st.expander("Criar Nova Carteira para esta Persona"):
         if habilitar_aporte:
             col_ap1, col_ap2 = st.columns(2)
             with col_ap1:
-                aporte = st.number_input("Valor do aporte (R$)", min_value=0.01, value=100.0, step=50.0)
+                aporte = st.number_input("Valor do aporte (R&#36;)", min_value=0.01, value=100.0, step=50.0)
             with col_ap2:
                 freq_aporte = st.selectbox("Frequência do aporte", ["mensal", "quinzenal", "semanal"])
         else:
