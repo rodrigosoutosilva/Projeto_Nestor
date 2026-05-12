@@ -21,7 +21,7 @@ from database.crud import (
 from services.market_data import buscar_preco_atual
 from utils.helpers import formatar_moeda, formatar_moeda_md, formatar_data_br, injetar_css_global, render_metric
 
-st.set_page_config(page_title="Persona Detalhe", page_icon="🧑‍🔬", layout="wide")
+st.set_page_config(page_title="Persona Detalhe", layout="wide")
 injetar_css_global()
 
 if "user" not in st.session_state or st.session_state.user is None:

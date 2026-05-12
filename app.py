@@ -1075,7 +1075,7 @@ def tela_principal():
                         st.session_state.view_asset_ticker = item['ticker']
                         st.switch_page("pages/_8_Ativo.py")
                 with col_acao:
-                    with st.popover("Opções"):
+                    with st.popover("⋮"):
                         if not todas_carteiras:
                             st.warning("Crie carteira.")
                         else:

@@ -77,13 +77,52 @@ if _nome_empresa or _descricao:
             st.markdown(f"**{_nome_empresa}**")
     
     if _descricao:
-        # Limitar a ~500 chars com expander para o texto completo
-        if len(_descricao) > 500:
-            st.markdown(_descricao[:500] + "...")
-            with st.expander("Ver descrição completa"):
-                st.markdown(_descricao)
-        else:
-            st.markdown(_descricao)
+        with st.spinner("Traduzindo descrição..."):
+            from services.ai_brain import traduzir_texto_para_portugues
+            desc_pt = traduzir_texto_para_portugues(_descricao)
+        st.markdown(desc_pt)
+
+# --- GRÁFICO COM SELETORES ---
+st.subheader("Gráfico de Velas")
+
+gc1, gc2 = st.columns(2)
+with gc1:
+    periodo_opcoes = {"1 Mês": "1mo", "3 Meses": "3mo", "6 Meses": "6mo", "1 Ano": "1y", "2 Anos": "2y", "5 Anos": "5y"}
+    periodo_label = st.selectbox("Período", list(periodo_opcoes.keys()), index=2)
+    periodo_val = periodo_opcoes[periodo_label]
+
+with gc2:
+    intervalo_opcoes = {"Diário": "1d", "Semanal": "1wk", "Mensal": "1mo"}
+    intervalo_label = st.selectbox("Intervalo", list(intervalo_opcoes.keys()), index=0)
+    intervalo_val = intervalo_opcoes[intervalo_label]
+
+with st.spinner("Carregando gráfico..."):
+    try:
+        from services.market_data import _formatar_ticker_br
+        import yfinance as yf
+        ticker_sa = _formatar_ticker_br(ticker)
+        ativo_yf = yf.Ticker(ticker_sa)
+        historico = ativo_yf.history(period=periodo_val, interval=intervalo_val)
+    except Exception:
+        historico = buscar_historico(ticker, periodo=periodo_val)
+
+if historico is not None and not historico.empty:
+    fig = go.Figure(data=[go.Candlestick(
+        x=historico.index,
+        open=historico['Open'],
+        high=historico['High'],
+        low=historico['Low'],
+        close=historico['Close']
+    )])
+    fig.update_layout(
+        xaxis_rangeslider_visible=False,
+        margin=dict(l=0, r=0, t=0, b=0),
+        template="plotly_white",
+        height=400
+    )
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.info("Dados históricos indisponíveis para este período/intervalo.")
 
 # --- TABELA DE INDICADORES FUNDAMENTALISTAS E REFERÊNCIA DO SETOR ---
 st.markdown("---")
@@ -246,6 +285,86 @@ if has_data:
 else:
     st.info("Dados fundamentalistas indisponíveis para este ativo.")
 
+
+
+# --- NOTÍCIAS (ordenadas por data) ---
+st.subheader("Notícias Recentes")
+with st.spinner("Buscando notícias..."):
+    noticias = buscar_noticias_ticker(ticker, max_resultados=5)
+    
+if noticias:
+    # Ordenar por data (mais recente primeiro)
+    noticias_ordenadas = sorted(noticias, key=lambda n: n.get('data', ''), reverse=True)
+    for n in noticias_ordenadas:
+        with st.container(border=True):
+            st.markdown(f"**[{n['titulo']}]({n['link']})**")
+            if 'data' in n:
+                st.caption(f"Publicado em: {n['data']}")
+else:
+    st.info("Nenhuma notícia relevante encontrada nos últimos dias.")
+
+# --- ANÁLISES E IA ---
+st.markdown("---")
+st.markdown("#### Análises do Algoritmo")
+
+with st.spinner("Computando indicadores técnicos..."):
+    from services.market_data import calcular_indicadores_tecnicos, buscar_historico
+    df = buscar_historico(ticker, periodo="6mo")
+    tecnicos = calcular_indicadores_tecnicos(df) if df is not None and not df.empty else {}
+
+rsi = tecnicos.get("rsi")
+tendencia = tecnicos.get("tendencia")
+
+if rsi:
+    from utils.helpers import explicar_rsi
+    rsi_txt = explicar_rsi(rsi)
+    st.info(f"📈 **RSI (Índice de Força Relativa):** {rsi_txt}")
+if tendencia:
+    st.info(f"📊 **Tendência (Curto Prazo):** A tendência atual é de **{tendencia.upper()}**.")
+
+# O score do ativo para a persona ativa (se houver)
+personas = listar_personas_usuario(st.session_state.user['id'])
+if personas:
+    # Pega a primeira persona/carteira ou a selecionada (vamos usar um seletor rápido ou apenas usar a primeira pra análise)
+    pid = st.session_state.get("view_portfolio_id")
+    port_detalhe = buscar_portfolio_por_id(pid) if pid else None
+    persona_detalhe = buscar_persona_por_id(port_detalhe['persona_id']) if port_detalhe else None
+    
+    if not port_detalhe:
+        # Se não tiver, usa a primeira
+        persona_detalhe = buscar_persona_por_id(personas[0]['id'])
+        ports = listar_portfolios_persona(persona_detalhe['id'])
+        if ports:
+            port_detalhe = buscar_portfolio_por_id(ports[0]['id'])
+            
+    if port_detalhe and persona_detalhe:
+        from database.crud import listar_ativos_portfolio
+        ativos_cart = listar_ativos_portfolio(port_detalhe['id'])
+        ativo_ext = next((x for x in ativos_cart if x["ticker"] == ticker), None)
+        pm_atual = ativo_ext["preco_medio"] if ativo_ext else 0.0
+
+        res = pontuar_ativo(ticker, persona_detalhe, port_detalhe, pm_atual=pm_atual)
+        if res:
+            st.success(f"**Score ({res['score']}/100) para a carteira '{port_detalhe['nome']}':** {res.get('texto', '')}")
+
+st.markdown("---")
+if st.button("✨ Análise Inteligente com IA", key=f"ia_btn_main_{ticker}", type="primary"):
+    with st.spinner("O Nestor (IA) está analisando este ativo para você..."):
+        # Se tiver port_detalhe, envia pro IA, senao vai sem
+        p_id_ia = persona_detalhe['id'] if 'persona_detalhe' in locals() and persona_detalhe else personas[0]['id'] if personas else None
+        port_id_ia = port_detalhe['id'] if 'port_detalhe' in locals() and port_detalhe else None
+        
+        if p_id_ia and port_id_ia:
+            rec = gerar_recomendacao_completa(ticker, p_id_ia, port_id_ia)
+            if rec.get("sucesso"):
+                st.success(f"**[IA - {rec['recomendacao'].get('confianca', 0)}% Confiança]**\n\n{rec['recomendacao']['explicacao']}")
+            else:
+                st.error(rec.get("erro", "Falha na IA"))
+        else:
+            st.warning("Crie uma persona e carteira para obter recomendações personalizadas da IA.")
+
+st.markdown("---")
+
 # --- AÇÕES RÁPIDAS ---
 with st.expander("Ações Rápidas (Operações e Monitoramento)", expanded=True):
     personas = listar_personas_usuario(st.session_state.user['id'])
@@ -371,89 +490,8 @@ with st.expander("Ações Rápidas (Operações e Monitoramento)", expanded=True
                                 atualizar_portfolio(port_id, montante_disponivel=caixa_disp + v_venda)
                                 st.toast(f"{ticker} vendido!")
                                 st.rerun()
-            
-            # Insights rapidos
-            st.markdown("---")
-            st.markdown(f"**Insights Rápidos para {opcoes_port[port_id]}:**")
-            
-            if port_detalhe and persona_detalhe:
-                # Obter PM se já tiver na carteira para usar o algoritmo correto
-                from database.crud import listar_ativos_portfolio
-                ativos_cart = listar_ativos_portfolio(port_id)
-                ativo_ext = next((x for x in ativos_cart if x["ticker"] == ticker), None)
-                pm_atual = ativo_ext["preco_medio"] if ativo_ext else 0.0
-
-                res = pontuar_ativo(ticker, persona_detalhe, port_detalhe, pm_atual=pm_atual)
-                if res:
-                    st.info(f"**Score ({res['score']}):** {res.get('texto', '')}")
-                    
-                    # Botão IA
-                    if st.button("Análise Inteligente com IA", key=f"ia_btn_{ticker}", type="primary"):
-                        with st.spinner("Analisando com IA..."):
-                            rec = gerar_recomendacao_completa(ticker, pid, port_id)
-                            if rec.get("sucesso"):
-                                st.success(f"**[IA - {rec['recomendacao'].get('confianca', 0)}% Confiança]**\n\n{rec['recomendacao']['explicacao']}")
-                            else:
-                                st.error(rec.get("erro", "Falha na IA"))
         else:
             st.warning("Esta persona não tem carteiras criadas.")
     else:
         st.warning("Você não tem personas cadastradas.")
 
-# --- GRÁFICO COM SELETORES ---
-st.subheader("Gráfico de Velas")
-
-gc1, gc2 = st.columns(2)
-with gc1:
-    periodo_opcoes = {"1 Mês": "1mo", "3 Meses": "3mo", "6 Meses": "6mo", "1 Ano": "1y", "2 Anos": "2y", "5 Anos": "5y"}
-    periodo_label = st.selectbox("Período", list(periodo_opcoes.keys()), index=2)
-    periodo_val = periodo_opcoes[periodo_label]
-
-with gc2:
-    intervalo_opcoes = {"Diário": "1d", "Semanal": "1wk", "Mensal": "1mo"}
-    intervalo_label = st.selectbox("Intervalo", list(intervalo_opcoes.keys()), index=0)
-    intervalo_val = intervalo_opcoes[intervalo_label]
-
-with st.spinner("Carregando gráfico..."):
-    try:
-        from services.market_data import _formatar_ticker_br
-        import yfinance as yf
-        ticker_sa = _formatar_ticker_br(ticker)
-        ativo_yf = yf.Ticker(ticker_sa)
-        historico = ativo_yf.history(period=periodo_val, interval=intervalo_val)
-    except Exception:
-        historico = buscar_historico(ticker, periodo=periodo_val)
-
-if historico is not None and not historico.empty:
-    fig = go.Figure(data=[go.Candlestick(
-        x=historico.index,
-        open=historico['Open'],
-        high=historico['High'],
-        low=historico['Low'],
-        close=historico['Close']
-    )])
-    fig.update_layout(
-        xaxis_rangeslider_visible=False,
-        margin=dict(l=0, r=0, t=0, b=0),
-        template="plotly_white",
-        height=400
-    )
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.info("Dados históricos indisponíveis para este período/intervalo.")
-
-# --- NOTÍCIAS (ordenadas por data) ---
-st.subheader("Notícias Recentes")
-with st.spinner("Buscando notícias..."):
-    noticias = buscar_noticias_ticker(ticker, max_resultados=5)
-    
-if noticias:
-    # Ordenar por data (mais recente primeiro)
-    noticias_ordenadas = sorted(noticias, key=lambda n: n.get('data', ''), reverse=True)
-    for n in noticias_ordenadas:
-        with st.container(border=True):
-            st.markdown(f"**[{n['titulo']}]({n['link']})**")
-            if 'data' in n:
-                st.caption(f"Publicado em: {n['data']}")
-else:
-    st.info("Nenhuma notícia relevante encontrada nos últimos dias.")

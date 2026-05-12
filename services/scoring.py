@@ -399,9 +399,11 @@ def pontuar_ativo_manutencao(ticker: str, persona: dict, portfolio: dict, pm_atu
 
 def gerar_sugestoes_novos_ativos(portfolio_id: int) -> list[dict]:
     """Retorna sugestões de COMPRA de ativos que não estão na carteira."""
-    from database.crud import buscar_portfolio_por_id, listar_ativos_portfolio
-    portfolio, persona = buscar_portfolio_por_id(portfolio_id)
-    if not portfolio or not persona: return []
+    from database.crud import buscar_portfolio_por_id, listar_ativos_portfolio, buscar_persona_por_id
+    portfolio = buscar_portfolio_por_id(portfolio_id)
+    if not portfolio: return []
+    persona = buscar_persona_por_id(portfolio["persona_id"])
+    if not persona: return []
 
     ativos_atuais = listar_ativos_portfolio(portfolio_id)
     tickers_atuais = {a["ticker"] for a in ativos_atuais}
@@ -422,9 +424,11 @@ def gerar_sugestoes_novos_ativos(portfolio_id: int) -> list[dict]:
 
 def gerar_sugestoes_manutencao(portfolio_id: int, usar_preco_futuro: bool = False) -> list[dict]:
     """Retorna sugestões de MANUTENÇÃO (Compra, Venda, Manter) para quem JÁ está na carteira."""
-    from database.crud import buscar_portfolio_por_id, listar_ativos_portfolio
-    portfolio, persona = buscar_portfolio_por_id(portfolio_id)
-    if not portfolio or not persona: return []
+    from database.crud import buscar_portfolio_por_id, listar_ativos_portfolio, buscar_persona_por_id
+    portfolio = buscar_portfolio_por_id(portfolio_id)
+    if not portfolio: return []
+    persona = buscar_persona_por_id(portfolio["persona_id"])
+    if not persona: return []
 
     ativos_atuais = listar_ativos_portfolio(portfolio_id)
     sugestoes = []

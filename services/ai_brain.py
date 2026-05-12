@@ -834,3 +834,24 @@ RESUMO: [Explicação analítica unificada de 2 a 3 frases sobre a saúde da car
             "resumo": f"⚠️ Não foi possível gerar a análise de rebalanceamento: {str(e)}",
             "sucesso": False
         }
+
+import streamlit as st
+
+@st.cache_data(show_spinner=False, ttl=86400*7) # Cache por 7 dias
+def traduzir_texto_para_portugues(texto: str) -> str:
+    """Traduz texto para o português usando a IA, se necessário."""
+    if not texto or not isinstance(texto, str):
+        return texto
+        
+    try:
+        modelo = genai.GenerativeModel('gemini-2.5-flash')
+        prompt = f"Traduza o seguinte texto para o português do Brasil. Se já estiver em português ou não for um texto compreensível, apenas retorne o texto original. Mantenha o formato original.\n\nTexto:\n{texto}"
+        
+        response = modelo.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=0.1))
+        
+        if response and response.text:
+            return response.text.strip()
+    except Exception as e:
+        print(f"[ai_brain] Erro ao traduzir texto: {e}")
+        
+    return texto

@@ -18,7 +18,7 @@ from database.crud import (
 from services.market_data import buscar_preco_atual
 from utils.helpers import formatar_moeda, formatar_moeda_md, injetar_css_global
 
-st.set_page_config(page_title="Personas", page_icon="🧑‍🔬", layout="wide")
+st.set_page_config(page_title="Personas", layout="wide")
 injetar_css_global()
 
 # Verificar login
@@ -132,7 +132,7 @@ else:
             }.get(persona.get("estilo", ""), "")
 
             with st.container(border=True):
-                st.markdown(f"#### {cor} {persona['nome']}")
+                st.markdown(f"#### {persona['nome']}")
                 st.caption(f"Perfil: **{perfil}** | Risco: {persona['tolerancia_risco']}/10 | {estilo_label} | {freq_label}")
 
                 # Métricas consolidadas
