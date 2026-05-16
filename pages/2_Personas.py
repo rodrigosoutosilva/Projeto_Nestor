@@ -156,7 +156,7 @@ else:
                             patrimonio_total += a["quantidade"] * a["preco_medio"]
 
                 valor_total = caixa_total + patrimonio_total
-                lucro = valor_total - total_aportado if total_aportado > 0 else 0
+                lucro = valor_total - total_aportado
 
                 st.metric("Valor Total", formatar_moeda(valor_total))
                 mc1, mc2, mc3 = st.columns(3)

@@ -91,7 +91,7 @@ for a in ativos:
 
 valor_total = caixa + patrimonio
 total_aportado = resumo_fin["total_aportes"] - resumo_fin["total_retiradas"]
-lucro_acum = valor_total - total_aportado if total_aportado > 0 else 0
+lucro_acum = valor_total - total_aportado
 lucro_pct = (lucro_acum / total_aportado * 100) if total_aportado > 0 else 0
 # Rendimento anual projetado
 rend_anual = 0.0

@@ -304,7 +304,7 @@ else:
                     
                     valor_total = caixa + patrimonio
                     total_aportado = resumo_port["total_aportes"] - resumo_port["total_retiradas"]
-                    lucro_acum = valor_total - total_aportado if total_aportado > 0 else 0
+                    lucro_acum = valor_total - total_aportado
                     lucro_pct = (lucro_acum / total_aportado * 100) if total_aportado > 0 else 0
                     
                     # Exibição compacta

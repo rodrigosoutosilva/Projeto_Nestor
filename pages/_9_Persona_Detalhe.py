@@ -96,7 +96,7 @@ for port in portfolios:
             patrimonio_total += a["quantidade"] * a["preco_medio"]
 
 valor_total = caixa_total + patrimonio_total
-lucro_acum = valor_total - total_aportado_global if total_aportado_global > 0 else 0
+lucro_acum = valor_total - total_aportado_global
 lucro_pct = (lucro_acum / total_aportado_global * 100) if total_aportado_global > 0 else 0
 
 # Calcular rendimento anual projetado
