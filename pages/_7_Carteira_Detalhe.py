@@ -480,16 +480,13 @@ with tab_extrato:
     st.subheader("Histórico de Movimentações")
     st.markdown("Todas as transações financeiras desta carteira.")
     
-    transacoes = listar_transacoes_portfolio(portfolio_id, limit=100)
+    transacoes = listar_transacoes_portfolio(portfolio_id, limit=300)
     
     if transacoes:
         # Preparar dados para tabela
         dados_tabela = []
         for t in transacoes:
-            
-            # Formatar Ticker para links - se tiver ticker formata diferente
             ticker_display = t.get("ticker", "—")
-            
             dados_tabela.append({
                 "Data": formatar_data_br(t["data"]) if t.get("data") else "",
                 "Tipo": f"{t['tipo'].capitalize()}",
@@ -502,8 +499,29 @@ with tab_extrato:
             })
         
         df = pd.DataFrame(dados_tabela)
-        st.dataframe(df, use_container_width=True, hide_index=True)
-        st.caption(f"Mostrando as últimas {len(transacoes)} movimentações.")
+        
+        # Filtros
+        col_f1, col_f2 = st.columns([1, 2])
+        tipos_disp = ["Todos"] + sorted(df["Tipo"].unique().tolist())
+        with col_f1:
+            filtro_tipo = st.selectbox("Filtrar por Tipo:", tipos_disp, key="filtro_tipo_extrato")
+            
+        if filtro_tipo != "Todos":
+            df_show = df[df["Tipo"] == filtro_tipo]
+        else:
+            df_show = df
+            
+        st.dataframe(df_show, use_container_width=True, hide_index=True)
+        st.caption(f"Mostrando {len(df_show)} de {len(transacoes)} movimentações.")
+        
+        csv_data = df_show.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "📤 Exportar para CSV",
+            csv_data,
+            "extrato_carteira.csv",
+            "text/csv",
+            key="export_extrato_csv"
+        )
     else:
         st.info("Nenhuma movimentação registrada nesta carteira.")
 

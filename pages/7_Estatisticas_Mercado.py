@@ -11,7 +11,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.market_data import buscar_dados_fundamentalistas
-from services.scoring import TICKERS_POR_SETOR
+from services.market_data import _SETOR_PEERS as TICKERS_POR_SETOR
 from utils.helpers import injetar_css_global
 
 st.set_page_config(page_title="Estatísticas de Mercado", page_icon="📈", layout="wide")
@@ -101,27 +101,78 @@ def gerar_estatisticas_setoriais():
     progress_bar.empty()
     return pd.DataFrame(dados)
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def gerar_lista_geral_ativos():
+    dados = []
+    setores_ativos = {k: v for k, v in TICKERS_POR_SETOR.items() if k not in ["acoes"]}
+    
+    for setor, tickers in setores_ativos.items():
+        for ticker in tickers:
+            try:
+                f = buscar_dados_fundamentalistas(ticker)
+                if f:
+                    dados.append({
+                        "Ticker": ticker,
+                        "Setor": setor.capitalize(),
+                        "DY (%)": f.get("dy"),
+                        "P/L": f.get("pl"),
+                        "P/VP": f.get("pvp"),
+                        "ROE (%)": f.get("roe"),
+                        "Empresa": f.get("nome_empresa", "—")
+                    })
+            except:
+                pass
+    return pd.DataFrame(dados)
+
 with st.spinner("Processando base de dados fundamentalista (B3)... Pode levar alguns segundos."):
     df_stats = gerar_estatisticas_setoriais()
+    df_geral = gerar_lista_geral_ativos()
 
 if df_stats.empty:
     st.warning("Não foi possível carregar os dados de mercado no momento.")
     st.stop()
 
 # --- INTERFACE EXECUTIVA ---
-setores_disp = sorted(df_stats["Setor"].unique().tolist())
-filtro_setor = st.selectbox("Filtrar por Setor (Tabela Estatística):", ["Visão Geral de Todos"] + setores_disp)
+tab1, tab2 = st.tabs(["📊 Estatísticas Setoriais", "📋 Lista Geral de Ativos"])
 
-st.markdown("---")
+with tab1:
+    setores_disp = sorted(df_stats["Setor"].unique().tolist())
+    filtro_setor = st.selectbox("Filtrar por Setor (Tabela Estatística):", ["Visão Geral de Todos"] + setores_disp)
 
-if filtro_setor == "Visão Geral de Todos":
-    st.markdown("#### Tabela de Dispersão Geral")
-    st.dataframe(df_stats, use_container_width=True, hide_index=True)
-else:
-    df_setor = df_stats[df_stats["Setor"] == filtro_setor].copy()
+    st.markdown("---")
+
+    if filtro_setor == "Visão Geral de Todos":
+        st.markdown("#### Tabela de Dispersão Geral")
+        st.dataframe(df_stats, use_container_width=True, hide_index=True)
+    else:
+        df_setor = df_stats[df_stats["Setor"] == filtro_setor].copy()
+        
+        st.markdown(f"#### Indicadores do Setor: {filtro_setor}")
+        st.dataframe(df_setor, use_container_width=True, hide_index=True)
+
+with tab2:
+    st.markdown("#### Todos os Ativos Analisados")
+    st.markdown("Lista completa com as métricas mais relevantes para pesquisa.")
     
-    st.markdown(f"#### Indicadores do Setor: {filtro_setor}")
-    st.dataframe(df_setor, use_container_width=True, hide_index=True)
+    if not df_geral.empty:
+        col_f1, col_f2 = st.columns([1, 2])
+        setores_geral = ["Todos"] + sorted(df_geral["Setor"].unique().tolist())
+        with col_f1:
+            filtro_setor_geral = st.selectbox("Filtrar por Setor:", setores_geral, key="filtro_setor_geral")
+        
+        df_show = df_geral if filtro_setor_geral == "Todos" else df_geral[df_geral["Setor"] == filtro_setor_geral]
+        st.dataframe(df_show, use_container_width=True, hide_index=True)
+        
+        csv_geral = df_show.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "📤 Exportar Lista Completa (CSV)",
+            csv_geral,
+            "lista_ativos_mercado.csv",
+            "text/csv",
+            key="export_lista_geral"
+        )
+    else:
+        st.info("Nenhum dado fundamentalista disponível.")
 
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown("---")

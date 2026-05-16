@@ -46,13 +46,35 @@ if not cotacao:
 preco = cotacao.get("preco_atual", 0)
 variacao = cotacao.get("variacao_dia", 0)
 
+# Dicionário de tradução
+dict_setor = {
+    "Financial Services": "Serviços Financeiros",
+    "Financial": "Financeiro",
+    "Oil & Gas": "Petróleo e Gás",
+    "Energy": "Energia",
+    "Basic Materials": "Materiais Básicos",
+    "Utilities": "Utilidade Pública",
+    "Consumer Cyclical": "Consumo Cíclico",
+    "Consumer Defensive": "Consumo Defensivo",
+    "Industrials": "Bens Industriais",
+    "Technology": "Tecnologia",
+    "Healthcare": "Saúde",
+    "Real Estate": "Imobiliário",
+    "Communication Services": "Telecomunicações"
+}
+
+setor_en = fundamentos.get("setor")
+ind_en = fundamentos.get("industria")
+setor_pt = dict_setor.get(setor_en, setor_en) if setor_en else None
+ind_pt = dict_setor.get(ind_en, ind_en) if ind_en else None
+
 # Métricas de preço em destaque
 col_p1, col_p2, col_p3 = st.columns(3)
 col_p1.metric("Preço Atual", formatar_moeda(preco), f"{variacao:+.2f}%", help="Variação em relação ao fechamento do último pregão")
-if fundamentos.get("setor"):
-    col_p2.metric("Setor", fundamentos["setor"][:25])
-if fundamentos.get("industria") and fundamentos["industria"] != fundamentos.get("setor"):
-    col_p3.metric("Indústria", fundamentos["industria"][:25])
+if setor_pt:
+    col_p2.markdown(f"**Setor:** {setor_pt[:25]}")
+if ind_pt and ind_pt != setor_pt:
+    col_p3.markdown(f"**Indústria:** {ind_pt[:25]}")
 
 # --- SOBRE A EMPRESA ---
 _nome_empresa = fundamentos.get("nome_empresa")
@@ -83,7 +105,7 @@ if _nome_empresa or _descricao:
         st.markdown(desc_pt)
 
 # --- GRÁFICO COM SELETORES ---
-st.subheader("Gráfico de Velas")
+st.markdown("<br>", unsafe_allow_html=True)
 
 gc1, gc2 = st.columns(2)
 with gc1:
@@ -490,6 +512,32 @@ with st.expander("Ações Rápidas (Operações e Monitoramento)", expanded=True
                                 atualizar_portfolio(port_id, montante_disponivel=caixa_disp + v_venda)
                                 st.toast(f"{ticker} vendido!")
                                 st.rerun()
+            
+            with st.expander("Ajuste / Desdobramento", expanded=False):
+                st.markdown("**Corrigir Desdobramentos ou Grupamentos**")
+                st.caption("Esta ferramenta ajusta a quantidade de papéis e o preço médio. Ex: Desdobramento 1:5, Fator = 5. Grupamento 5:1, Fator = 0.2")
+                fator_desdobramento = st.number_input("Fator Multiplicador", min_value=0.01, value=1.00, step=0.1, format="%.2f")
+                if st.button("Aplicar Ajuste", key=f"btn_split_{ticker}", type="secondary", use_container_width=True):
+                    if fator_desdobramento <= 0 or fator_desdobramento == 1.0:
+                        st.error("Fator deve ser diferente de 1.0 e maior que 0.")
+                    else:
+                        from database.crud import listar_ativos_portfolio, atualizar_ativo, registrar_transacao
+                        from datetime import date
+                        ativos_cart = listar_ativos_portfolio(port_id)
+                        ativo_ext = next((x for x in ativos_cart if x["ticker"] == ticker), None)
+                        if ativo_ext:
+                            nova_qtd = int(ativo_ext["quantidade"] * fator_desdobramento)
+                            novo_pm = ativo_ext["preco_medio"] / fator_desdobramento
+                            atualizar_ativo(ativo_ext["id"], quantidade=nova_qtd, preco_medio=novo_pm)
+                            registrar_transacao(
+                                port_id, "venda", 0.0, ticker, 0, 0.0,
+                                f"Ajuste {fator_desdobramento}x (Antigo: {ativo_ext['quantidade']} cotas a R$ {ativo_ext['preco_medio']:.2f})", 
+                                date.today()
+                            )
+                            st.success(f"Ativo ajustado! Nova quantidade: {nova_qtd}. Novo preço médio: R$ {novo_pm:.2f}.")
+                            st.rerun()
+                        else:
+                            st.error("Você não possui este ativo nesta carteira para ajustá-lo.")
         else:
             st.warning("Esta persona não tem carteiras criadas.")
     else:
