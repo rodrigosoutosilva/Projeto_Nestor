@@ -145,6 +145,7 @@ def init_db():
                 conn.commit()
 
             # Auto-reset: dropar tabelas antigas se o schema estiver defasado
+            reset_needed = False
             try:
                 with engine.connect() as conn:
                     if _is_sqlite:
@@ -155,10 +156,23 @@ def init_db():
                         colunas = [r[0] for r in res]
                         
                     if "frequencia_acao" in colunas:
-                        print("[connection] Detectado schema antigo (frequencia_acao). Recriando banco de dados...")
-                        Base.metadata.drop_all(bind=engine)
+                        reset_needed = True
             except Exception as e:
                 print(f"[connection] Erro na verificação de schema antigo: {e}")
+
+            if reset_needed:
+                print("[connection] Detectado schema antigo (frequencia_acao). Recriando banco de dados...")
+                if _is_sqlite:
+                    Base.metadata.drop_all(bind=engine)
+                else:
+                    # No PostgreSQL, drop_all() as vezes falha com Enums. Drop SCHEMA resolve de vez.
+                    try:
+                        with engine.connect() as conn:
+                            conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO postgres; GRANT ALL ON SCHEMA public TO public;"))
+                            conn.commit()
+                    except Exception as e:
+                        print(f"[connection] Falha no DROP SCHEMA CASCADE, tentando drop_all... Erro: {e}")
+                        Base.metadata.drop_all(bind=engine)
 
             Base.metadata.create_all(bind=engine)
             
