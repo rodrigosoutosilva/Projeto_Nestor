@@ -144,6 +144,22 @@ def init_db():
                 conn.execute(text("SELECT 1"))
                 conn.commit()
 
+            # Auto-reset: dropar tabelas antigas se o schema estiver defasado
+            try:
+                with engine.connect() as conn:
+                    if _is_sqlite:
+                        res = conn.execute(text("PRAGMA table_info(personas)")).fetchall()
+                        colunas = [r[1] for r in res]
+                    else:
+                        res = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='personas'")).fetchall()
+                        colunas = [r[0] for r in res]
+                        
+                    if "frequencia_acao" in colunas:
+                        print("[connection] Detectado schema antigo (frequencia_acao). Recriando banco de dados...")
+                        Base.metadata.drop_all(bind=engine)
+            except Exception as e:
+                print(f"[connection] Erro na verificação de schema antigo: {e}")
+
             Base.metadata.create_all(bind=engine)
             
             # Auto-migrate: adiciona colunas novas em banco existente (evita recriar o DB)
