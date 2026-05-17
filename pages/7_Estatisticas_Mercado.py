@@ -10,7 +10,7 @@ import statistics
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.market_data import buscar_dados_fundamentalistas
+from services.market_data import buscar_dados_fundamentalistas, buscar_preco_atual
 from services.market_data import _SETOR_PEERS as TICKERS_POR_SETOR
 from utils.helpers import injetar_css_global
 
@@ -103,17 +103,23 @@ def gerar_estatisticas_setoriais():
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def gerar_lista_geral_ativos():
+    from datetime import date
     dados = []
     setores_ativos = {k: v for k, v in TICKERS_POR_SETOR.items() if k not in ["acoes"]}
+    data_hoje = date.today().strftime("%d/%m/%Y")
     
     for setor, tickers in setores_ativos.items():
         for ticker in tickers:
             try:
                 f = buscar_dados_fundamentalistas(ticker)
+                p = buscar_preco_atual(ticker)
+                preco = f"R$ {p['preco_atual']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if p and p.get("preco_atual") else "—"
                 if f:
                     dados.append({
                         "Ticker": ticker,
                         "Setor": setor.capitalize(),
+                        "Data": data_hoje,
+                        "Preço Atual": preco,
                         "DY (%)": f.get("dy"),
                         "P/L": f.get("pl"),
                         "P/VP": f.get("pvp"),
