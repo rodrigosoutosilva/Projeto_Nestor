@@ -9,7 +9,7 @@ from database.crud import (
     buscar_persona_por_id, resumo_transacoes_portfolio,
     adicionar_observacao, listar_observacoes, deletar_observacao,
     criar_ordem_pendente, listar_ordens_pendentes, cancelar_ordem,
-    listar_transacoes_portfolio, executar_ordem_pendente
+    listar_transacoes_portfolio, executar_ordem_pendente, criar_acao_planejada
 )
 from services.order_checker import deve_executar_ordem
 from services.scoring import gerar_sugestoes_novos_ativos, gerar_sugestoes_manutencao
@@ -842,7 +842,7 @@ with tab3:
                     st.info(s['texto'])
                     
                     if preco_sug_inline > 0:
-                        with st.expander("Negociar", expanded=True):
+                        with st.expander("💸 Negociar / Delegar", expanded=True):
                             ca1, ca2, ca3, ca4 = st.columns(4)
                             with ca1:
                                 op_tipo_alg = st.selectbox("Operação", ["Compra", "Venda"], key=f"alg_tipo_{idx_s}_{s['ticker']}")
@@ -891,6 +891,26 @@ with tab3:
                                             registrar_transacao(port["id"], "venda", vt_alg, s['ticker'], qtd_alg, prc_alg, "Venda Algoritmo", date.today())
                                             atualizar_portfolio(port["id"], montante_disponivel=caixa_alg + vt_alg)
                                             st.toast(f"{s['ticker']} vendido! 💰", icon="✅"); st.rerun()
+                                            
+                            st.markdown("---")
+                            st.markdown("🔔 **Ou delegue para notificações (Agendamento)**")
+                            col_dt_alg, col_del_alg = st.columns([3,1])
+                            with col_dt_alg:
+                                data_delegacao_alg = st.date_input("Data Alvo para Notificação", key=f"dt_del_alg_{idx_s}_{s['ticker']}")
+                            with col_del_alg:
+                                st.markdown("<br>", unsafe_allow_html=True)
+                                if st.button("Delegar Atitude", key=f"btn_del_alg_{idx_s}_{s['ticker']}", use_container_width=True):
+                                    t_acao = "venda" if op_tipo_alg == "Venda" else "compra"
+                                    criar_acao_planejada(
+                                        portfolio_id=port["id"],
+                                        asset_ticker=s['ticker'],
+                                        tipo_acao=t_acao,
+                                        data_planejada=data_delegacao_alg,
+                                        pontuacao=s.get('score', 0),
+                                        preco_alvo=prc_alg,
+                                        explicacao=f"{t_acao.upper()} {qtd_alg} cotas de {s['ticker']} (Sugerido via Seleção)"
+                                    )
+                                    st.toast(f"Atitude delegada para {data_delegacao_alg.strftime('%d/%m/%Y')}!")
         else:
             st.info("Nenhuma sugestão de compra/observação encontrada pelo algoritmo técnico.")
     else:
@@ -949,7 +969,7 @@ with tab4:
                     st.info(s['texto'])
                     
                     if preco_atual_mov > 0:
-                        with st.expander("Negociar", expanded=True):
+                        with st.expander("💸 Negociar / Delegar", expanded=True):
                             cm1, cm2, cm3, cm4 = st.columns(4)
                             with cm1:
                                 op_tipo_mov = st.selectbox("Operação", ["Venda", "Compra"], index=0 if s["acao"] == "venda" else 1, key=f"mov_tipo_{idx_m}_{s['ticker']}")
@@ -1003,6 +1023,26 @@ with tab4:
                                         atualizar_portfolio(port["id"], montante_disponivel=caixa_mov - vt_mov)
                                         st.toast(f"{s['ticker']} comprado! 🎉", icon="✅")
                                         st.rerun()
+                                        
+                            st.markdown("---")
+                            st.markdown("🔔 **Ou delegue para notificações (Agendamento)**")
+                            col_dt, col_del = st.columns([3,1])
+                            with col_dt:
+                                data_delegacao = st.date_input("Data Alvo para Notificação", key=f"dt_del_mov_{idx_m}_{s['ticker']}")
+                            with col_del:
+                                st.markdown("<br>", unsafe_allow_html=True)
+                                if st.button("Delegar Atitude", key=f"btn_del_mov_{idx_m}_{s['ticker']}", use_container_width=True):
+                                    t_acao = "venda" if op_tipo_mov == "Venda" else "compra"
+                                    criar_acao_planejada(
+                                        portfolio_id=port["id"],
+                                        asset_ticker=s['ticker'],
+                                        tipo_acao=t_acao,
+                                        data_planejada=data_delegacao,
+                                        pontuacao=s.get('score', 0),
+                                        preco_alvo=prc_mov,
+                                        explicacao=f"{t_acao.upper()} {qtd_mov} cotas de {s['ticker']} (Sugerido via Manutenção)"
+                                    )
+                                    st.toast(f"Atitude delegada para {data_delegacao.strftime('%d/%m/%Y')}!")
         else:
             st.info("Nenhuma sugestão pertinente para os ativos da sua carteira no momento.")
     else:
@@ -1182,26 +1222,54 @@ st.subheader("Movimentações Agendadas")
 acoes_pendentes = listar_acoes_portfolio(portfolio_id, status="planejado")
 
 if acoes_pendentes:
+    hoje_dt = date.today()
+    imediatas = []
+    futuras = []
     for acao in acoes_pendentes:
-        with st.container(border=True):
-            c1, c2, c3 = st.columns([3, 2, 2])
-            with c1:
-                st.markdown(f"**{acao['asset_ticker']}** - {acao['tipo_acao'].upper()}")
-                if acao['explicacao']:
-                    st.caption(acao['explicacao'])
-            with c2:
-                st.markdown(f"**Data Planejada:** {formatar_data_br(acao['data_planejada'])}")
-            with c3:
-                sc1, sc2 = st.columns(2)
-                with sc1:
-                    if st.button("Executar", key=f"exec_{acao['id']}", use_container_width=True, type="primary"):
-                        atualizar_status_acao(acao['id'], "executado")
-                        st.toast(f"Movimento {acao['asset_ticker']} marcado como executado! Registre a transação na aba Meus Ativos se necessário.")
-                        st.rerun()
-                with sc2:
-                    if st.button("Ignorar", key=f"ign_{acao['id']}", use_container_width=True, type="tertiary"):
-                        atualizar_status_acao(acao['id'], "ignorado")
-                        st.rerun()
+        try:
+            dt_plan = datetime.strptime(str(acao['data_planejada']).split(' ')[0], '%Y-%m-%d').date()
+        except:
+            dt_plan = hoje_dt
+            
+        if dt_plan <= hoje_dt:
+            imediatas.append(acao)
+        else:
+            futuras.append(acao)
+            
+    todas_ordenadas = imediatas + futuras
+
+    for acao in todas_ordenadas:
+        try:
+            dt_plan = datetime.strptime(str(acao['data_planejada']).split(' ')[0], '%Y-%m-%d').date()
+            is_imediata = dt_plan <= hoje_dt
+        except:
+            is_imediata = True
+            
+        cor_borda = "#FF3333" if is_imediata and str(acao['data_planejada']) < str(hoje_dt) else ("#FFCC00" if is_imediata else "#3399FF")
+        icone = "⏰" if is_imediata else "📅"
+        
+        st.markdown(f"""
+        <div style="border-left: 5px solid {cor_borda}; padding: 15px; border-radius: 5px; background-color: rgba(255,255,255,0.8); margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <div style="display:flex; justify-content:space-between;">
+                <strong>{icone} {acao['asset_ticker']} - {acao['tipo_acao'].upper()}</strong>
+                <span style="color:#666; font-size:0.85em;">📅 Data Alvo: {formatar_data_br(acao['data_planejada'])}</span>
+            </div>
+            <div style="font-size: 0.9em; margin-top:5px; color:#444;">
+                {acao.get('explicacao', '')}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        c_btn1, c_btn2, _ = st.columns([2, 2, 8])
+        with c_btn1:
+            if st.button("Executar", key=f"exec_{acao['id']}", use_container_width=True, type="primary"):
+                atualizar_status_acao(acao['id'], "executado")
+                st.toast(f"Movimento {acao['asset_ticker']} marcado como executado! Registre a transação na aba Meus Ativos se necessário.")
+                st.rerun()
+        with c_btn2:
+            if st.button("Ignorar", key=f"ign_{acao['id']}", use_container_width=True, type="tertiary"):
+                atualizar_status_acao(acao['id'], "ignorado")
+                st.rerun()
 else:
     st.info("Nenhuma movimentação programada.")
 

@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from database.models import (
     User, Persona, Portfolio, Asset, PlannedAction, Transaction, WatchlistItem,
     Observation, PendingOrder,
-    StatusAcao, FrequenciaAcao, EstiloInvestimento, TipoAtivo, TipoAcao,
+    StatusAcao, PerfilInvestimento, ObjetivoCarteira, TipoAtivo, TipoAcao,
     TipoTransacao, OrigemTransacao, FrequenciaAporte
 )
 from database.connection import get_session
@@ -71,25 +71,22 @@ def buscar_usuario_por_id(user_id: int) -> Optional[dict]:
 def criar_persona(
     user_id: int,
     nome: str,
-    frequencia: str = "semanal",
-    tolerancia_risco: int = 5,
-    estilo: str = "dividendos"
+    perfil_investimento: str = "buy_and_hold",
+    tolerancia_risco: int = 5
 ) -> dict:
     """
     Cria uma nova persona de investimento.
     
     Parâmetros:
-    - frequencia: "diario", "semanal" ou "mensal"
+    - perfil_investimento: "day_trader", "swing_trader" ou "buy_and_hold"
     - tolerancia_risco: 0 (ultra conservador) a 10 (ultra arrojado)
-    - estilo: "dividendos" ou "crescimento"
     """
     with get_session() as session:
         persona = Persona(
             user_id=user_id,
             nome=nome,
-            frequencia_acao=FrequenciaAcao(frequencia),
-            tolerancia_risco=tolerancia_risco,
-            estilo=EstiloInvestimento(estilo)
+            perfil_investimento=PerfilInvestimento(perfil_investimento),
+            tolerancia_risco=tolerancia_risco
         )
         session.add(persona)
         session.flush()
@@ -97,9 +94,8 @@ def criar_persona(
             "id": persona.id,
             "user_id": user_id,
             "nome": nome,
-            "frequencia_acao": frequencia,
-            "tolerancia_risco": tolerancia_risco,
-            "estilo": estilo
+            "perfil_investimento": perfil_investimento,
+            "tolerancia_risco": tolerancia_risco
         }
 
 
@@ -113,9 +109,8 @@ def listar_personas_usuario(user_id: int) -> list[dict]:
             "id": p.id,
             "user_id": p.user_id,
             "nome": p.nome,
-            "frequencia_acao": p.frequencia_acao.value if p.frequencia_acao else "semanal",
-            "tolerancia_risco": p.tolerancia_risco,
-            "estilo": p.estilo.value if p.estilo else "dividendos"
+            "perfil_investimento": p.perfil_investimento.value if p.perfil_investimento else "buy_and_hold",
+            "tolerancia_risco": p.tolerancia_risco
         } for p in personas]
 
 
@@ -128,9 +123,8 @@ def buscar_persona_por_id(persona_id: int) -> Optional[dict]:
                 "id": p.id,
                 "user_id": p.user_id,
                 "nome": p.nome,
-                "frequencia_acao": p.frequencia_acao.value if p.frequencia_acao else "semanal",
-                "tolerancia_risco": p.tolerancia_risco,
-                "estilo": p.estilo.value if p.estilo else "dividendos"
+                "perfil_investimento": p.perfil_investimento.value if p.perfil_investimento else "buy_and_hold",
+                "tolerancia_risco": p.tolerancia_risco
             }
         return None
 
@@ -142,10 +136,8 @@ def atualizar_persona(persona_id: int, **kwargs) -> bool:
         if not persona:
             return False
         for key, value in kwargs.items():
-            if key == "frequencia_acao":
-                value = FrequenciaAcao(value)
-            elif key == "estilo":
-                value = EstiloInvestimento(value)
+            if key == "perfil_investimento":
+                value = PerfilInvestimento(value)
             setattr(persona, key, value)
         return True
 
@@ -167,40 +159,37 @@ def deletar_persona(persona_id: int) -> bool:
 def criar_portfolio(
     persona_id: int,
     nome: str,
-    objetivo_prazo: str = "longo",
+    objetivo: str = "equilibrado",
     meta_dividendos: float = 6.0,
     tipo_ativo: str = "acoes",
     setores_preferidos: str = "",
     montante_disponivel: float = 0.0,
     aporte_periodico: float = 0.0,
     frequencia_aporte: str = "",
-    frequencia_manuseio: str = "",
     taxa_saldo_negativo: float = 10.0
 ) -> dict:
     """
     Cria uma nova carteira vinculada a uma persona.
     
     Conceito de Finanças:
-    - objetivo_prazo: horizonte do investimento (curto/medio/longo)
+    - objetivo: dividendos, crescimento, equilibrado
     - meta_dividendos: calculado automaticamente com base no perfil
     - setores_preferidos: setores de interesse separados por vírgula
     - montante_disponivel: caixa em R$ disponível para investimento
     - aporte_periodico: valor em R$ do aporte periódico
     - frequencia_aporte: frequência dos aportes (semanal/quinzenal/mensal)
-    - frequencia_manuseio: frequência de revisão da carteira (≤ persona)
     """
     with get_session() as session:
         portfolio = Portfolio(
             persona_id=persona_id,
             nome=nome,
-            objetivo_prazo=objetivo_prazo,
+            objetivo=ObjetivoCarteira(objetivo),
             meta_dividendos=meta_dividendos,
             tipo_ativo=TipoAtivo(tipo_ativo),
             setores_preferidos=setores_preferidos,
             montante_disponivel=montante_disponivel,
             aporte_periodico=aporte_periodico,
             frequencia_aporte=frequencia_aporte,
-            frequencia_manuseio=FrequenciaAcao(frequencia_manuseio) if frequencia_manuseio else None,
             taxa_saldo_negativo=taxa_saldo_negativo
         )
         session.add(portfolio)
@@ -209,14 +198,13 @@ def criar_portfolio(
             "id": portfolio.id,
             "persona_id": persona_id,
             "nome": nome,
-            "objetivo_prazo": objetivo_prazo,
+            "objetivo": objetivo,
             "meta_dividendos": meta_dividendos,
             "tipo_ativo": tipo_ativo,
             "setores_preferidos": setores_preferidos,
             "montante_disponivel": montante_disponivel,
             "aporte_periodico": aporte_periodico,
             "frequencia_aporte": frequencia_aporte,
-            "frequencia_manuseio": frequencia_manuseio,
             "taxa_saldo_negativo": taxa_saldo_negativo
         }
 
@@ -231,14 +219,13 @@ def listar_portfolios_persona(persona_id: int) -> list[dict]:
             "id": p.id,
             "persona_id": p.persona_id,
             "nome": p.nome,
-            "objetivo_prazo": p.objetivo_prazo,
+            "objetivo": p.objetivo.value if p.objetivo else "equilibrado",
             "meta_dividendos": p.meta_dividendos,
             "tipo_ativo": p.tipo_ativo.value if p.tipo_ativo else "acoes",
             "setores_preferidos": p.setores_preferidos or "",
             "montante_disponivel": p.montante_disponivel or 0.0,
             "aporte_periodico": p.aporte_periodico or 0.0,
             "frequencia_aporte": p.frequencia_aporte or "",
-            "frequencia_manuseio": p.frequencia_manuseio.value if p.frequencia_manuseio else "",
             "taxa_saldo_negativo": getattr(p, "taxa_saldo_negativo", 10.0) if getattr(p, "taxa_saldo_negativo", 10.0) is not None else 10.0,
             "created_at": str(p.created_at) if p.created_at else None
         } for p in portfolios]
@@ -253,14 +240,13 @@ def buscar_portfolio_por_id(portfolio_id: int) -> Optional[dict]:
                 "id": p.id,
                 "persona_id": p.persona_id,
                 "nome": p.nome,
-                "objetivo_prazo": p.objetivo_prazo,
+                "objetivo": p.objetivo.value if p.objetivo else "equilibrado",
                 "meta_dividendos": p.meta_dividendos,
                 "tipo_ativo": p.tipo_ativo.value if p.tipo_ativo else "acoes",
                 "setores_preferidos": p.setores_preferidos or "",
                 "montante_disponivel": p.montante_disponivel or 0.0,
                 "aporte_periodico": p.aporte_periodico or 0.0,
                 "frequencia_aporte": p.frequencia_aporte or "",
-                "frequencia_manuseio": p.frequencia_manuseio.value if p.frequencia_manuseio else "",
                 "taxa_saldo_negativo": getattr(p, "taxa_saldo_negativo", 10.0) if getattr(p, "taxa_saldo_negativo", 10.0) is not None else 10.0,
                 "created_at": str(p.created_at) if p.created_at else None
             }
@@ -276,8 +262,8 @@ def atualizar_portfolio(portfolio_id: int, **kwargs) -> bool:
         for key, value in kwargs.items():
             if key == "tipo_ativo":
                 value = TipoAtivo(value)
-            elif key == "frequencia_manuseio":
-                value = FrequenciaAcao(value) if value else None
+            elif key == "objetivo":
+                value = ObjetivoCarteira(value)
             setattr(portfolio, key, value)
         return True
 

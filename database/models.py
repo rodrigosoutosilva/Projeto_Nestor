@@ -35,22 +35,24 @@ Base = declarative_base()
 # ENUMS - Tipos enumerados para campos com valores fixos
 # ===========================================================================
 
-class FrequenciaAcao(str, enum.Enum):
+class PerfilInvestimento(str, enum.Enum):
     """
-    Com que frequência a persona quer revisar sua carteira.
+    Perfil do investidor, define o comportamento de timing (compra/venda).
     
     Conceito de Finanças:
-    - Diário: day trader ou investidor muito ativo
-    - Semanal: investidor ativo, acompanha o mercado de perto
-    - Mensal: investidor de longo prazo, buy and hold
+    - Day Trader: operações rápidas, qualquer ganho/perda aciona venda
+    - Swing Trader: operações de dias/semanas, aproveita tendências
+    - Buy and Hold: longo prazo, só vende em casos de perda severa de fundamento
     """
-    DIARIO = "diario"
-    SEMANAL = "semanal"
-    MENSAL = "mensal"
+    DAY_TRADER = "day_trader"
+    SWING_TRADER = "swing_trader"
+    BUY_AND_HOLD = "buy_and_hold"
 
 
-class EstiloInvestimento(str, enum.Enum):
+class ObjetivoCarteira(str, enum.Enum):
     """
+    Objetivo principal da carteira de investimentos.
+    
     Conceito de Finanças:
     - Dividendos: foco em receber renda passiva (TAEE11, BBAS3...)
     - Crescimento: foco em valorização do preço (WEGE3, MGLU3...)
@@ -99,6 +101,7 @@ class StatusAcao(str, enum.Enum):
     EXECUTADO = "executado"
     REVISAO_NECESSARIA = "revisao_necessaria"
     IGNORADO = "ignorado"
+    ABORTADO = "abortado"
 
 
 class TipoTransacao(str, enum.Enum):
@@ -179,15 +182,11 @@ class Persona(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     nome = Column(String(100), nullable=False)
-    frequencia_acao = Column(
-        SAEnum(FrequenciaAcao),
-        default=FrequenciaAcao.SEMANAL
+    perfil_investimento = Column(
+        SAEnum(PerfilInvestimento),
+        default=PerfilInvestimento.BUY_AND_HOLD
     )
     tolerancia_risco = Column(Integer, default=5)  # 0 a 10
-    estilo = Column(
-        SAEnum(EstiloInvestimento),
-        default=EstiloInvestimento.DIVIDENDOS
-    )
 
     # Relacionamentos
     user = relationship("User", back_populates="personas")
@@ -220,7 +219,10 @@ class Portfolio(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     persona_id = Column(Integer, ForeignKey("personas.id"), nullable=False)
     nome = Column(String(100), nullable=False)
-    objetivo_prazo = Column(String(20), default="longo")  # curto, medio, longo
+    objetivo = Column(
+        SAEnum(ObjetivoCarteira),
+        default=ObjetivoCarteira.EQUILIBRADO
+    )
     meta_dividendos = Column(Float, default=6.0)  # % ao ano (auto-calculado)
     tipo_ativo = Column(
         SAEnum(TipoAtivo),
@@ -230,10 +232,6 @@ class Portfolio(Base):
     montante_disponivel = Column(Float, default=0.0)  # Caixa em R$ disponível
     aporte_periodico = Column(Float, default=0.0)  # Valor do aporte periódico em R$
     frequencia_aporte = Column(String(20), default="")  # semanal, quinzenal, mensal ou ""
-    frequencia_manuseio = Column(
-        SAEnum(FrequenciaAcao),
-        nullable=True  # None = herda da persona
-    )
     taxa_saldo_negativo = Column(Float, default=10.0)
     created_at = Column(DateTime, default=datetime.utcnow)
 

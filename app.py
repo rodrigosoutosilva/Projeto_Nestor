@@ -39,6 +39,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+from services.background_tasks import verificar_notificacoes_background
+verificar_notificacoes_background()
+
 # ---------------------------------------------------------------------------
 # CSS Customizado - Design premium com gradientes e glassmorphism
 # ---------------------------------------------------------------------------

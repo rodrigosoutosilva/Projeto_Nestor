@@ -33,14 +33,14 @@ def seed_usuario_teste():
     # PERSONA 1: Thiaguinho — Arrojado, Semanal
     # ===================================================================
     thiaguinho = criar_persona(
-        user_id=uid, nome="Thiaguinho", frequencia="semanal",
-        tolerancia_risco=8, estilo="crescimento"
+        user_id=uid, nome="Thiaguinho", perfil_investimento="swing_trader",
+        tolerancia_risco=8
     )
 
     # Carteira 1: Mix Ações (todos setores, curto prazo, valorização)
     c1 = criar_portfolio(
         persona_id=thiaguinho["id"], nome="Mix Ações",
-        objetivo_prazo="curto", meta_dividendos=2.0,
+        objetivo="crescimento", meta_dividendos=2.0,
         tipo_ativo="acoes", setores_preferidos="bancos,energia,mineracao,tecnologia,varejo,saude",
         montante_disponivel=0,
         aporte_periodico=100.0, frequencia_aporte="mensal"
@@ -54,14 +54,14 @@ def seed_usuario_teste():
     # PERSONA 2: Palmito — Conservador, Manual (mensal)
     # ===================================================================
     palmito = criar_persona(
-        user_id=uid, nome="Palmito", frequencia="mensal",
-        tolerancia_risco=3, estilo="dividendos"
+        user_id=uid, nome="Palmito", perfil_investimento="buy_and_hold",
+        tolerancia_risco=3
     )
 
     # Carteira 1: Ações (energia, mineração, bancos, médio prazo)
     c3 = criar_portfolio(
         persona_id=palmito["id"], nome="Ações",
-        objetivo_prazo="medio", meta_dividendos=5.0,
+        objetivo="dividendos", meta_dividendos=5.0,
         tipo_ativo="acoes", setores_preferidos="energia,mineracao,bancos",
         montante_disponivel=0,
         aporte_periodico=100.0, frequencia_aporte="mensal"

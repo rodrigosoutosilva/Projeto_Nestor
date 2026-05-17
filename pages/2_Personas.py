@@ -44,15 +44,15 @@ with st.expander("Criar Nova Persona", expanded=False):
                 "Nome da Persona",
                 placeholder="Ex: Aposentadoria, Day Trade, Dividendos..."
             )
-            frequencia = st.selectbox(
-                "Frequência de Revisão",
-                options=["diario", "semanal", "mensal"],
+            perfil_investimento = st.selectbox(
+                "Perfil de Investimento",
+                options=["day_trader", "swing_trader", "buy_and_hold"],
                 format_func=lambda x: {
-                    "diario": "Diário (day trader)",
-                    "semanal": "Semanal (swing trader)",
-                    "mensal": "Mensal (buy & hold)"
+                    "day_trader": "Day Trader (Foco em curtos movimentos)",
+                    "swing_trader": "Swing Trader (Movimentos de dias/semanas)",
+                    "buy_and_hold": "Buy & Hold (Foco no longo prazo)"
                 }[x],
-                index=1
+                index=2
             )
 
         with col2:
@@ -60,15 +60,6 @@ with st.expander("Criar Nova Persona", expanded=False):
                 "Tolerância a Risco",
                 min_value=0, max_value=10, value=5,
                 help="0 = Ultra Conservador | 10 = Ultra Arrojado"
-            )
-            estilo = st.selectbox(
-                "Estilo de Investimento",
-                options=["dividendos", "crescimento", "equilibrado"],
-                format_func=lambda x: {
-                    "dividendos": "Dividendos (renda passiva)",
-                    "crescimento": "Crescimento (valorização)",
-                    "equilibrado": "Equilibrado (mix de renda + valorização)"
-                }[x]
             )
 
         # Indicador visual de perfil
@@ -89,9 +80,8 @@ with st.expander("Criar Nova Persona", expanded=False):
                 result = criar_persona(
                     user_id=user["id"],
                     nome=nome,
-                    frequencia=frequencia,
-                    tolerancia_risco=tolerancia,
-                    estilo=estilo
+                    perfil_investimento=perfil_investimento,
+                    tolerancia_risco=tolerancia
                 )
                 st.session_state.view_persona_id = result["id"]
                 st.toast(f"Persona **{nome}** criada com sucesso!")
@@ -123,17 +113,13 @@ else:
             else:
                 cor, perfil = "🚀", "Arrojado"
 
-            freq_label = {
-                "diario": "Diário", "semanal": "Semanal", "mensal": "Mensal"
-            }.get(persona.get("frequencia_acao", ""), "")
-
-            estilo_label = {
-                "dividendos": "Dividendos", "crescimento": "Crescimento", "equilibrado": "Equilibrado"
-            }.get(persona.get("estilo", ""), "")
+            perfil_label = {
+                "day_trader": "Day Trader", "swing_trader": "Swing Trader", "buy_and_hold": "Buy & Hold"
+            }.get(persona.get("perfil_investimento", ""), "Buy & Hold")
 
             with st.container(border=True):
                 st.markdown(f"#### {persona['nome']}")
-                st.caption(f"Perfil: **{perfil}** | Risco: {persona['tolerancia_risco']}/10 | {estilo_label} | {freq_label}")
+                st.caption(f"Perfil de Risco: **{perfil}** ({persona['tolerancia_risco']}/10) | Estratégia: {perfil_label}")
 
                 # Métricas consolidadas
                 portfolios = listar_portfolios_persona(persona["id"])

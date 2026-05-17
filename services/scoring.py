@@ -135,10 +135,10 @@ def pontuar_ativo_criacao(ticker: str, persona: dict, portfolio: dict, usar_prec
     if not ind:
         return {"score": 0, "acao": "N/D", "texto": "Dados indisponíveis."}
 
-    estilo = persona.get("estilo", "dividendos")
-    if estilo == "dividendos":
+    objetivo = portfolio.get("objetivo", "equilibrado")
+    if objetivo == "dividendos":
         w_fund, w_val, w_div, w_tec = 0.40, 0.25, 0.25, 0.10
-    elif estilo == "crescimento":
+    elif objetivo == "crescimento":
         w_fund, w_val, w_div, w_tec = 0.30, 0.35, 0.05, 0.30
     else: # equilibrado
         w_fund, w_val, w_div, w_tec = 0.35, 0.30, 0.15, 0.20
@@ -155,10 +155,10 @@ def pontuar_ativo_criacao(ticker: str, persona: dict, portfolio: dict, usar_prec
     risco = persona.get("tolerancia_risco", 5)
     ajuste += (risco - 5) * 0.015
     
-    prazo = portfolio.get("objetivo_prazo", "longo")
-    if prazo == "curto" and ind.get("dy", 0) > 6:
+    perfil = persona.get("perfil_investimento", "buy_and_hold")
+    if perfil == "day_trader" and s_tec > 70:
         ajuste += 0.05
-    if prazo == "longo" and ind.get("roe", 0) > 15:
+    if perfil == "buy_and_hold" and ind.get("roe", 0) > 15:
         ajuste += 0.05
         
     preco = ind.get("preco_atual", 0)
@@ -317,10 +317,10 @@ def pontuar_ativo_manutencao(ticker: str, persona: dict, portfolio: dict, pm_atu
     s_prov = (score_payout_m * 0.6) + (score_dy_hist * 0.4)
     
     # Pesos do Algoritmo 2
-    estilo = persona.get("estilo", "dividendos")
-    if estilo == "dividendos":
+    objetivo = portfolio.get("objetivo", "equilibrado")
+    if objetivo == "dividendos":
         w_saude, w_val, w_prov = 0.45, 0.25, 0.30
-    elif estilo == "crescimento":
+    elif objetivo == "crescimento":
         w_saude, w_val, w_prov = 0.35, 0.35, 0.30
     else:
         w_saude, w_val, w_prov = 0.40, 0.30, 0.30
@@ -353,11 +353,16 @@ def pontuar_ativo_manutencao(ticker: str, persona: dict, portfolio: dict, pm_atu
         condicoes_venda += 1
         alerta_textos.append("Política de dividendos insustentável, comprometendo o caixa.")
 
-    # Ações:
+    # Ações: ajustadas pelo Perfil
+    perfil = persona.get("perfil_investimento", "buy_and_hold")
+    limiar_venda = 2 # Padrão
+    if perfil == "day_trader": limiar_venda = 1
+    elif perfil == "buy_and_hold": limiar_venda = 3
+
     acao = "manter"
-    if condicoes_venda >= 2:
+    if condicoes_venda >= limiar_venda:
         acao = "venda"
-    elif condicoes_venda == 1:
+    elif condicoes_venda == (limiar_venda - 1) and condicoes_venda > 0:
         acao = "observar"
     else:
         # Reforço de posição?

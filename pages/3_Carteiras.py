@@ -29,22 +29,7 @@ from utils.helpers import (
 from services.market_data import buscar_preco_atual
 from datetime import date
 
-# Mapeamento de frequência para ordenação (menor valor = mais frequente)
-FREQ_ORDEM = {"diario": 1, "semanal": 2, "mensal": 3}
-FREQ_LABELS = {
-    "diario": "Diário",
-    "semanal": "Semanal",
-    "mensal": "Mensal"
-}
 
-def frequencias_permitidas(freq_persona: str) -> list:
-    """
-    Retorna as frequências de manuseio permitidas para a carteira.
-    A carteira pode ter frequência menor ou igual à da persona.
-    (Menor frequência = valor maior no FREQ_ORDEM)
-    """
-    nivel_persona = FREQ_ORDEM.get(freq_persona, 2)
-    return [f for f, n in FREQ_ORDEM.items() if n >= nivel_persona]
 
 st.set_page_config(page_title="Carteiras", layout="wide")
 injetar_css_global()
@@ -109,12 +94,12 @@ with st.expander("Criar Nova Carteira", expanded=False):
                 key="nome_cart_input"
             )
             objetivo = st.selectbox(
-                "Objetivo de Prazo",
-                options=["curto", "medio", "longo"],
+                "Objetivo da Carteira",
+                options=["dividendos", "crescimento", "equilibrado"],
                 format_func=lambda x: {
-                    "curto": "Curto Prazo (< 1 ano)",
-                    "medio": "Médio Prazo (1-5 anos)",
-                    "longo": "Longo Prazo (> 5 anos)"
+                    "dividendos": "Dividendos (Renda Passiva)",
+                    "crescimento": "Crescimento (Valorização)",
+                    "equilibrado": "Equilibrado (Mix)"
                 }[x],
                 index=2,
                 disabled=_criando
@@ -163,22 +148,7 @@ with st.expander("Criar Nova Carteira", expanded=False):
             disabled=_criando
         )
 
-        # --- Frequência de manuseio ---
-        st.markdown("**Frequência de manuseio** *(com que frequência você revisa esta carteira)*")
-        freqs_permitidas = frequencias_permitidas(persona_selecionada["frequencia_acao"])
-        freq_manuseio_opcoes = [""] + freqs_permitidas
-        freq_manuseio_labels = {
-            "": f"Herdar da persona ({FREQ_LABELS.get(persona_selecionada['frequencia_acao'], persona_selecionada['frequencia_acao'])})",
-            **FREQ_LABELS
-        }
-        freq_manuseio = st.selectbox(
-            "Frequência de revisão da carteira",
-            options=freq_manuseio_opcoes,
-            format_func=lambda x: freq_manuseio_labels.get(x, x),
-            help=f"Deve ser igual ou menos frequente que a da persona ({persona_selecionada['frequencia_acao']}). "
-                 "Ex: se a persona é diária, a carteira pode ser diária, semanal ou mensal.",
-            disabled=_criando
-        )
+
 
         # Setores preferidos
         st.markdown("**Setores de preferência** *(opcional — ajuda a IA a sugerir ativos)*")
@@ -225,13 +195,12 @@ with st.expander("Criar Nova Carteira", expanded=False):
                         result = criar_portfolio(
                             persona_id=persona_selecionada["id"],
                             nome=nome_cart,
-                            objetivo_prazo=objetivo,
+                            objetivo=objetivo,
                             tipo_ativo=tipo,
                             setores_preferidos=setores_str,
                             montante_disponivel=0.0,
                             aporte_periodico=aporte_valor,
                             frequencia_aporte=freq_aporte,
-                            frequencia_manuseio=freq_manuseio,
                             taxa_saldo_negativo=taxa_sn
                         )
                         # Registrar aporte inicial se montante > 0
@@ -286,7 +255,7 @@ else:
                 with st.container(border=True):
                     st.markdown(f"#### {port['nome']} ({tipo_emoji})")
                     persona_da_carteira = next((p["nome"] for p in personas if p["id"] == port["persona_id"]), "Desconhecida")
-                    st.caption(f"Persona: **{persona_da_carteira}** | Prazo: {port['objetivo_prazo'].capitalize()}")
+                    st.caption(f"Persona: **{persona_da_carteira}** | Objetivo: {port.get('objetivo', '').capitalize()}")
                     
                     # Calcular métricas financeiras
                     caixa = port.get("montante_disponivel", 0)
@@ -361,7 +330,7 @@ else:
                 c1, c2 = st.columns([3, 1])
                 with c1:
                     persona_da_carteira = next((p["nome"] for p in personas if p["id"] == port["persona_id"]), "Desconhecida")
-                    st.markdown(f"**Persona:** {persona_da_carteira} | **Prazo:** {port['objetivo_prazo'].capitalize()}")
+                    st.markdown(f"**Persona:** {persona_da_carteira} | **Objetivo:** {port.get('objetivo', '').capitalize()}")
                     if port.get("setores_preferidos"):
                         setores_list = port["setores_preferidos"].split(",")
                         st.markdown(f"**Setores:** {', '.join(s.capitalize() for s in setores_list)}")
