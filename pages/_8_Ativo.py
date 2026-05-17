@@ -70,11 +70,15 @@ ind_pt = dict_setor.get(ind_en, ind_en) if ind_en else None
 
 # Métricas de preço em destaque
 col_p1, col_p2, col_p3 = st.columns(3)
-col_p1.metric("Preço Atual", formatar_moeda(preco), f"{variacao:+.2f}%", help="Variação em relação ao fechamento do último pregão")
+cor_var = "#00C851" if variacao >= 0 else "#FF4444"
+var_str = f"<span style='color: {cor_var}; font-size: 1rem; margin-left: 8px;'>{variacao:+.2f}%</span>"
+
+col_p1.markdown(f"<div style='font-size: 0.9rem; color: #666;'>Preço Atual</div><div style='font-size: 1.4rem; font-weight: 600;'>{formatar_moeda(preco)} {var_str}</div>", unsafe_allow_html=True)
+
 if setor_pt:
-    col_p2.markdown(f"**Setor:** {setor_pt[:25]}")
+    col_p2.markdown(f"<div style='font-size: 0.9rem; color: #666;'>Setor</div><div style='font-size: 1.4rem; font-weight: 600;'>{setor_pt[:25]}</div>", unsafe_allow_html=True)
 if ind_pt and ind_pt != setor_pt:
-    col_p3.markdown(f"**Indústria:** {ind_pt[:25]}")
+    col_p3.markdown(f"<div style='font-size: 0.9rem; color: #666;'>Indústria</div><div style='font-size: 1.4rem; font-weight: 600;'>{ind_pt[:25]}</div>", unsafe_allow_html=True)
 
 # --- SOBRE A EMPRESA ---
 _nome_empresa = fundamentos.get("nome_empresa")
