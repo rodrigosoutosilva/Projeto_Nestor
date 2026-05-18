@@ -39,6 +39,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+from database.connection import init_db
+try:
+    init_db()
+except Exception as _init_err:
+    st.error(f"Erro ao inicializar banco: {_init_err}")
+    st.stop()
+
 from services.background_tasks import verificar_notificacoes_background
 verificar_notificacoes_background()
 
