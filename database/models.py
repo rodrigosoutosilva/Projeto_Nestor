@@ -20,7 +20,7 @@ Conceito de Eng. Software:
 from datetime import datetime, date
 from sqlalchemy import (
     Column, Integer, String, Float, Date, DateTime,
-    Text, ForeignKey, Boolean, Enum as SAEnum
+    Text, ForeignKey, Boolean
 )
 from sqlalchemy.orm import relationship, declarative_base
 import enum
@@ -182,10 +182,7 @@ class Persona(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     nome = Column(String(100), nullable=False)
-    perfil_investimento = Column(
-        SAEnum(PerfilInvestimento),
-        default=PerfilInvestimento.BUY_AND_HOLD
-    )
+    perfil_investimento = Column(String(30), default="buy_and_hold")
     tolerancia_risco = Column(Integer, default=5)  # 0 a 10
 
     # Relacionamentos
@@ -219,15 +216,9 @@ class Portfolio(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     persona_id = Column(Integer, ForeignKey("personas.id"), nullable=False)
     nome = Column(String(100), nullable=False)
-    objetivo = Column(
-        SAEnum(ObjetivoCarteira),
-        default=ObjetivoCarteira.EQUILIBRADO
-    )
+    objetivo = Column(String(30), default="equilibrado")
     meta_dividendos = Column(Float, default=6.0)  # % ao ano (auto-calculado)
-    tipo_ativo = Column(
-        SAEnum(TipoAtivo),
-        default=TipoAtivo.ACOES
-    )
+    tipo_ativo = Column(String(20), default="acoes")
     setores_preferidos = Column(String(500), default="")  # Ex: "bancos,petroleo,logistica"
     montante_disponivel = Column(Float, default=0.0)  # Caixa em R$ disponível
     aporte_periodico = Column(Float, default=0.0)  # Valor do aporte periódico em R$
@@ -325,13 +316,10 @@ class PlannedAction(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     portfolio_id = Column(Integer, ForeignKey("portfolios.id"), nullable=False)
     asset_ticker = Column(String(10), nullable=False)
-    tipo_acao = Column(SAEnum(TipoAcao), nullable=False)
+    tipo_acao = Column(String(20), nullable=False)
     data_planejada = Column(Date, nullable=False)
     data_executada = Column(Date, nullable=True)
-    status = Column(
-        SAEnum(StatusAcao),
-        default=StatusAcao.PLANEJADO
-    )
+    status = Column(String(30), default="planejado")
     pontuacao = Column(Float, default=0.0)  # Score 0-100
     preco_alvo = Column(Float, nullable=True)
     preco_revisado = Column(Float, nullable=True)
@@ -369,13 +357,13 @@ class Transaction(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     portfolio_id = Column(Integer, ForeignKey("portfolios.id"), nullable=False)
-    tipo = Column(SAEnum(TipoTransacao), nullable=False)
+    tipo = Column(String(20), nullable=False)
     ticker = Column(String(10), nullable=True)  # Somente para compra/venda/dividendo
     quantidade = Column(Integer, nullable=True)  # Somente para compra/venda
     preco_unitario = Column(Float, nullable=True)  # Somente para compra/venda
     valor = Column(Float, nullable=False)  # Valor total da transação em R$
     descricao = Column(String(500), nullable=True)  # Nota/observação livre
-    origem = Column(SAEnum(OrigemTransacao), default=OrigemTransacao.MANUAL)  # Rastreabilidade
+    origem = Column(String(20), default="manual")  # Rastreabilidade
     data = Column(Date, default=date.today, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 

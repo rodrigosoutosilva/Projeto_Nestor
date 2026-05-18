@@ -85,7 +85,7 @@ def criar_persona(
         persona = Persona(
             user_id=user_id,
             nome=nome,
-            perfil_investimento=PerfilInvestimento(perfil_investimento),
+            perfil_investimento=perfil_investimento,
             tolerancia_risco=tolerancia_risco
         )
         session.add(persona)
@@ -109,7 +109,7 @@ def listar_personas_usuario(user_id: int) -> list[dict]:
             "id": p.id,
             "user_id": p.user_id,
             "nome": p.nome,
-            "perfil_investimento": p.perfil_investimento.value if p.perfil_investimento else "buy_and_hold",
+            "perfil_investimento": p.perfil_investimento or "buy_and_hold",
             "tolerancia_risco": p.tolerancia_risco
         } for p in personas]
 
@@ -123,7 +123,7 @@ def buscar_persona_por_id(persona_id: int) -> Optional[dict]:
                 "id": p.id,
                 "user_id": p.user_id,
                 "nome": p.nome,
-                "perfil_investimento": p.perfil_investimento.value if p.perfil_investimento else "buy_and_hold",
+                "perfil_investimento": p.perfil_investimento or "buy_and_hold",
                 "tolerancia_risco": p.tolerancia_risco
             }
         return None
@@ -136,8 +136,6 @@ def atualizar_persona(persona_id: int, **kwargs) -> bool:
         if not persona:
             return False
         for key, value in kwargs.items():
-            if key == "perfil_investimento":
-                value = PerfilInvestimento(value)
             setattr(persona, key, value)
         return True
 
@@ -219,9 +217,9 @@ def listar_portfolios_persona(persona_id: int) -> list[dict]:
             "id": p.id,
             "persona_id": p.persona_id,
             "nome": p.nome,
-            "objetivo": p.objetivo.value if p.objetivo else "equilibrado",
+            "objetivo": p.objetivo or "equilibrado",
             "meta_dividendos": p.meta_dividendos,
-            "tipo_ativo": p.tipo_ativo.value if p.tipo_ativo else "acoes",
+            "tipo_ativo": p.tipo_ativo or "acoes",
             "setores_preferidos": p.setores_preferidos or "",
             "montante_disponivel": p.montante_disponivel or 0.0,
             "aporte_periodico": p.aporte_periodico or 0.0,
@@ -240,9 +238,9 @@ def buscar_portfolio_por_id(portfolio_id: int) -> Optional[dict]:
                 "id": p.id,
                 "persona_id": p.persona_id,
                 "nome": p.nome,
-                "objetivo": p.objetivo.value if p.objetivo else "equilibrado",
+                "objetivo": p.objetivo or "equilibrado",
                 "meta_dividendos": p.meta_dividendos,
-                "tipo_ativo": p.tipo_ativo.value if p.tipo_ativo else "acoes",
+                "tipo_ativo": p.tipo_ativo or "acoes",
                 "setores_preferidos": p.setores_preferidos or "",
                 "montante_disponivel": p.montante_disponivel or 0.0,
                 "aporte_periodico": p.aporte_periodico or 0.0,
