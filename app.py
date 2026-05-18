@@ -1214,12 +1214,12 @@ def tela_principal():
     # Lista de Personas
     st.markdown("### Suas Personas")
     for p in personas:
-        with st.expander(f"**{p['nome']}** (Risco: {p['tolerancia_risco']}/10 | Estilo: {p['estilo'].capitalize()})"):
+        with st.expander(f"**{p['nome']}** (Risco: {p['tolerancia_risco']}/10 | Perfil: {p.get('perfil_investimento', 'buy_and_hold').replace('_', ' ').title()})"):
             portfolios = listar_portfolios_persona(p["id"])
             if portfolios:
                 for port in portfolios:
                     montante_txt = f" | Caixa: {formatar_moeda_md(port['montante_disponivel'])}" if port.get('montante_disponivel') else ""
-                    st.markdown(f"**{port['nome']}** — Prazo: {port['objetivo_prazo']}{montante_txt}", unsafe_allow_html=True)
+                    st.markdown(f"**{port['nome']}** — Objetivo: {port.get('objetivo', 'equilibrado').capitalize()}{montante_txt}", unsafe_allow_html=True)
             else:
                 st.info("Nenhuma carteira nesta persona.")
 

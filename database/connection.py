@@ -16,7 +16,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
 
 # Marcador de versão para confirmar deploy
-_VERSION = "v4-urllib-fix"
+_VERSION = "v5-incremental-migration"
 print(f"[connection] === Versão: {_VERSION} ===")
 
 # ---------------------------------------------------------------------------
@@ -133,6 +133,109 @@ else:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+def _executar_migracao(conn):
+    """
+    Migração incremental de schema. Adiciona colunas novas e faz conversão de dados.
+    Cada ALTER TABLE falha silenciosamente se a coluna já existe — isso é esperado.
+    """
+    def try_sql(sql, label=""):
+        try:
+            conn.execute(text(sql))
+            conn.commit()
+            print(f"[migration] OK ({label})")
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            try:
+                print(f"[migration] SKIP ({label}): {str(e)[:100]}")
+            except Exception:
+                print(f"[migration] SKIP ({label}): (erro nao imprimivel)")
+
+    # -------------------------------------------------------------------
+    # PERSONAS: adicionar perfil_investimento (substitui frequencia_acao)
+    # -------------------------------------------------------------------
+    if _is_sqlite:
+        try_sql(
+            "ALTER TABLE personas ADD COLUMN perfil_investimento VARCHAR DEFAULT 'buy_and_hold'",
+            "personas.perfil_investimento"
+        )
+        # Migrar dados: frequencia_acao -> perfil_investimento
+        try_sql("""
+            UPDATE personas SET perfil_investimento =
+            CASE
+                WHEN frequencia_acao = 'diario' THEN 'day_trader'
+                WHEN frequencia_acao = 'semanal' THEN 'swing_trader'
+                ELSE 'buy_and_hold'
+            END
+            WHERE perfil_investimento IS NULL OR perfil_investimento = 'buy_and_hold'
+        """, "migrar frequencia->perfil")
+    else:
+        # PostgreSQL: criar o ENUM antes de usá-lo
+        try_sql(
+            "DO $$ BEGIN CREATE TYPE perfilinvestimento AS ENUM ('day_trader', 'swing_trader', 'buy_and_hold'); EXCEPTION WHEN duplicate_object THEN null; END $$;",
+            "ENUM perfilinvestimento"
+        )
+        try_sql(
+            "ALTER TABLE personas ADD COLUMN perfil_investimento perfilinvestimento DEFAULT 'buy_and_hold'",
+            "personas.perfil_investimento"
+        )
+        try_sql("""
+            UPDATE personas SET perfil_investimento =
+            CASE
+                WHEN frequencia_acao::text = 'diario' THEN 'day_trader'::perfilinvestimento
+                WHEN frequencia_acao::text = 'semanal' THEN 'swing_trader'::perfilinvestimento
+                ELSE 'buy_and_hold'::perfilinvestimento
+            END
+            WHERE perfil_investimento IS NULL
+        """, "migrar frequencia->perfil (PG)")
+
+    # -------------------------------------------------------------------
+    # PORTFOLIOS: adicionar objetivo (substitui objetivo_prazo + estilo)
+    # -------------------------------------------------------------------
+    if _is_sqlite:
+        try_sql(
+            "ALTER TABLE portfolios ADD COLUMN objetivo VARCHAR DEFAULT 'equilibrado'",
+            "portfolios.objetivo"
+        )
+        try_sql("""
+            UPDATE portfolios SET objetivo =
+            CASE
+                WHEN objetivo_prazo = 'curto' THEN 'crescimento'
+                WHEN objetivo_prazo = 'longo' THEN 'dividendos'
+                ELSE 'equilibrado'
+            END
+            WHERE objetivo IS NULL OR objetivo = ''
+        """, "migrar objetivo_prazo->objetivo")
+    else:
+        try_sql(
+            "DO $$ BEGIN CREATE TYPE objetivocarteira AS ENUM ('dividendos', 'crescimento', 'equilibrado'); EXCEPTION WHEN duplicate_object THEN null; END $$;",
+            "ENUM objetivocarteira"
+        )
+        try_sql(
+            "ALTER TABLE portfolios ADD COLUMN objetivo objetivocarteira DEFAULT 'equilibrado'",
+            "portfolios.objetivo"
+        )
+        try_sql("""
+            UPDATE portfolios SET objetivo =
+            CASE
+                WHEN objetivo_prazo::text = 'curto' THEN 'crescimento'::objetivocarteira
+                WHEN objetivo_prazo::text = 'longo' THEN 'dividendos'::objetivocarteira
+                ELSE 'equilibrado'::objetivocarteira
+            END
+            WHERE objetivo IS NULL
+        """, "migrar objetivo_prazo→objetivo (PG)")
+
+    # -------------------------------------------------------------------
+    # Outras colunas adicionadas ao longo do tempo
+    # -------------------------------------------------------------------
+    try_sql(
+        "ALTER TABLE portfolios ADD COLUMN taxa_saldo_negativo FLOAT DEFAULT 10.0",
+        "portfolios.taxa_saldo_negativo"
+    )
+
+
 def init_db():
     """Cria tabelas e executa seed. Inclui retry para falhas transitórias."""
     from database.models import Base
@@ -144,47 +247,13 @@ def init_db():
                 conn.execute(text("SELECT 1"))
                 conn.commit()
 
-            # Auto-reset: dropar tabelas antigas se o schema estiver defasado
-            reset_needed = False
-            try:
-                with engine.connect() as conn:
-                    if _is_sqlite:
-                        res = conn.execute(text("PRAGMA table_info(personas)")).fetchall()
-                        colunas = [r[1] for r in res]
-                    else:
-                        res = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='personas'")).fetchall()
-                        colunas = [r[0] for r in res]
-                        
-                    if "frequencia_acao" in colunas:
-                        reset_needed = True
-            except Exception as e:
-                print(f"[connection] Erro na verificação de schema antigo: {e}")
-
-            if reset_needed:
-                print("[connection] Detectado schema antigo (frequencia_acao). Recriando banco de dados...")
-                if _is_sqlite:
-                    Base.metadata.drop_all(bind=engine)
-                else:
-                    # No PostgreSQL, drop_all() as vezes falha com Enums. Drop SCHEMA resolve de vez.
-                    try:
-                        with engine.connect() as conn:
-                            conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO postgres; GRANT ALL ON SCHEMA public TO public;"))
-                            conn.commit()
-                    except Exception as e:
-                        print(f"[connection] Falha no DROP SCHEMA CASCADE, tentando drop_all... Erro: {e}")
-                        Base.metadata.drop_all(bind=engine)
-
+            # Criar tabelas novas que não existem ainda (não afeta as existentes)
             Base.metadata.create_all(bind=engine)
-            
-            # Auto-migrate: adiciona colunas novas em banco existente (evita recriar o DB)
-            try:
-                with engine.connect() as conn:
-                    # Tenta adicionar taxa_saldo_negativo
-                    conn.execute(text("ALTER TABLE portfolios ADD COLUMN taxa_saldo_negativo FLOAT DEFAULT 10.0"))
-                    conn.commit()
-            except Exception:
-                pass  # Coluna já existe ou erro ignorável
-                
+
+            # Migração incremental: adiciona colunas/converte dados sem perder nada
+            with engine.connect() as conn:
+                _executar_migracao(conn)
+
             print(f"[connection] Banco inicializado/migrado com sucesso (tentativa {attempt})")
             break
         except Exception as e:
