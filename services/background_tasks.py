@@ -18,7 +18,7 @@ def verificar_notificacoes_background():
     abortadas_count = 0
     
     for acao in acoes:
-        if acao.get("status") == StatusAcao.PLANEJADO.value:
+        if acao.get("status") == "planejado":
             try:
                 data_plan_str = acao.get("data_planejada")
                 if not data_plan_str:

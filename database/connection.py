@@ -173,6 +173,41 @@ def _executar_migracao(conn):
         "portfolios.taxa_saldo_negativo"
     )
 
+    # -------------------------------------------------------------------
+    # CONVERSAO DE ENUM -> VARCHAR (apenas PostgreSQL)
+    # Colunas criadas com SAEnum() precisam ser convertidas para VARCHAR
+    # para que o modelo String() do SQLAlchemy funcione corretamente.
+    # Cada ALTER falha silenciosamente se a coluna ja eh VARCHAR.
+    # -------------------------------------------------------------------
+    if not _is_sqlite:
+        try_sql(
+            "ALTER TABLE planned_actions ALTER COLUMN tipo_acao TYPE VARCHAR(20) USING tipo_acao::VARCHAR",
+            "planned_actions.tipo_acao ENUM->VARCHAR"
+        )
+        try_sql(
+            "ALTER TABLE planned_actions ALTER COLUMN status TYPE VARCHAR(30) USING status::VARCHAR",
+            "planned_actions.status ENUM->VARCHAR"
+        )
+        try_sql(
+            "ALTER TABLE transactions ALTER COLUMN tipo TYPE VARCHAR(20) USING tipo::VARCHAR",
+            "transactions.tipo ENUM->VARCHAR"
+        )
+        try_sql(
+            "ALTER TABLE transactions ALTER COLUMN origem TYPE VARCHAR(20) USING origem::VARCHAR",
+            "transactions.origem ENUM->VARCHAR"
+        )
+        try_sql(
+            "ALTER TABLE personas ALTER COLUMN perfil_investimento TYPE VARCHAR(30) USING perfil_investimento::VARCHAR",
+            "personas.perfil_investimento ENUM->VARCHAR"
+        )
+        try_sql(
+            "ALTER TABLE portfolios ALTER COLUMN objetivo TYPE VARCHAR(30) USING objetivo::VARCHAR",
+            "portfolios.objetivo ENUM->VARCHAR"
+        )
+        try_sql(
+            "ALTER TABLE portfolios ALTER COLUMN tipo_ativo TYPE VARCHAR(20) USING tipo_ativo::VARCHAR",
+            "portfolios.tipo_ativo ENUM->VARCHAR"
+        )
 
 def init_db():
     """Cria tabelas e executa seed. Inclui retry para falhas transitorias."""

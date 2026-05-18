@@ -75,10 +75,10 @@ def migrar_remover_fiis():
                     # Registrar transação de devolução
                     t = Transaction(
                         portfolio_id=portfolio.id,
-                        tipo=TipoTransacao.APORTE,
+                        tipo="aporte",
                         valor=valor_devolver,
                         descricao=f"Devolução FII removido: {ativo.ticker} ({ativo.quantidade}x @ R$ {preco:.2f})",
-                        origem=OrigemTransacao.SISTEMA,
+                        origem="sistema",
                         data=date.today()
                     )
                     session.add(t)
@@ -92,7 +92,7 @@ def migrar_remover_fiis():
         carteiras_atualizadas = 0
         for p in session.query(Portfolio).all():
             if p.tipo_ativo and p.tipo_ativo.value in ("fiis", "misto"):
-                p.tipo_ativo = TipoAtivo.ACOES
+                p.tipo_ativo = "acoes"
                 carteiras_atualizadas += 1
         
         session.commit()

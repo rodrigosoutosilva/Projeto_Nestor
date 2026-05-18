@@ -89,9 +89,9 @@ for a in acoes_filtradas:
 
     status = a.get("status")
     
-    if status == StatusAcao.ABORTADO.value:
+    if status == "abortado":
         abortadas.append(a)
-    elif status == StatusAcao.PLANEJADO.value:
+    elif status == "planejado":
         if dt <= hoje:
             imediatas.append(a)
         else:

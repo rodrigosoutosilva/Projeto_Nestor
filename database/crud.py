@@ -392,7 +392,7 @@ def criar_acao_planejada(
             "asset_ticker": acao.asset_ticker,
             "tipo_acao": tipo_acao,
             "data_planejada": str(data_planejada),
-            "status": StatusAcao.PLANEJADO.value,
+            "status": "planejado".value,
             "pontuacao": pontuacao,
             "preco_alvo": preco_alvo,
             "explicacao": explicacao
@@ -418,10 +418,10 @@ def listar_acoes_portfolio(
             "id": a.id,
             "portfolio_id": a.portfolio_id,
             "asset_ticker": a.asset_ticker,
-            "tipo_acao": a.tipo_acao.value if a.tipo_acao else None,
+            "tipo_acao": a.tipo_acao,
             "data_planejada": str(a.data_planejada) if a.data_planejada else None,
             "data_executada": str(a.data_executada) if a.data_executada else None,
-            "status": a.status.value if a.status else None,
+            "status": a.status,
             "pontuacao": a.pontuacao,
             "preco_alvo": a.preco_alvo,
             "preco_revisado": a.preco_revisado,
@@ -453,7 +453,7 @@ def atualizar_status_acao(
 
         acao.status = StatusAcao(novo_status)
 
-        if novo_status == StatusAcao.EXECUTADO.value:
+        if novo_status == "executado".value:
             acao.data_executada = date.today()
 
         if preco_revisado is not None:
@@ -473,17 +473,17 @@ def buscar_acoes_pendentes_todas() -> list[dict]:
     with get_session() as session:
         acoes = session.query(PlannedAction).filter(
             PlannedAction.status.in_([
-                StatusAcao.PLANEJADO,
-                StatusAcao.REVISAO_NECESSARIA
+                "planejado",
+                "revisao_necessaria"
             ])
         ).all()
         return [{
             "id": a.id,
             "portfolio_id": a.portfolio_id,
             "asset_ticker": a.asset_ticker,
-            "tipo_acao": a.tipo_acao.value if a.tipo_acao else None,
+            "tipo_acao": a.tipo_acao,
             "data_planejada": str(a.data_planejada) if a.data_planejada else None,
-            "status": a.status.value if a.status else None,
+            "status": a.status,
             "pontuacao": a.pontuacao,
             "preco_alvo": a.preco_alvo,
             "explicacao": a.explicacao
@@ -580,13 +580,13 @@ def listar_transacoes_portfolio(
         return [{
             "id": t.id,
             "portfolio_id": t.portfolio_id,
-            "tipo": t.tipo.value if t.tipo else None,
+            "tipo": t.tipo,
             "ticker": t.ticker,
             "quantidade": t.quantidade,
             "preco_unitario": t.preco_unitario,
             "valor": t.valor,
             "descricao": t.descricao,
-            "origem": t.origem.value if t.origem else "manual",
+            "origem": t.origem if t.origem else "manual",
             "data": str(t.data) if t.data else None,
             "created_at": str(t.created_at) if t.created_at else None
         } for t in transacoes]
@@ -907,7 +907,7 @@ def executar_ordem_pendente(ordem_id: int) -> Optional[dict]:
             preco_unitario=ordem.preco_alvo,
             valor=valor_total,
             descricao=f"Ordem condicional executada ({ordem.tipo} a R$ {ordem.preco_alvo:.2f})",
-            origem=OrigemTransacao.MANUAL,
+            origem="manual",
             data=date.today()
         )
         session.add(transacao)
@@ -1007,10 +1007,10 @@ def cobrar_juros_cheque_especial():
                     # Registra transacao
                     t_juros = Transaction(
                         portfolio_id=p.id,
-                        tipo=TipoTransacao.RETIRADA,
+                        tipo="retirada",
                         valor=juros_dia,
                         descricao=f"Juros Saldo Negativo ({taxa_mensal_perc:.1f}% a.m.)",
-                        origem=OrigemTransacao.SISTEMA,
+                        origem="sistema",
                         data=dia_atual
                     )
                     session.add(t_juros)
